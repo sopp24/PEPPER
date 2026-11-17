@@ -523,7 +523,7 @@ function shareContext(t){
   destination:t.destination,dates:{start:t.startDate,end:t.endDate},travellers:t.people,budget:t.budget,currency:t.currency,localTransport:{name:t.localTransitName||"",officialUrl:t.localTransitUrl||"",trafficUrl:t.localTrafficUrl||"",monitoringRef:t.localTransitRef||""},
   accommodation:t.accommodation?{name:t.accommodation.name,type:t.accommodation.type,address:t.accommodation.address,checkInDate:t.accommodation.checkInDate,checkInTime:t.accommodation.checkInTime,checkOutDate:t.accommodation.checkOutDate,checkOutTime:t.accommodation.checkOutTime,amenities:t.accommodation.amenities,parking:t.accommodation.parking,breakfast:t.accommodation.breakfast}:null,
   transport:t.transport.map(x=>({id:x.id,direction:x.direction,mode:x.mode,operator:x.operator,service:x.service,number:x.number,origin:x.origin,destination:x.destination,departureDate:x.departureDate,departureTime:x.departureTime,arrivalDate:x.arrivalDate,arrivalTime:x.arrivalTime,platform:x.platform,baggage:x.baggage,routeType:x.routeType,arrivalBufferMinutes:x.arrivalBufferMinutes,drivingDurationMinutes:x.drivingDurationMinutes,plannedStops:x.plannedStops,boardingDeadline:x.boardingDeadline,trafficUrl:x.trafficUrl})),
-  activities:t.activities.map(x=>({id:x.id,name:x.name,category:x.category,date:x.date,startTime:x.startTime,duration:x.duration,address:x.address,description:x.description,priority:x.priority,done:!!x.done,bookingRequired:x.bookingRequired,price:x.price,sources:x.sources||[]})),
+  activities:t.activities.map(x=>({id:x.id,name:x.name,category:x.category,date:x.date||null,startTime:x.startTime||null,duration:x.duration,address:x.address,description:x.description,priority:x.priority,done:!!x.done,bookingRequired:x.bookingRequired,bookingStatus:x.bookingStatus||"unknown",price:x.price,sources:x.sources||[]})),
   planningWarnings:[...getWarnings(t),...getPlanningWarnings(t)],
   checklist:t.checklist.map(x=>({label:x.label,done:!!x.done}))
  };
@@ -575,12 +575,12 @@ function renderPimiProposal(){
  panel.hidden=false;
  content.innerHTML=pimiPendingProposal.map((op,i)=>'<div class="pimi-change"><strong>'+(i+1)+'. '+esc(pimiOperationTitle(op))+'</strong><span>'+esc(op.reason||"Modification proposée")+'</span></div>').join("");
 }
-const PIMI_ACTIVITY_FIELDS=["name","category","date","startTime","duration","address","description","price","bookingRequired","priority","bookingUrl","highlights"];
+const PIMI_ACTIVITY_FIELDS=["name","category","date","startTime","duration","address","description","price","bookingRequired","bookingStatus","priority","bookingUrl","highlights"];
 const PIMI_TRANSPORT_FIELDS=["direction","mode","operator","service","number","origin","destination","departureDate","departureTime","arrivalDate","arrivalTime","platform","baggage","ticketUrl","trafficUrl","notes"];
 function pimiCleanData(data,fields){
  const cleaned={};
  for(const field of fields){
-  const value=data?.[field];if(value===null||value===undefined||value==="")continue;
+  const value=data?.[field];if(value===null&&["date","startTime"].includes(field)){cleaned[field]="";continue}if(value===null||value===undefined||value==="")continue;
   if(typeof value==="string")cleaned[field]=value.trim().slice(0,1200);
   else if(typeof value==="number"&&Number.isFinite(value))cleaned[field]=value;
   else if(typeof value==="boolean")cleaned[field]=value;
@@ -637,12 +637,13 @@ function applyPimiProposal(){
   const data=op.data||{};
   if(op.action==="activity_add"){
    const fields=pimiCleanData(data,PIMI_ACTIVITY_FIELDS),activity={id:uid(),...fields,done:false,status:"À organiser",createdAt:new Date().toISOString()};
-   if(!activity.category)activity.category="Autre";if(!activity.priority)activity.priority="medium";if(activity.bookingRequired==null)activity.bookingRequired=false;
+   if(!activity.category)activity.category="Autre";if(!activity.priority)activity.priority="medium";if(!activity.bookingStatus)activity.bookingStatus="unknown";
+   activity.bookingRequired=activity.bookingStatus==="to_book"||activity.bookingStatus==="booked"||data.bookingRequired===true;
    trip.activities.push(activity);applied.push("activité ajoutée");
   }else if(op.action==="activity_update"||op.action==="activity_delete"){
    const activity=trip.activities.find(x=>x.id===op.targetId);if(!activity)continue;
    if(op.action==="activity_delete"){trip.activities=trip.activities.filter(x=>x.id!==op.targetId);applied.push("activité supprimée");}
-   else{Object.assign(activity,pimiCleanData(data,PIMI_ACTIVITY_FIELDS));applied.push("activité modifiée");}
+   else{const fields=pimiCleanData(data,PIMI_ACTIVITY_FIELDS);Object.assign(activity,fields);if(fields.bookingStatus)activity.bookingRequired=fields.bookingStatus==="to_book"||fields.bookingStatus==="booked";applied.push("activité modifiée");}
   }else if(op.action==="transport_add"){
    const fields=pimiCleanData(data,PIMI_TRANSPORT_FIELDS);
    trip.transport.push({id:uid(),...fields,routeType:"unknown",arrivalBufferMinutes:null,createdAt:new Date().toISOString()});applied.push("trajet ajouté");
