@@ -127,7 +127,7 @@ function getWarnings(trip){
  return Array.from(new Set(warnings));
 }
 function render(){
- const t=activeTrip();$("#empty-state").hidden=!!t;$("#trip-workspace").hidden=!t;$(".hero").hidden=!!t;if(!t)return;
+ const t=activeTrip();$("#empty-state").hidden=!!t;$("#trip-workspace").hidden=!t;$(".hero").hidden=!!t;$(".mobile-dock").hidden=!t;if(!t)return;
  $("#trip-destination").textContent=t.destination||"Destination";
  $("#trip-dates").textContent=t.startDate?dateLabel(t.startDate)+(t.endDate?" — "+dateLabel(t.endDate):""):"Dates à définir";
  $("#trip-travellers").textContent=(t.people||1)+((t.people||1)===1?" voyageur":" voyageurs");
@@ -149,7 +149,7 @@ function renderStay(t){
 function normalizedSearchText(value){return String(value||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase()}
 const OFFICIAL_ACTIVITY_RESOURCES=[
  {terms:["catacombes"],label:"Réserver sur la billetterie officielle",url:"https://www.billetterie-parismusees.paris.fr/",bookingStatus:"to_book",note:"La réservation horodatée est fortement recommandée. Les billets sont mis en vente 7 jours à l’avance."},
- {terms:["tour eiffel"],label:"Réserver un billet officiel",url:"https://ticket.toureiffel.paris/fr",bookingStatus:"to_book",note:"Billetterie officielle. Les billets ascenseur sont généralement mis en vente jusqu’à 90 jours à l’avance."},
+ {terms:["tour eiffel"],label:"Billetterie officielle (si tu souhaites monter)",url:"https://ticket.toureiffel.paris/fr",bookingStatus:"unknown",note:"À utiliser uniquement si tu souhaites visiter l’intérieur ou monter dans la tour ; aucun billet n’est nécessaire pour l’admirer depuis l’extérieur. Les billets ascenseur sont généralement mis en vente jusqu’à 90 jours à l’avance."},
  {terms:["bateaux-mouches","bateaux mouches","bateau-mouche","bateau mouche"],label:"Acheter un billet officiel",url:"https://www.bateaux-mouches.fr/fr/reservation/billets?subid=billets",bookingStatus:"not_required",note:"Pour la croisière promenade, le créneau horaire n’est pas nécessaire ; les billets en ligne sont valables un an."},
  {terms:["theatre michel"],label:"Voir la programmation et réserver",url:"https://billetterie.theatre-michel.fr/",bookingStatus:"to_book",note:"Billetterie officielle du Théâtre Michel. Choisis d’abord le spectacle et la séance."},
  {terms:["notre-dame","notre dame"],label:"Réserver gratuitement un créneau (facultatif)",url:"https://www.notredamedeparis.fr/visiter/reserver-gratuitement/",bookingStatus:"not_required",note:"L’entrée est gratuite et la réservation facultative. Les créneaux ouvrent seulement quelques heures avant la visite."},
