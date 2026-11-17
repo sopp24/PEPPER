@@ -474,7 +474,9 @@ function renderMap(t){
   osm.on("tileerror",()=>{
    if(fallbackAdded||!map)return;fallbackAdded=true;
    try{map.removeLayer(osm)}catch(e){}
-   L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{maxZoom:19,subdomains:"abcd",attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}).addTo(map);
+   const carto=L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{maxZoom:19,subdomains:"abcd",attribution:'&copy; OpenStreetMap contributors &copy; CARTO'});
+   carto.on("tileerror",()=>{if(activeTrip()?.id===t.id)showFallbackMap(t)});
+   carto.addTo(map);
   });
   osm.addTo(map);markers=L.layerGroup().addTo(map);
  }
