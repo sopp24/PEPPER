@@ -73,6 +73,75 @@ function parseSituations(xml, trainNumber) {
   return output;
 }
 
+
+function findDeepValues(value, targetKey, output = []) {
+  if (Array.isArray(value)) {
+    for (const item of value) findDeepValues(item, targetKey, output);
+    return output;
+  }
+  if (!value || typeof value !== "object") return output;
+  for (const [key, child] of Object.entries(value)) {
+    if (key.toLowerCase() === targetKey.toLowerCase()) {
+      if (Array.isArray(child)) output.push(...child);
+      else output.push(child);
+    } else {
+      findDeepValues(child, targetKey, output);
+    }
+  }
+  return output;
+}
+
+function firstDeepValue(value, targetKeys) {
+  for (const key of targetKeys) {
+    const found = findDeepValues(value, key, []);
+    for (const item of found) {
+      if (typeof item === "string" || typeof item === "number") return String(item);
+      if (item && typeof item === "object") {
+        if (typeof item.value === "string") return item.value;
+        if (typeof item.Value === "string") return item.Value;
+      }
+    }
+  }
+  return "";
+}
+
+async function getIdfmStatus(monitoringRef) {
+  const apiKey = process.env.IDFM_API_KEY || globalThis.Netlify?.env?.get?.("IDFM_API_KEY");
+  if (!apiKey) {
+    return {
+      configured: false,
+      provider: "IDFM",
+      message: "Le jeton PRIM n'est pas encore configuré dans les variables Netlify (IDFM_API_KEY).",
+      setupUrl: "https://prim.iledefrance-mobilites.fr/"
+    };
+  }
+  const endpoint = "https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring?MonitoringRef=" + encodeURIComponent(monitoringRef);
+  const upstream = await fetch(endpoint, {
+    headers: { apikey: apiKey, accept: "application/json" },
+    signal: AbortSignal.timeout(12000)
+  });
+  if (!upstream.ok) throw new Error("PRIM IDFM indisponible (" + upstream.status + ").");
+  const payload = await upstream.json();
+  const visits = findDeepValues(payload, "MonitoredStopVisit", []);
+  const departures = visits.map(visit => {
+    const journey = firstDeepValue(visit, ["LineRef", "PublishedLineName"]);
+    const destination = firstDeepValue(visit, ["DestinationDisplay", "DestinationName"]);
+    const aimed = firstDeepValue(visit, ["AimedArrivalTime", "AimedDepartureTime"]);
+    const expected = firstDeepValue(visit, ["ExpectedArrivalTime", "ExpectedDepartureTime"]);
+    const vehicleAtStop = firstDeepValue(visit, ["VehicleAtStop"]);
+    return { line: journey, destination, aimedTime: aimed, expectedTime: expected, vehicleAtStop };
+  }).filter(item => item.line || item.expectedTime || item.aimedTime);
+  return {
+    configured: true,
+    provider: "IDFM / PRIM",
+    monitoringRef,
+    checkedAt: new Date().toISOString(),
+    source: "https://prim.iledefrance-mobilites.fr/",
+    departures,
+    message: departures.length ? "Prochains passages reçus depuis PRIM." : "Aucun passage n'est retourné pour cet arrêt. Le service peut ne pas couvrir ce point."
+  };
+}
+
 export default async (request) => {
   const origin = request.headers.get("origin") || "";
   const headers = responseHeaders(origin);
@@ -84,12 +153,23 @@ export default async (request) => {
 
   const url = new URL(request.url);
   const provider = (url.searchParams.get("provider") || "sncf").toLowerCase();
+  if (provider === "idfm") {
+    const monitoringRef = (url.searchParams.get("monitoringRef") || "").trim().slice(0, 180);
+    if (!monitoringRef) return Response.json({ error: "Ajoute la référence d'arrêt SIRI PRIM (MonitoringRef)." }, { status: 400, headers });
+    try {
+      const status = await getIdfmStatus(monitoringRef);
+      if (!status.configured) return Response.json(status, { status: 503, headers });
+      return Response.json(status, { status: 200, headers: { ...headers, "cache-control": "public, max-age=45, s-maxage=60" } });
+    } catch (error) {
+      return Response.json({ error: "Impossible de consulter PRIM Île-de-France Mobilités.", detail: error instanceof Error ? error.message : "Erreur inconnue", checkedAt: new Date().toISOString() }, { status: 502, headers });
+    }
+  }
   if (provider !== "sncf") {
     return Response.json({
       error: "Cette source n'est pas encore activée.",
       provider,
-      availableProviders: ["sncf"],
-      note: "Les connecteurs IDFM, aérien, autocar et route nécessitent des accès ou des flux propres à chaque opérateur."
+      availableProviders: ["sncf", "idfm"],
+      note: "Les connecteurs aérien, autocar et route nécessitent des accès ou des flux propres à chaque opérateur."
     }, { status: 501, headers });
   }
 
