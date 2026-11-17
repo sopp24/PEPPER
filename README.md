@@ -41,7 +41,7 @@ Pour activer l’affichage live dans PEPPER :
 4. Copie l’URL `https://...netlify.app`, puis dans PEPPER → Réglages, colle-la dans « URL du service temps réel PEPPER ».
 5. Ajoute un trajet SNCF éligible avec le numéro commercial du train pour afficher les avis.
 
-La fonction n’exige pas de clé pour le flux SNCF public. La variable `PEPPER_ALLOWED_ORIGIN` peut être définie sur `https://sopp24.github.io` pour limiter l’accès navigateur à l’origine de PEPPER (par défaut, le service accepte les origines publiques, car la donnée SNCF est publique). Pour activer IDFM, crée un jeton sur PRIM puis ajoute `IDFM_API_KEY` dans les variables d’environnement Netlify (scope Functions), puis redeploie. Dans PEPPER, renseigne le `MonitoringRef` de l’arrêt dans les réglages du voyage. La requête utilise le header `apikey` officiel. Les autres API avec clés doivent être configurées uniquement côté serveur.
+La donnée SNCF est publique, mais l’endpoint PEPPER est protégé par un jeton personnel `PEPPER_API_TOKEN`. Crée ce jeton localement (par exemple `openssl rand -hex 32`), ajoute-le comme variable d’environnement Netlify (scope Functions) et colle la même valeur dans PEPPER → Réglages → Jeton privé. Ajoute `PEPPER_ALLOWED_ORIGIN=https://sopp24.github.io` pour limiter les navigateurs à l’origine de PEPPER ; CORS ne remplace pas l’authentification. Pour activer IDFM, crée un jeton sur PRIM puis ajoute `IDFM_API_KEY` séparément dans les variables d’environnement Netlify (scope Functions), puis redeploie. Dans PEPPER, renseigne le `MonitoringRef` de l’arrêt dans les réglages du voyage. La requête utilise le header `apikey` officiel. Les autres API avec clés doivent être configurées uniquement côté serveur.
 
 ## PIMI et mises à jour avec ChatGPT
 
