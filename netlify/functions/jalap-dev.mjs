@@ -20,7 +20,9 @@ const DEV_PATHS = [
   "README.md",
   "data/trips.json",
   "assets/jalap.svg",
-  "tests/jalap.test.mjs"
+  "tests/jalap.test.mjs",
+  "netlify/functions/jalap.mjs",
+  "netlify/functions/transport-status.mjs"
 ];
 
 function runtimeEnv(name) {
@@ -147,8 +149,15 @@ async function fetchRepoFile(path, token) {
 
 function selectContextFiles(message) {
   const lower = message.toLowerCase();
-  const files = ["index.html", "app.js", "styles.css", "manifest.webmanifest", "service-worker.js", "README.md", "data/trips.json", "tests/jalap.test.mjs"];
-  if (/(piment|mascotte|logo|icone|icône|favicon|avatar)/i.test(lower)) files.push("assets/jalap.svg");
+  const designOnly = /(style|css|couleur|color|responsive|mobile|tablette|tablet|desktop|ordinateur|mise en page|layout|espacement|typographie|police)/i.test(lower)
+    && !/(fonction|interaction|comportement|bouton|action|navigation|formulaire|logique|javascript|js|carte|météo|meteo)/i.test(lower);
+  const files = designOnly ? ["index.html", "styles.css"] : ["index.html", "app.js", "styles.css"];
+  if (/(documentation|readme|notice|guide|documenter)/i.test(lower)) files.push("README.md");
+  if (/(offline|hors connexion|cache|service worker|pwa|manifest|installation)/i.test(lower)) files.push("service-worker.js", "manifest.webmanifest");
+  if (/(jeu de données|données initiales|fichier json|data\/trips|voyages publics|seed)/i.test(lower)) files.push("data/trips.json");
+  if (/(test|tests|régression|couverture)/i.test(lower)) files.push("tests/jalap.test.mjs");
+  if (/(api|backend|netlify|serveur|modèle|prompt système|assistant|jalap|suivi sncf|temps réel)/i.test(lower)) files.push("netlify/functions/jalap.mjs", "netlify/functions/transport-status.mjs");
+  if (/(piment|mascotte|logo|icone|icône|favicon|avatar)/i.test(lower)) files.push("assets/jalap.svg", "manifest.webmanifest");
   return [...new Set(files)].filter(repoFileAllowed);
 }
 
