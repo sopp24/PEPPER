@@ -70,42 +70,51 @@ La donnée SNCF est publique, mais l’endpoint PEPPER est protégé par un jeto
 
 ## JALAP — Claude + mode Développement GitHub
 
-JALAP utilise l'API Anthropic Claude via deux fonctions Netlify protégées. Le navigateur ne reçoit jamais les clés Anthropic ou GitHub.
+JALAP utilise l'API Anthropic Claude via des fonctions serveur. Le navigateur ne reçoit jamais les clés Anthropic ou GitHub.
 
 - Mode **Voyage** : Claude Haiku 5.5 (`claude-haiku-5-5`) propose des modifications structurées au carnet local.
 - Mode **Développement** : Claude Sonnet 5.5 (`claude-sonnet-5-5`) lit les fichiers actuels du dépôt `sopp24/PEPPER`, prépare des remplacements de code exacts et affiche une prévisualisation. Aucun commit n'est créé avant le clic explicite sur « Valider et commiter sur GitHub ».
 
-### Variables Netlify requises
+### Hébergement backend recommandé : Vercel Hobby
 
-Dans Netlify → Project configuration → Environment variables, ajoute :
+Le site PEPPER reste publié par GitHub Pages. Vercel héberge uniquement les routes API `/api/jalap`, `/api/jalap-dev` et `/api/transport-status`. Netlify reste compatible comme solution de secours.
 
-1. `ANTHROPIC_API_KEY` : clé API Anthropic Console, à créer sur https://platform.claude.com/settings/keys.
-2. `GITHUB_TOKEN` : fine-grained personal access token, limité au seul dépôt `sopp24/PEPPER`, avec **Contents: Read and write**. Crée-le sur https://github.com/settings/personal-access-tokens/new. L'autorisation Metadata en lecture est ajoutée automatiquement. N'accorde pas Actions, Workflows, Administration ou accès à d'autres dépôts.
-3. `PEPPER_API_TOKEN` : jeton privé PEPPER déjà utilisé par le navigateur.
-4. `PEPPER_ALLOWED_ORIGIN=https://sopp24.github.io`.
+1. Crée un compte sur https://vercel.com/signup.
+2. Dans Vercel, choisis **Add New → Project** et importe le dépôt GitHub `sopp24/PEPPER`.
+3. Choisis **Other** comme framework preset. Laisse la commande de build vide et conserve le répertoire racine du dépôt.
+4. Dans les variables d'environnement du projet, ajoute :
+   - `ANTHROPIC_API_KEY` : clé API Anthropic Console.
+   - `GITHUB_TOKEN` : fine-grained personal access token limité au seul dépôt `sopp24/PEPPER`, avec **Contents: Read and write**.
+   - `PEPPER_API_TOKEN` : jeton privé PEPPER déjà utilisé dans les réglages du navigateur.
+   - `PEPPER_ALLOWED_ORIGIN=https://sopp24.github.io`.
+   - Facultatif : `JALAP_TRAVEL_MODEL=claude-haiku-5-5` et `JALAP_DEV_MODEL=claude-sonnet-5-5`.
+5. Déploie le projet. Vercel fournit une URL publique en `.vercel.app`.
+6. Dans PEPPER → Réglages, remplace l'ancienne URL Netlify par l'URL `.vercel.app`. Garde le même jeton `PEPPER_API_TOKEN`.
 
-Variables facultatives :
-- `JALAP_TRAVEL_MODEL=claude-haiku-5-5`
-- `JALAP_DEV_MODEL=claude-sonnet-5-5`
+La clé Anthropic est à créer sur https://platform.claude.com/settings/keys. Le jeton GitHub se crée sur https://github.com/settings/personal-access-tokens/new : sélectionne uniquement `sopp24/PEPPER`, autorise **Contents: Read and write**, et n'accorde pas Actions, Workflows, Administration ou l'accès à d'autres dépôts. GitHub ajoute automatiquement la permission Metadata en lecture.
 
-Les clés restent exclusivement côté serveur Netlify. Ne les ajoute jamais au dépôt ou au formulaire PEPPER. Sur le forfait Netlify Free, le choix de scopes dédiés peut ne pas être disponible : dans ce cas, garde le réglage par défaut, sans placer ces variables dans le code public ou dans `netlify.toml`.
+Le forfait Vercel Hobby est gratuit pour les projets personnels non commerciaux. La documentation indique notamment 1 million d'invocations de fonctions mensuelles, 4 heures de CPU actif et 360 Go-heures de mémoire provisionnée ; des limites et règles d'usage s'appliquent. Si un quota est dépassé, certaines ressources peuvent devoir attendre leur réinitialisation. Consulte les conditions en vigueur avant de choisir ce backend comme hébergement durable.
+
+### Variables Netlify (compatibilité)
+
+Les fonctions Netlify existantes utilisent les mêmes variables `ANTHROPIC_API_KEY`, `GITHUB_TOKEN`, `PEPPER_API_TOKEN` et `PEPPER_ALLOWED_ORIGIN`. Si ton quota Netlify a été épuisé et que le site Netlify est en pause, utilise plutôt Vercel pour réactiver JALAP. Le site public GitHub Pages reste indépendant.
 
 ### Parcours Développement
 
 1. JALAP récupère les fichiers autorisés sur la branche `main`.
 2. Claude propose des changements ciblés sous forme de remplacements exacts.
-3. La fonction vérifie que chaque extrait existe une seule fois, que les chemins sont autorisés et qu'aucune chaîne ressemblant à une clé d'accès n'est introduite.
-4. PEPPER affiche les fichiers, les raisons et les extraits avant/après.
-5. Après validation, la fonction re-télécharge les fichiers et vérifie à nouveau les extraits avant de créer un commit Git unique sur `main`.
-6. GitHub Pages déploie le site. Netlify n'a pas besoin de reconstruire le site public.
+3. Le serveur vérifie que chaque extrait existe une seule fois, que les chemins sont autorisés et qu'aucune chaîne ressemblant à une clé d'accès n'est introduite.
+4. PEPPER affiche les fichiers, les raisons et les extraits complets avant/après.
+5. Après validation, le serveur re-télécharge les fichiers et vérifie à nouveau les extraits avant de créer un commit Git unique sur `main`.
+6. GitHub Pages déploie le site. Vercel n'a pas besoin de reconstruire le site public pour que GitHub Pages publie la nouvelle interface.
 
-Le mode Dev ne peut modifier que les fichiers applicatifs listés dans `netlify/functions/jalap-dev.mjs`, y compris le moteur JALAP Voyage et le connecteur transport. Il ne peut pas modifier les workflows GitHub, les secrets, les paramètres Netlify ni son propre endpoint de commit. Les nouveaux fichiers ne sont pas encore pris en charge par les propositions de remplacement ; il faut d'abord les créer ou élargir explicitement la liste autorisée. Le contexte envoyé à Claude est réduit selon la nature de la demande : une demande purement visuelle n'envoie que le HTML et le CSS.
+Le mode Dev peut modifier les fichiers applicatifs listés dans `netlify/functions/jalap-dev.mjs`, y compris le moteur JALAP Voyage et le connecteur transport. Il ne peut pas modifier les workflows GitHub, les secrets, les paramètres de déploiement ni son propre endpoint de commit. Les nouveaux fichiers ne sont pas encore pris en charge par les propositions de remplacement ; il faut d'abord les créer ou élargir explicitement la liste autorisée. Le contexte transmis à Claude est sélectionné selon la nature de la demande ; une demande purement visuelle n'envoie que le HTML et le CSS.
 
-### Modèles et coûts
+### Modèles et coûts Claude
 
-L'API Claude est facturée séparément d'un abonnement Claude.ai. À la date de dernière vérification, Haiku 5.5 coûte à partir de 0,10 $/million de tokens en entrée et 0,50 $/million en sortie ; Sonnet 5.5 coûte 2 $/million en entrée et 10 $/million en sortie. Les longues demandes de modification de code envoient plus de contexte et coûtent donc davantage qu'un échange de voyage. Configure un budget et une limite de dépense dans Anthropic Console et désactive le rechargement automatique si tu souhaites garder le contrôle.
+L'API Claude est facturée séparément d'un abonnement Claude.ai. À la date de dernière vérification, Haiku 5.5 coûte à partir de 0,10 $ / million de tokens en entrée et 0,50 $ / million en sortie ; Sonnet 5.5 coûte 2 $ / million en entrée et 10 $ / million en sortie. Les demandes de développement qui envoient du code sont plus coûteuses qu'un échange de voyage. Configure un budget et une limite de dépense dans Anthropic Console et désactive le rechargement automatique si tu souhaites garder le contrôle.
 
-Le mode Développement écrit directement dans le dépôt public. Les fichiers commités deviennent visibles de tous. Si Netlify a épuisé son quota mensuel, ses nouvelles fonctions ne seront accessibles qu'après le rétablissement du service et un déploiement ; verrouille ensuite l'auto-publication Netlify pour ne plus consommer un déploiement à chaque commit GitHub. GitHub Pages continue de publier le site. Le mode Voyage continue de sauvegarder les modifications du carnet dans le navigateur ; il ne publie pas automatiquement les informations du voyage.
+Le mode Développement écrit directement dans le dépôt public. Les fichiers commités deviennent visibles de tous. Le mode Voyage continue de sauvegarder les modifications du carnet dans le navigateur ; il ne publie pas automatiquement les informations du voyage.
 
 ## Confidentialité
 
