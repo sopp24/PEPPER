@@ -861,6 +861,7 @@ async function sendJalapMessage(event){
  const base=apiBaseUrl(),token=apiAccessToken();
  if(!base||!token){toast("Configure l’URL Netlify et le jeton PEPPER dans Réglages.","error");return}
  jalapMessages.push({role:"user",content:message});appendJalapMessage("user",message);
+ if(dev){jalapDevChanges=null;jalapDevOriginalRequest="";renderJalapDevProposal()}
  input.value="";jalapBusy=true;
  const button=$("#idea-form button[type=submit]");if(button){button.disabled=true;button.textContent="…"}
  const pending=document.createElement("div");pending.id="jalap-pending";pending.className="chat-message assistant-message";pending.textContent=dev?"JALAP analyse le dépôt GitHub…":"JALAP prépare ton voyage…";$("#jalap-thread")?.appendChild(pending);
