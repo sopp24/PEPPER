@@ -53,9 +53,10 @@ function repoFileAllowed(path) {
 }
 
 function validateChanges(changes) {
-  if (!Array.isArray(changes) || changes.length < 1 || changes.length > MAX_FILES) {
-    throw new Error("La proposition doit contenir entre 1 et " + MAX_FILES + " fichier(s).");
+  if (!Array.isArray(changes) || changes.length > MAX_FILES) {
+    throw new Error("La proposition doit contenir au maximum " + MAX_FILES + " fichier(s).");
   }
+  if (changes.length === 0) return [];
   const seen = new Set();
   let total = 0;
   const clean = changes.map((change) => {
@@ -257,6 +258,7 @@ async function proposeChanges(input, githubToken, anthropicKey) {
 
 async function commitChanges(input, githubToken) {
   const changes = validateChanges(input.changes);
+  if (!changes.length) throw new Error("Aucune modification à commiter.");
   const files = [];
   for (const change of changes) {
     const file = await fetchRepoFile(change.path, githubToken);
