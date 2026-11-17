@@ -34,7 +34,7 @@ Ce dépôt est public. Les données de voyage restent dans le stockage local du 
 
 Le workflow `.github/workflows/deploy-pages.yml` vérifie la syntaxe JavaScript puis publie automatiquement la racine du dépôt sur GitHub Pages à chaque push sur `main`.
 
-Dans les paramètres du dépôt, vérifie que **Settings → Pages → Build and deployment → Source** est réglé sur **GitHub Actions**.
+**Première activation (une seule fois)** : dans le dépôt GitHub, ouvre **Settings → Pages → Build and deployment → Source**, puis choisis **GitHub Actions** et enregistre. L’intégration GitHub utilisée ici ne possède pas le droit d’activer ce réglage propriétaire à ta place. Une fois cette option sélectionnée, chaque push sur `main` lancera automatiquement le déploiement.
 
 ## Technologies
 
