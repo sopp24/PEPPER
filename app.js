@@ -263,6 +263,10 @@ function renderLocalTransitSources(t){
 
 
 function apiBaseUrl(){return String(localStorage.getItem(API_BASE_KEY)||"").trim().replace(/\/+$/,"")}
+function apiEndpoint(base,name){
+ const host=new URL(base).hostname.toLowerCase();
+ return host.endsWith(".netlify.app")?base+"/.netlify/functions/"+name:base+"/api/"+name;
+}
 function apiAccessToken(){return String(localStorage.getItem(API_TOKEN_KEY)||"").trim()}
 function apiRequestHeaders(){return {accept:"application/json",Authorization:"Bearer "+apiAccessToken()}}
 function isSNCFRealtimeEligible(leg){
@@ -300,7 +304,7 @@ async function refreshLocalTransitStatus(trip){
   return;
  }
  try{
-  const endpoint=base+"/.netlify/functions/transport-status?provider=idfm&monitoringRef="+encodeURIComponent(trip.localTransitRef);
+  const endpoint=apiEndpoint(base,"transport-status")+"?provider=idfm&monitoringRef="+encodeURIComponent(trip.localTransitRef);
   const response=await fetch(endpoint,{headers:apiRequestHeaders(),signal:AbortSignal.timeout(15000)});
   const data=await response.json();
   if(data.configured===false){target.innerHTML=renderIdfmStatus(data);return;}
@@ -332,7 +336,7 @@ async function refreshLiveTransportStatus(trip){
   }
   target.innerHTML="<strong>Consultation du flux SNCF…</strong><small>Recherche des avis associés au train "+esc(leg.number)+".</small>";
   try{
-   const endpoint=base+"/.netlify/functions/transport-status?provider=sncf&number="+encodeURIComponent(leg.number);
+   const endpoint=apiEndpoint(base,"transport-status")+"?provider=sncf&number="+encodeURIComponent(leg.number);
    const response=await fetch(endpoint,{headers:apiRequestHeaders(),signal:AbortSignal.timeout(15000)});
    const data=await response.json();
    if(!response.ok)throw new Error(data.error||"Réponse du service "+response.status);
@@ -866,7 +870,7 @@ async function sendJalapMessage(event){
  const button=$("#idea-form button[type=submit]");if(button){button.disabled=true;button.textContent="…"}
  const pending=document.createElement("div");pending.id="jalap-pending";pending.className="chat-message assistant-message";pending.textContent=dev?"JALAP analyse le dépôt GitHub…":"JALAP prépare ton voyage…";$("#jalap-thread")?.appendChild(pending);
  try{
-  const endpoint=dev?"/.netlify/functions/jalap-dev":"/.netlify/functions/jalap";
+  const endpoint=apiEndpoint(base,dev?"jalap-dev":"jalap");
   const body=dev
    ?{action:"propose",message,history:jalapMessages.slice(-9,-1)}
    :{message,context:shareContext(trip),history:jalapMessages.slice(-11,-1)};
@@ -901,7 +905,7 @@ async function commitJalapDevChanges(){
  const button=$("[data-action='jalap-dev-commit']");if(button){button.disabled=true;button.textContent="Commit en cours…"}
  const pending=document.createElement("div");pending.id="jalap-dev-commit-pending";pending.className="chat-message assistant-message";pending.textContent="JALAP envoie les changements à GitHub…";$("#jalap-thread")?.appendChild(pending);
  try{
-  const response=await fetch(base+"/.netlify/functions/jalap-dev",{method:"POST",headers:{...apiRequestHeaders(),"content-type":"application/json"},body:JSON.stringify({action:"commit",message:jalapDevOriginalRequest,changes:jalapDevChanges}),signal:AbortSignal.timeout(60000)});
+  const response=await fetch(apiEndpoint(base,"jalap-dev"),{method:"POST",headers:{...apiRequestHeaders(),"content-type":"application/json"},body:JSON.stringify({action:"commit",message:jalapDevOriginalRequest,changes:jalapDevChanges}),signal:AbortSignal.timeout(60000)});
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(data.error||"Le commit GitHub a échoué ("+response.status+").");
   jalapDevChanges=null;renderJalapDevProposal();
