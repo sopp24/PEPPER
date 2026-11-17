@@ -92,3 +92,12 @@ Tant qu'un flux n'est pas réellement connecté, PEPPER doit afficher « Ouvrir 
 Le connecteur Netlify `netlify/functions/transport-status.mjs` interroge les avis SNCF SIRI SX en direct et filtre le résultat par numéro commercial du train. Il peut également interroger l'API PRIM d'Île-de-France Mobilités pour un `MonitoringRef`, à condition de configurer `IDFM_API_KEY` dans les variables Netlify côté Functions. Le flux SNCF est actualisé toutes les deux minutes pour son périmètre publié. L'application ne présente pas « à l'heure » lorsqu'aucun avis n'est présent : elle indique seulement qu'aucun avis correspondant n'a été trouvé. Le service doit être déployé sur Netlify puis son URL de base configurée dans Réglages PEPPER.
 
 L'accès PRIM Île-de-France Mobilités nécessite une inscription, un abonnement à l'API et une clé conservée dans une fonction serveur. Les données en temps réel ne couvrent actuellement qu'une partie des arrêts. Le trafic Bison Futé expose des données DATE/DATE II ; certaines données événementielles du réseau national non concédé sont libres, alors que les flux des autoroutes concédées ou Action B/C peuvent nécessiter des identifiants. Ces deux connecteurs restent à compléter après accès aux comptes / flux correspondants.
+
+
+## Conservation hors connexion et planification PIMI
+
+PEPPER enregistre les carnets dans IndexedDB, avec un stockage local de compatibilité et une copie de récupération. L'export JSON inclut tous les voyages (fichier privé, pouvant contenir des codes ou documents). La restauration permet de fusionner ou remplacer les carnets sur l'appareil. Il n'y a pas encore de compte ni de synchronisation entre appareils : cela nécessite un service de stockage distant et une authentification privée à configurer.
+
+Les dernières données météo obtenues sont gardées localement et leur ancienneté est affichée hors connexion. L'application-shell est pré-mis en cache par le service worker. Les tuiles OpenStreetMap, la météo fraîche et les données transport live ne sont pas garanties hors connexion.
+
+PIMI reste utilisé depuis cette conversation ChatGPT. Le bouton « Auditer mon voyage avec PIMI » prépare un prompt et un contexte expurgé des codes de réservation, numéros de téléphone et codes d'accès. Le contrôle local peut détecter des chevauchements d'activités, dates hors séjour, réservations sans lien officiel et temps de déplacement géographiquement trop courts ; ce sont des avertissements indicatifs, non un itinéraire certifié.
