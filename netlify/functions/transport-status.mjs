@@ -115,11 +115,18 @@ async function getIdfmStatus(monitoringRef) {
       setupUrl: "https://prim.iledefrance-mobilites.fr/"
     };
   }
-  const endpoint = "https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring?MonitoringRef=" + encodeURIComponent(monitoringRef);
-  const upstream = await fetch(endpoint, {
-    headers: { apikey: apiKey, accept: "application/json" },
+  const headers = { apikey: apiKey, accept: "application/json" };
+  const currentEndpoint = "https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring/" + encodeURIComponent(monitoringRef);
+  let upstream = await fetch(currentEndpoint, {
+    headers,
     signal: AbortSignal.timeout(12000)
   });
+  // Older PRIM examples document the MonitoringRef query parameter.
+  // Keep a compatibility fallback if the path form is not enabled on this API gateway.
+  if (upstream.status === 404 || upstream.status === 405) {
+    const legacyEndpoint = "https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring?MonitoringRef=" + encodeURIComponent(monitoringRef);
+    upstream = await fetch(legacyEndpoint, { headers, signal: AbortSignal.timeout(12000) });
+  }
   if (!upstream.ok) throw new Error("PRIM IDFM indisponible (" + upstream.status + ").");
   const payload = await upstream.json();
   const visits = findDeepValues(payload, "MonitoredStopVisit", []);
