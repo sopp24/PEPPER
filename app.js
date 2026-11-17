@@ -277,9 +277,17 @@ async function copyRequest(event){
  const value="PIMI, voici une nouvelle demande pour mon voyage. Vérifie les informations officielles à jour, les horaires, les réservations, les temps de déplacement et la cohérence avec mon hébergement et mes trajets. Pose-moi les questions manquantes avant de l’intégrer. Si une mise à jour du code de l’application est nécessaire, modifie le projet GitHub sans publier de données privées.\n\nCONTEXTE :\n"+JSON.stringify(shareContext(t),null,2)+"\n\nNOUVELLE IDÉE / INFORMATION :\n"+idea;
  if(await copyText(value)){toast("Demande copiée. Colle-la dans cette conversation pour que PIMI puisse la traiter.");$("#idea-input").value=""}else toast("Copie impossible. Sélectionne et copie le texte manuellement.","error");
 }
+
+function settingsModal(){
+ const t=activeTrip();
+ const body='<div class="detail-section"><h4>Stockage et confidentialité</h4><p>Les carnets de voyage, billets, références de réservation et cases à cocher sont enregistrés dans le stockage local de ce navigateur. Ils ne sont pas synchronisés avec GitHub ni envoyés dans le dépôt public.</p><p>Pour conserver une copie, exporte le voyage au format JSON et garde ce fichier dans un espace privé.</p></div><div class="detail-grid"><div class="detail-item"><small>Voyages enregistrés</small><strong>'+state.trips.length+'</strong></div><div class="detail-item"><small>Voyage actif</small><strong>'+esc(t?.destination||"Aucun")+'</strong></div></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Fermer</button><button class="primary-button" type="button" data-action="export-json" '+(!t?"disabled":"")+'>Exporter le voyage (JSON)</button></div>';
+ openModal("Réglages de PEPPER","Stockage local, sauvegarde et confidentialité.",body);
+}
+
 function onAction(event){
  const el=event.target.closest("[data-action]");if(!el)return;const n=el.dataset.action,id=el.dataset.id;
  if(n==="close-modal"){if(event.target===el||el.matches("button"))closeModal();return}
+ if(n==="settings"){settingsModal();return}
  if(n==="create-trip"){tripForm(null);return}if(n==="edit-trip"){tripForm(activeTrip());return}
  if(n==="edit-accommodation"){stayForm();return}if(n==="add-transport"){transportForm(null);return}
  if(n==="edit-transport"){transportForm(activeTrip().transport.find(x=>x.id===id));return}if(n==="delete-transport"){if(confirm("Supprimer ce trajet ?"))deleteTransport(id);return}
