@@ -85,3 +85,10 @@ Les données de vols, de bus, de ferries et de réseaux étrangers nécessitent 
 ## Règle d'affichage
 
 Tant qu'un flux n'est pas réellement connecté, PEPPER doit afficher « Ouvrir la source officielle » et non « En direct ». Un lien vers une application officielle ne constitue pas une synchronisation de ses données.
+
+
+## Intégrations prêtes à activer
+
+Le connecteur Netlify `netlify/functions/transport-status.mjs` interroge les avis SNCF SIRI SX en direct et filtre le résultat par numéro commercial du train. Le flux est actualisé toutes les deux minutes pour son périmètre publié. L'application ne présente pas « à l'heure » lorsqu'aucun avis n'est présent : elle indique seulement qu'aucun avis correspondant n'a été trouvé. Le service doit être déployé sur Netlify puis son URL de base configurée dans Réglages PEPPER.
+
+L'accès PRIM Île-de-France Mobilités nécessite une inscription, un abonnement à l'API et une clé conservée dans une fonction serveur. Les données en temps réel ne couvrent actuellement qu'une partie des arrêts. Le trafic Bison Futé expose des données DATE/DATE II ; certaines données événementielles du réseau national non concédé sont libres, alors que les flux des autoroutes concédées ou Action B/C peuvent nécessiter des identifiants. Ces deux connecteurs restent à compléter après accès aux comptes / flux correspondants.
