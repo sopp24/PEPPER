@@ -49,7 +49,7 @@ Les fiches d'activités reconnaissent certains lieux et proposent des raccourcis
 - Bateaux-Mouches : [billets promenade officiels](https://www.bateaux-mouches.fr/fr/reservation/billets?subid=billets). Pour la promenade, aucun créneau horaire n'est nécessaire.
 - Théâtre Michel : [billetterie officielle](https://billetterie.theatre-michel.fr/).
 - Notre-Dame : [réservation gratuite facultative](https://www.notredamedeparis.fr/visiter/reserver-gratuitement/).
-- Panthéon : [billetterie du Centre des monuments nationaux](https://tickets.monuments-nationaux.fr/fr-FR/familles?site=2007056652440400272).
+- Panthéon : [billetterie du Centre des monuments nationaux](https://tickets.monuments-nationaux.fr/fr-FR/familles?famille=2205941809920401471&site=2007056652440400272).
 - Santa Lyna : [site officiel](https://thehungryfamily.com/santa-lyna/) (informations et menu ; aucun module de réservation en ligne n'est affiché sur cette page).
 - 59 Rivoli : [site officiel](https://59rivoli.org/) (horaires et informations de visite).
 
