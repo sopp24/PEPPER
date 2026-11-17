@@ -225,11 +225,11 @@ async function refreshLiveTransportStatus(trip){
 }
 function startLiveRefresh(trip){
  if(transportRefreshTimer)clearInterval(transportRefreshTimer);
- const needsLive=(trip.transport||[]).some(leg=>isSNCFRealtimeEligible(leg)&&leg.number);
+ const needsLive=(trip.transport||[]).some(leg=>isSNCFRealtimeEligible(leg)&&leg.number)||!!trip.localTransitRef;
  if(!needsLive||!apiBaseUrl())return;
- refreshLiveTransportStatus(trip);
+ refreshLiveTransportStatus(trip);refreshLocalTransitStatus(trip);
  transportRefreshTimer=setInterval(()=>{
-  if(document.visibilityState==="visible"&&navigator.onLine&&activeTrip()?.id===trip.id)refreshLiveTransportStatus(trip);
+  if(document.visibilityState==="visible"&&navigator.onLine&&activeTrip()?.id===trip.id){refreshLiveTransportStatus(trip);refreshLocalTransitStatus(trip)}
  },120000);
 }
 function haversineKm(a,b){
@@ -268,7 +268,7 @@ function updateNetworkStatus(){
 }
 
 function renderTransport(t){
- const node=$("#transport-content"),legs=t.transport||[];if(!legs.length){node.innerHTML='<div class="empty-inline">Aucun trajet renseigné. Ajoute ton aller, ton retour ou une correspondance pour afficher les marges et alertes de planning.</div>'+renderLocalTransitSources(t);return}
+ const node=$("#transport-content"),legs=t.transport||[];if(!legs.length){if(transportRefreshTimer)clearInterval(transportRefreshTimer);transportRefreshTimer=null;node.innerHTML='<div class="empty-inline">Aucun trajet renseigné. Ajoute ton aller, ton retour ou une correspondance pour afficher les marges et alertes de planning.</div>'+renderLocalTransitSources(t);refreshLocalTransitStatus(t);return}
  node.innerHTML='<div class="transport-list">'+legs.map(leg=>{
   const info=arrivalInfo(leg),dep=dateTime(leg.departureDate,leg.departureTime),arr=dateTime(leg.arrivalDate,leg.arrivalTime),facts=[["Départ",dep?dateTimeLabel(dep):"À préciser"],["Arrivée",arr?dateTimeLabel(arr):"À préciser"],["Voie / terminal",leg.platform||"À vérifier"],["Bagages",leg.baggage||"À vérifier"],["Limite d’embarquement",leg.boardingDeadline||"À vérifier"]];
   const when=info.arrivalBy?"Arrivée conseillée au plus tard : "+dateTimeLabel(info.arrivalBy)+". ":"",roadEta=info.estimatedArrival?"Arrivée voiture indicative : "+dateTimeLabel(info.estimatedArrival)+" (pauses de 15 min / 2 h estimées, hors trafic). ":"";
