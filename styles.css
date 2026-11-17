@@ -95,3 +95,6 @@
 .pimi-change span{color:#aeb4aa;font-size:9px}
 .ai-form button:disabled{opacity:.55;cursor:wait}
 @media(max-width:540px){.pimi-proposal-actions{flex-direction:column}}
+
+.itinerary-group-label{margin:14px 0 8px;padding:0 2px;color:#e8a5cf;font-size:9px;font-weight:700;letter-spacing:.12em}
+.itinerary-group-label:first-child{margin-top:0}
