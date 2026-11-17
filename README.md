@@ -79,8 +79,8 @@ JALAP utilise l'API Anthropic Claude via deux fonctions Netlify protégées. Le 
 
 Dans Netlify → Project configuration → Environment variables, ajoute :
 
-1. `ANTHROPIC_API_KEY` : clé API Anthropic Console.
-2. `GITHUB_TOKEN` : fine-grained personal access token, limité au seul dépôt `sopp24/PEPPER`, avec **Contents: Read and write**. L'autorisation Metadata en lecture est ajoutée automatiquement. N'accorde pas Actions, Workflows, Administration ou accès à d'autres dépôts.
+1. `ANTHROPIC_API_KEY` : clé API Anthropic Console, à créer sur https://platform.claude.com/settings/keys.
+2. `GITHUB_TOKEN` : fine-grained personal access token, limité au seul dépôt `sopp24/PEPPER`, avec **Contents: Read and write**. Crée-le sur https://github.com/settings/personal-access-tokens/new. L'autorisation Metadata en lecture est ajoutée automatiquement. N'accorde pas Actions, Workflows, Administration ou accès à d'autres dépôts.
 3. `PEPPER_API_TOKEN` : jeton privé PEPPER déjà utilisé par le navigateur.
 4. `PEPPER_ALLOWED_ORIGIN=https://sopp24.github.io`.
 
@@ -88,7 +88,7 @@ Variables facultatives :
 - `JALAP_TRAVEL_MODEL=claude-haiku-5-5`
 - `JALAP_DEV_MODEL=claude-sonnet-5-5`
 
-Les clés restent exclusivement côté serveur Netlify. Ne les ajoute jamais au dépôt ou au formulaire PEPPER.
+Les clés restent exclusivement côté serveur Netlify. Ne les ajoute jamais au dépôt ou au formulaire PEPPER. Sur le forfait Netlify Free, le choix de scopes dédiés peut ne pas être disponible : dans ce cas, garde le réglage par défaut, sans placer ces variables dans le code public ou dans `netlify.toml`.
 
 ### Parcours Développement
 
@@ -99,13 +99,13 @@ Les clés restent exclusivement côté serveur Netlify. Ne les ajoute jamais au 
 5. Après validation, la fonction re-télécharge les fichiers et vérifie à nouveau les extraits avant de créer un commit Git unique sur `main`.
 6. GitHub Pages déploie le site. Netlify n'a pas besoin de reconstruire le site public.
 
-Le mode Dev ne peut modifier que les fichiers applicatifs listés dans `netlify/functions/jalap-dev.mjs`. Il ne peut pas modifier les workflows GitHub, les secrets, les paramètres Netlify ni ses propres fonctions serveur. Les nouveaux fichiers ne sont pas encore pris en charge par les propositions de remplacement ; il faut d'abord les créer ou élargir explicitement la liste autorisée.
+Le mode Dev ne peut modifier que les fichiers applicatifs listés dans `netlify/functions/jalap-dev.mjs`, y compris le moteur JALAP Voyage et le connecteur transport. Il ne peut pas modifier les workflows GitHub, les secrets, les paramètres Netlify ni son propre endpoint de commit. Les nouveaux fichiers ne sont pas encore pris en charge par les propositions de remplacement ; il faut d'abord les créer ou élargir explicitement la liste autorisée. Le contexte envoyé à Claude est réduit selon la nature de la demande : une demande purement visuelle n'envoie que le HTML et le CSS.
 
 ### Modèles et coûts
 
 L'API Claude est facturée séparément d'un abonnement Claude.ai. À la date de dernière vérification, Haiku 5.5 coûte à partir de 0,10 $/million de tokens en entrée et 0,50 $/million en sortie ; Sonnet 5.5 coûte 2 $/million en entrée et 10 $/million en sortie. Les longues demandes de modification de code envoient plus de contexte et coûtent donc davantage qu'un échange de voyage. Configure un budget et une limite de dépense dans Anthropic Console et désactive le rechargement automatique si tu souhaites garder le contrôle.
 
-Le mode Développement écrit directement dans le dépôt public. Les fichiers commités deviennent visibles de tous. Le mode Voyage continue de sauvegarder les modifications du carnet dans le navigateur ; il ne publie pas automatiquement les informations du voyage.
+Le mode Développement écrit directement dans le dépôt public. Les fichiers commités deviennent visibles de tous. Si Netlify a épuisé son quota mensuel, ses nouvelles fonctions ne seront accessibles qu'après le rétablissement du service et un déploiement ; verrouille ensuite l'auto-publication Netlify pour ne plus consommer un déploiement à chaque commit GitHub. GitHub Pages continue de publier le site. Le mode Voyage continue de sauvegarder les modifications du carnet dans le navigateur ; il ne publie pas automatiquement les informations du voyage.
 
 ## Confidentialité
 
