@@ -27,8 +27,9 @@ jobs:
       - name: Validate PEPPER JavaScript
         run: node --check app.js
 
-      - name: Validate optional Netlify transport function
-        run: node --check netlify/functions/transport-status.mjs
+      - name: Validate Netlify functions
+        run: |
+          node --check netlify/functions/transport-status.mjs
           node --check netlify/functions/pimi.mjs
 
       - name: Validate service worker
