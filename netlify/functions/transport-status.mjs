@@ -163,7 +163,7 @@ async function getIdfmStatus(monitoringRef) {
   };
 }
 
-export { parseSituations };
+export { parseSituations, isValidBearer };
 
 export default async (request) => {
   const origin = request.headers.get("origin") || "";
