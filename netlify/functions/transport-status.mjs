@@ -1,14 +1,28 @@
+import { timingSafeEqual } from "node:crypto";
+
 const SNCF_SITUATIONS_URL = "https://proxy.transport.data.gouv.fr/resource/sncf-siri-lite-situation-exchange";
 const SOURCE_URL = "https://ressources.data.sncf.com/explore/dataset/temps-reel-siri-sx-lite/";
 const MAX_FEED_BYTES = 12 * 1024 * 1024;
 
+function runtimeEnv(name) {
+  return process.env[name] || globalThis.Netlify?.env?.get?.(name) || "";
+}
+
+function isValidBearer(request, expected) {
+  const supplied = (request.headers.get("authorization") || "").replace(/^Bearer\\s+/i, "");
+  if (!expected || !supplied) return false;
+  const left = Buffer.from(expected);
+  const right = Buffer.from(supplied);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
 function responseHeaders(origin) {
-  const configuredOrigin = globalThis.Netlify?.env?.get?.("PEPPER_ALLOWED_ORIGIN") || process.env.PEPPER_ALLOWED_ORIGIN || "*";
+  const configuredOrigin = runtimeEnv("PEPPER_ALLOWED_ORIGIN") || "*";
   const headers = {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "public, max-age=30, s-maxage=30, stale-while-revalidate=60",
     "access-control-allow-methods": "GET, OPTIONS",
-    "access-control-allow-headers": "content-type",
+    "access-control-allow-headers": "content-type, authorization",
     "vary": "Origin"
   };
   if (configuredOrigin === "*" || configuredOrigin === origin) {
@@ -106,7 +120,7 @@ function firstDeepValue(value, targetKeys) {
 }
 
 async function getIdfmStatus(monitoringRef) {
-  const apiKey = process.env.IDFM_API_KEY || globalThis.Netlify?.env?.get?.("IDFM_API_KEY");
+  const apiKey = runtimeEnv("IDFM_API_KEY");
   if (!apiKey) {
     return {
       configured: false,
@@ -131,7 +145,7 @@ async function getIdfmStatus(monitoringRef) {
   const payload = await upstream.json();
   const visits = findDeepValues(payload, "MonitoredStopVisit", []);
   const departures = visits.map(visit => {
-    const journey = firstDeepValue(visit, ["LineRef", "PublishedLineName"]);
+    const journey = firstDeepValue(visit, ["PublishedLineName", "LineRef"]);
     const destination = firstDeepValue(visit, ["DestinationDisplay", "DestinationName"]);
     const aimed = firstDeepValue(visit, ["AimedArrivalTime", "AimedDepartureTime"]);
     const expected = firstDeepValue(visit, ["ExpectedArrivalTime", "ExpectedDepartureTime"]);
@@ -159,6 +173,14 @@ export default async (request) => {
   }
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
   if (request.method !== "GET") return Response.json({ error: "Méthode non autorisée." }, { status: 405, headers });
+
+  const serviceToken = runtimeEnv("PEPPER_API_TOKEN");
+  if (!serviceToken) {
+    return Response.json({ error: "Le service PEPPER n'est pas configuré : variable PEPPER_API_TOKEN absente." }, { status: 503, headers });
+  }
+  if (!isValidBearer(request, serviceToken)) {
+    return Response.json({ error: "Accès refusé : jeton PEPPER absent ou invalide." }, { status: 401, headers });
+  }
 
   const url = new URL(request.url);
   const provider = (url.searchParams.get("provider") || "sncf").toLowerCase();
