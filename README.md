@@ -43,11 +43,25 @@ Pour activer l’affichage live dans PEPPER :
 
 La donnée SNCF est publique, mais l’endpoint PEPPER est protégé par un jeton personnel `PEPPER_API_TOKEN`. Crée ce jeton localement (par exemple `openssl rand -hex 32`), ajoute-le comme variable d’environnement Netlify (scope Functions) et colle la même valeur dans PEPPER → Réglages → Jeton privé. Ajoute `PEPPER_ALLOWED_ORIGIN=https://sopp24.github.io` pour limiter les navigateurs à l’origine de PEPPER ; CORS ne remplace pas l’authentification. Pour activer IDFM, crée un jeton sur PRIM puis ajoute `IDFM_API_KEY` séparément dans les variables d’environnement Netlify (scope Functions), puis redeploie. Dans PEPPER, renseigne le `MonitoringRef` de l’arrêt dans les réglages du voyage. La requête utilise le header `apikey` officiel. Les autres API avec clés doivent être configurées uniquement côté serveur.
 
-## PIMI et mises à jour avec ChatGPT
+## PIMI — assistant conversationnel intégré (optionnel)
 
-PIMI est piloté depuis la conversation ChatGPT : transmets les informations d'un billet, de l'hébergement, d'une activité ou un changement de statut. ChatGPT peut vérifier les informations sur le web, poser les questions nécessaires, contrôler la cohérence du programme et modifier les fichiers de ce dépôt via l'intégration GitHub connectée.
+Le panneau PIMI de l'application peut appeler le modèle OpenAI via `netlify/functions/pimi.mjs`. Le navigateur transmet uniquement le contexte expurgé du voyage actif et le message saisi. La fonction Netlify conserve la clé OpenAI côté serveur et renvoie une réponse structurée. Les opérations proposées sont affichées dans PEPPER ; aucune modification du carnet n'est enregistrée avant validation explicite. Après validation, les données sont sauvegardées dans le stockage local du navigateur.
 
-Dans l'application, le bouton « Préparer ma demande » copie un contexte de voyage expurgé des codes de réservation, numéros de téléphone et données d'accès privées. Colle-le dans la conversation ChatGPT pour continuer.
+### Activation
+
+1. Crée une clé API dans ton projet OpenAI depuis https://platform.openai.com/api-keys. L'accès à l'API et sa facturation sont distincts d'un abonnement ChatGPT.
+2. Dans Netlify → Project configuration → Environment variables, ajoute `OPENAI_API_KEY` avec cette clé et le scope **Functions**.
+3. Garde également `PEPPER_API_TOKEN` et `PEPPER_ALLOWED_ORIGIN=https://sopp24.github.io` déjà configurés.
+4. Redéploie le site Netlify pour appliquer la variable.
+5. Dans PEPPER, ouvre Réglages et vérifie que l'URL Netlify et le jeton PEPPER sont renseignés. Ouvre ensuite un voyage et écris dans le panneau PIMI.
+
+Le modèle par défaut est `gpt-6-luna` pour limiter le coût des échanges courants. Le modèle peut être remplacé côté serveur avec la variable facultative `PIMI_MODEL`. Vérifie les tarifs en vigueur dans la documentation OpenAI. La clé `OPENAI_API_KEY` ne doit jamais être mise dans GitHub, dans le code navigateur, dans les réglages PEPPER ou dans une conversation.
+
+PIMI reçoit un contexte expurgé des codes de réservation, téléphones, détails privés d'accès et références de billets. Les messages et l'historique de la session de chat restent en mémoire dans l'onglet ; le carnet et les modifications validées restent dans le stockage local. PIMI ne dispose pas encore d'une recherche web dans cette première version : il ne doit pas affirmer avoir vérifié des horaires, prix ou disponibilités en direct.
+
+Les actions actuellement proposées sont les ajouts / modifications / suppressions d'activités, les ajouts / modifications de trajets, les mises à jour des informations générales du voyage, les dépenses et les tâches de checklist. Les propositions sont validées côté navigateur puis sauvegardées localement.
+
+Le bouton « Copier le contexte du voyage » reste disponible pour utiliser cette conversation ChatGPT en complément.
 
 ## Confidentialité
 
