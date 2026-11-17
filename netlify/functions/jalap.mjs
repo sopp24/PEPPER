@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 
-const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-const MODEL_DEFAULT = "openai/gpt-oss-120b";
+const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+const MODEL_DEFAULT = "claude-haiku-5-5";
 const MAX_BODY_BYTES = 30000;
 const MAX_MESSAGE_CHARS = 3000;
 const MAX_HISTORY_ITEMS = 10;
@@ -97,15 +97,13 @@ Ne fais jamais apparaître de code de réservation, numéro de téléphone ou d�
 Une seule demande peut générer jusqu'à 8 opérations. Ne reproduis pas le contexte entier dans le message.`;
 
 function outputText(payload) {
+  if (typeof payload?.output_text === "string") return payload.output_text;
+  const blocks = Array.isArray(payload?.content) ? payload.content : [];
+  const texts = blocks.filter(block => block?.type === "text" && typeof block.text === "string").map(block => block.text);
+  if (texts.length) return texts.join("\n");
   const chatContent = payload?.choices?.[0]?.message?.content;
   if (typeof chatContent === "string") return chatContent;
-  if (typeof payload?.output_text === "string") return payload.output_text;
-  const chunks = [];
-  for (const item of payload.output || []) {
-    if (item.type !== "message" || !Array.isArray(item.content)) continue;
-    for (const part of item.content) if (part.type === "output_text" && typeof part.text === "string") chunks.push(part.text);
-  }
-  return chunks.join("\n");
+  return "";
 }
 
 function validateInput(value) {
@@ -137,8 +135,8 @@ export default async (request) => {
   if (!expectedToken) return Response.json({ error: "Le service PEPPER n'est pas configuré : variable PEPPER_API_TOKEN absente." }, { status: 503, headers });
   if (!isValidBearer(request, expectedToken)) return Response.json({ error: "Accès refusé : jeton PEPPER absent ou invalide." }, { status: 401, headers });
 
-  const apiKey = runtimeEnv("GROQ_API_KEY");
-  if (!apiKey) return Response.json({ error: "JALAP n'est pas encore activé : ajoute GROQ_API_KEY dans les variables Netlify (scope Functions)." }, { status: 503, headers });
+  const apiKey = runtimeEnv("ANTHROPIC_API_KEY");
+  if (!apiKey) return Response.json({ error: "JALAP n'est pas encore activé : ajoute ANTHROPIC_API_KEY dans les variables Netlify." }, { status: 503, headers });
 
   const declaredLength = Number(request.headers.get("content-length") || 0);
   if (declaredLength > MAX_BODY_BYTES) return Response.json({ error: "La demande est trop volumineuse." }, { status: 413, headers });
@@ -150,38 +148,29 @@ export default async (request) => {
     return Response.json({ error: error.message || "Requête invalide." }, { status: 400, headers });
   }
 
-  const model = runtimeEnv("JALAP_MODEL") || MODEL_DEFAULT;
-  const prompt = {
-    message: input.message,
-    context: input.context,
-    history: input.history
-  };
+  const model = runtimeEnv("JALAP_TRAVEL_MODEL") || runtimeEnv("JALAP_MODEL") || MODEL_DEFAULT;
+  const prompt = { message: input.message, context: input.context };
+  const messages = [...input.history, { role: "user", content: JSON.stringify(prompt) }];
 
   try {
-    const upstream = await fetch(GROQ_URL, {
+    const upstream = await fetch(ANTHROPIC_URL, {
       method: "POST",
-      headers: { authorization: "Bearer " + apiKey, "content-type": "application/json" },
+      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
         model,
-        messages: [
-          { role: "system", content: INSTRUCTIONS },
-          { role: "user", content: JSON.stringify(prompt) }
-        ],
-        response_format: {
-          type: "json_schema",
-          json_schema: { name: "jalap_proposal", strict: true, schema: JALAP_SCHEMA }
-        },
-        reasoning_effort: "low",
-        max_completion_tokens: 1800
+        max_tokens: 1800,
+        system: INSTRUCTIONS,
+        messages,
+        output_config: { format: { type: "json_schema", name: "jalap_proposal", schema: JALAP_SCHEMA } }
       }),
       signal: AbortSignal.timeout(45000)
     });
 
     const payload = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
-      const message = upstream.status === 401 ? "La clé Groq configurée dans Netlify est refusée." :
-        upstream.status === 429 ? "La limite gratuite Groq a été atteinte. Attends la réinitialisation du quota et réessaie." :
-        "Le service Groq a répondu avec une erreur (" + upstream.status + ").";
+      const message = upstream.status === 401 ? "La clé Anthropic configurée dans Netlify est refusée." :
+        upstream.status === 429 ? "La limite de débit ou le budget API Claude est atteint. Vérifie Anthropic Console." :
+        "L'API Claude a répondu avec une erreur (" + upstream.status + ").";
       return Response.json({ error: message }, { status: upstream.status === 429 ? 429 : 502, headers });
     }
     const raw = outputText(payload);
