@@ -6,6 +6,8 @@ test("JALAP Dev allows only known public application files", () => {
   assert.equal(repoFileAllowed("app.js"), true);
   assert.equal(repoFileAllowed("styles.css"), true);
   assert.equal(repoFileAllowed("data/trips.json"), true);
+  assert.equal(repoFileAllowed("netlify/functions/jalap.mjs"), true);
+  assert.equal(repoFileAllowed("netlify/functions/jalap-dev.mjs"), false);
   assert.equal(repoFileAllowed(".github/workflows/deploy-pages.yml"), false);
   assert.equal(repoFileAllowed("../netlify.toml"), false);
   assert.equal(repoFileAllowed("netlify.toml"), false);
