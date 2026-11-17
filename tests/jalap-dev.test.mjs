@@ -46,3 +46,7 @@ test("JALAP Dev requires a matching PEPPER bearer token", () => {
   assert.equal(isValidBearer(ok, "private-token"), true);
   assert.equal(isValidBearer(bad, "private-token"), false);
 });
+
+test("JALAP Dev can return an empty proposal without attempting a commit", () => {
+  assert.deepEqual(validateChanges([]), []);
+});
