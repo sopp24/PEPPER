@@ -85,3 +85,13 @@
 .offline-map-note{display:grid;min-height:180px;padding:22px;place-items:center;color:#a5aab0;text-align:center;font-size:11px;line-height:1.6}
 .chat-actions button:last-child{border-color:rgba(237,120,197,.28);color:#f4c7e5;background:rgba(237,120,197,.08)}
 @media(max-width:540px){.network-status{font-size:10px}}
+
+/* PIMI embedded AI chat */
+.pimi-proposal-actions{display:flex;gap:7px;margin-top:10px}
+.pimi-proposal-actions button{flex:1;min-height:34px;border:1px solid rgba(180,213,138,.25);border-radius:8px;color:#d7edbd;background:rgba(180,213,138,.1);font-size:9px;font-weight:600}
+.pimi-proposal-actions button:last-child{border-color:var(--line);color:#b9bdc0;background:rgba(255,255,255,.03)}
+.pimi-change{display:flex;flex-direction:column;gap:3px;margin:7px 0}
+.pimi-change strong{color:#dceec8;font-size:10px}
+.pimi-change span{color:#aeb4aa;font-size:9px}
+.ai-form button:disabled{opacity:.55;cursor:wait}
+@media(max-width:540px){.pimi-proposal-actions{flex-direction:column}}
