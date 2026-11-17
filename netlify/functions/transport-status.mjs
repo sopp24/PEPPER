@@ -142,6 +142,8 @@ async function getIdfmStatus(monitoringRef) {
   };
 }
 
+export { parseSituations };
+
 export default async (request) => {
   const origin = request.headers.get("origin") || "";
   const headers = responseHeaders(origin);
