@@ -868,8 +868,8 @@ async function sendJalapMessage(event){
  try{
   const endpoint=dev?"/.netlify/functions/jalap-dev":"/.netlify/functions/jalap";
   const body=dev
-   ?{action:"propose",message,history:jalapMessages.slice(-8)}
-   :{message,context:shareContext(trip),history:jalapMessages.slice(-10)};
+   ?{action:"propose",message,history:jalapMessages.slice(-9,-1)}
+   :{message,context:shareContext(trip),history:jalapMessages.slice(-11,-1)};
   const response=await fetch(base+endpoint,{method:"POST",headers:{...apiRequestHeaders(),"content-type":"application/json"},body:JSON.stringify(body),signal:AbortSignal.timeout(dev?110000:50000)});
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(data.error||"JALAP est indisponible ("+response.status+").");
