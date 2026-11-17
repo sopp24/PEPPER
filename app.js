@@ -1,5 +1,7 @@
 const STORAGE_KEY="pepper-trip-state-v1";
 const LEGACY_KEY="pimientos-state-v1";
+const RECOVERY_KEY="pepper-last-good-state-v1";
+const API_BASE_KEY="pepper-api-base-url-v1";
 const DEFAULT_CHECKLIST=["Vérifier les papiers d’identité et les visas","Confirmer les billets, horaires et formalités d’enregistrement","Confirmer l’hébergement et les heures d’arrivée / départ","Vérifier les conditions de bagages et les documents nécessaires","Prévoir les moyens de paiement et télécharger les documents hors ligne"];
 const $=(s,root=document)=>root.querySelector(s),$$=(s,root=document)=>Array.from(root.querySelectorAll(s));
 const parse=(v,f)=>{try{return JSON.parse(v)}catch(e){return f}};
@@ -11,13 +13,13 @@ const money=(v,c)=>new Intl.NumberFormat("fr-FR",{style:"currency",currency:c||"
 const icons={train:"🚆",plane:"✈️",car:"🚗",bus:"🚌",ferry:"⛴"};
 const modeName={train:"Train",plane:"Avion",car:"Voiture",bus:"Bus",ferry:"Ferry"};
 const directionName={outbound:"Aller",return:"Retour",connection:"Correspondance",other:"Étape"};
-let state=parse(localStorage.getItem(STORAGE_KEY),null)||parse(localStorage.getItem(LEGACY_KEY),null)||{trips:[],activeTripId:null};
+let state=parse(localStorage.getItem(STORAGE_KEY),null)||parse(localStorage.getItem(RECOVERY_KEY),null)||parse(localStorage.getItem(LEGACY_KEY),null)||{trips:[],activeTripId:null};
 state.trips=Array.isArray(state.trips)?state.trips:[];
 state.trips.forEach(t=>{t.activities=t.activities||[];t.expenses=t.expenses||[];t.checklist=t.checklist||DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false}));t.transport=t.transport||[];t.accommodation=t.accommodation||null});
-let map=null,markers=null,mapTripId=null,weatherData=null,weatherError="",weatherRequest=0;
+let map=null,markers=null,mapTripId=null,weatherData=null,weatherError="",weatherRequest=0,transportRefreshTimer=null;
 const modalRoot=$("#modal-root");
 function activeTrip(){return state.trips.find(t=>t.id===state.activeTripId)||state.trips[0]||null}
-function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}catch(e){toast("Le stockage de cet appareil est saturé. Exporte le voyage pour le sauvegarder.","error")}}
+function save(){try{const previous=localStorage.getItem(STORAGE_KEY);if(previous)localStorage.setItem(RECOVERY_KEY,previous);localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}catch(e){toast("Le stockage de cet appareil est saturé. Exporte une sauvegarde pour conserver tes voyages.","error")}}
 function toast(message,type){const n=document.createElement("div");n.className="toast "+(type||"");n.textContent=message;$("#toast-root").appendChild(n);setTimeout(()=>n.remove(),4200)}
 function dateTime(date,time){if(!date)return null;const d=new Date(date+"T"+(time||"00:00")+":00");return Number.isNaN(d.getTime())?null:d}
 function dateTimeLabel(d){return new Intl.DateTimeFormat("fr-FR",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(d)}
@@ -137,6 +139,104 @@ function renderLocalTransitSources(t){
  return '<div class="arrival-advice"><strong>Réseau de transport sur place · '+esc(name||"Source officielle")+'</strong><p>'+esc(inferred?.description||"Utilise le site ou l’application officielle du réseau pour les horaires, les perturbations, les titres et les changements de service.")+'</p><div class="inline-links">'+(url?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Ouvrir le site / l’application officielle ↗</a>':"")+(traffic?'<a href="'+esc(traffic)+'" target="_blank" rel="noopener noreferrer">Ouvrir l’info trafic officielle ↗</a>':"")+'</div><small>PEPPER ouvre la source officielle ; les données temps réel du réseau ne sont pas encore intégrées à son écran.</small></div>';
 }
 
+
+function apiBaseUrl(){return String(localStorage.getItem(API_BASE_KEY)||"").trim().replace(/\/+$/,"")}
+function isSNCFRealtimeEligible(leg){
+ if(!leg||leg.mode!=="train")return false;
+ const operator=normalizedSearchText(leg.operator);
+ return !operator.includes("eurostar")&&!operator.includes("transilien")&&/(tgv|inoui|ouigo|intercites|ter)/.test(operator);
+}
+function liveStatusSlot(leg){
+ if(!isSNCFRealtimeEligible(leg))return "";
+ return '<div class="live-status" id="live-status-'+esc(leg.id)+'"><strong>Suivi SNCF</strong><small>'+(leg.number?'Préparation du contrôle du train '+esc(leg.number)+'.':'Renseigne le numéro commercial du train pour rechercher les avis SNCF.')+'</small></div>';
+}
+function renderLiveStatus(data,stale){
+ const checked=data.checkedAt?new Date(data.checkedAt):null;
+ const when=checked?new Intl.DateTimeFormat("fr-FR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(checked):"heure inconnue";
+ if(data.error)return '<strong>Suivi temps réel indisponible</strong><small>'+esc(data.error)+'</small>';
+ const alerts=Array.isArray(data.alerts)?data.alerts:[];
+ const lead=stale?"Dernières données enregistrées · ":"Actualisé · ";
+ if(!alerts.length)return '<strong>Aucun avis trouvé pour ce train</strong><small>'+lead+esc(when)+'. Attention : l’absence d’avis ne confirme pas que le train est à l’heure.</small><a href="'+esc(data.source||"https://www.sncf-connect.com/")+'" target="_blank" rel="noopener noreferrer">Source SNCF ↗</a>';
+ return '<strong>⚠ '+alerts.length+' avis SNCF pour ce train</strong><small>'+lead+esc(when)+'</small>'+alerts.map(alert=>'<div class="live-alert"><b>'+esc(alert.title)+'</b>'+(alert.description?'<p>'+esc(alert.description)+'</p>':"")+(alert.severity?'<small>Gravité : '+esc(alert.severity)+'</small>':"")+'</div>').join("")+'<a href="'+esc(data.source||"https://www.sncf-connect.com/")+'" target="_blank" rel="noopener noreferrer">Source SNCF ↗</a>';
+}
+async function refreshLiveTransportStatus(trip){
+ const eligible=(trip.transport||[]).filter(isSNCFRealtimeEligible);
+ if(!eligible.length)return;
+ const base=apiBaseUrl();
+ for(const leg of eligible){
+  const target=$("#live-status-"+CSS.escape(leg.id));
+  if(!target)continue;
+  if(!leg.number){
+   target.innerHTML="<strong>Suivi SNCF non configuré</strong><small>Ajoute le numéro commercial du train pour consulter les avis associés.</small>";
+   continue;
+  }
+  const cacheKey="pepper-live-status-v1:"+trip.id+":"+leg.id;
+  if(!base){
+   const cached=parse(localStorage.getItem(cacheKey),null);
+   target.innerHTML=cached?renderLiveStatus(cached,true):'<strong>Connecteur temps réel SNCF prêt à activer</strong><small>Configure l’URL du service Netlify dans Réglages. Le suivi officiel du billet reste disponible.</small>';
+   continue;
+  }
+  target.innerHTML="<strong>Consultation du flux SNCF…</strong><small>Recherche des avis associés au train "+esc(leg.number)+".</small>";
+  try{
+   const endpoint=base+"/.netlify/functions/transport-status?provider=sncf&number="+encodeURIComponent(leg.number);
+   const response=await fetch(endpoint,{headers:{accept:"application/json"},signal:AbortSignal.timeout(15000)});
+   const data=await response.json();
+   if(!response.ok)throw new Error(data.error||"Réponse du service "+response.status);
+   if(activeTrip()?.id!==trip.id)return;
+   localStorage.setItem(cacheKey,JSON.stringify(data));
+   const liveTarget=$("#live-status-"+CSS.escape(leg.id));
+   if(liveTarget)liveTarget.innerHTML=renderLiveStatus(data,false);
+  }catch(error){
+   const cached=parse(localStorage.getItem(cacheKey),null);
+   const liveTarget=$("#live-status-"+CSS.escape(leg.id));
+   if(liveTarget)liveTarget.innerHTML=cached?renderLiveStatus(cached,true):'<strong>Suivi temporairement indisponible</strong><small>'+esc(error.message||"Vérifie la connexion et le service API.")+'</small>';
+  }
+ }
+}
+function startLiveRefresh(trip){
+ if(transportRefreshTimer)clearInterval(transportRefreshTimer);
+ const needsLive=(trip.transport||[]).some(leg=>isSNCFRealtimeEligible(leg)&&leg.number);
+ if(!needsLive||!apiBaseUrl())return;
+ refreshLiveTransportStatus(trip);
+ transportRefreshTimer=setInterval(()=>{
+  if(document.visibilityState==="visible"&&navigator.onLine&&activeTrip()?.id===trip.id)refreshLiveTransportStatus(trip);
+ },120000);
+}
+function haversineKm(a,b){
+ const toRad=v=>v*Math.PI/180,lat1=toRad(Number(a.lat)),lat2=toRad(Number(b.lat)),dLat=lat2-lat1,dLon=toRad(Number(b.lon)-Number(a.lon));
+ const h=Math.sin(dLat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+ return 6371*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
+}
+function getPlanningWarnings(trip){
+ const warnings=[],items=(trip.activities||[]).filter(a=>!a.done);
+ items.forEach((a,i)=>{
+  if(a.date&&trip.startDate&&a.date<trip.startDate)warnings.push("« "+a.name+" » est datée avant le début du voyage.");
+  if(a.date&&trip.endDate&&a.date>trip.endDate)warnings.push("« "+a.name+" » est datée après la fin du voyage.");
+  if(a.bookingRequired&&!a.bookingUrl)warnings.push("« "+a.name+" » nécessite une réservation : ajoute le lien officiel ou confirme le mode de réservation.");
+  for(let j=i+1;j<items.length;j++){
+   const b=items[j];
+   if(!a.date||a.date!==b.date||!a.startTime||!b.startTime)continue;
+   const startA=dateTime(a.date,a.startTime),startB=dateTime(b.date,b.startTime);
+   if(!startA||!startB)continue;
+   const endA=new Date(startA.getTime()+Number(a.duration||60)*60000),endB=new Date(startB.getTime()+Number(b.duration||60)*60000);
+   if(startA<endB&&startB<endA)warnings.push("« "+a.name+" » et « "+b.name+" » se chevauchent dans le programme.");
+   const earlier=startA<startB?a:b,later=startA<startB?b:a,earlierEnd=startA<startB?endA:endB,laterStart=startA<startB?startB:startA;
+   if(earlier.geo&&later.geo){
+    const distance=haversineKm(earlier.geo,later.geo),available=(laterStart-earlierEnd)/60000;
+    const estimatedWalk=distance/4*60+10;
+    if(distance>=0.8&&available>=0&&available<estimatedWalk)warnings.push("Le temps entre « "+earlier.name+" » et « "+later.name+" » semble court pour environ "+distance.toFixed(1)+" km à vol d’oiseau. Vérifie l’itinéraire réel.");
+   }
+  }
+ });
+ return Array.from(new Set(warnings));
+}
+function updateNetworkStatus(){
+ const node=$("#network-status");if(!node)return;
+ const offline=!navigator.onLine;
+ node.hidden=!offline;
+ node.textContent=offline?"Hors connexion : tes voyages, activités et sauvegardes locales restent disponibles. Les données live, la météo et les cartes peuvent être indisponibles ou anciennes.":"";
+}
+
 function renderTransport(t){
  const node=$("#transport-content"),legs=t.transport||[];if(!legs.length){node.innerHTML='<div class="empty-inline">Aucun trajet renseigné. Ajoute ton aller, ton retour ou une correspondance pour afficher les marges et alertes de planning.</div>'+renderLocalTransitSources(t);return}
  node.innerHTML='<div class="transport-list">'+legs.map(leg=>{
@@ -145,12 +245,13 @@ function renderTransport(t){
   const officialSources=renderOfficialLegSources(leg);
   const advice='<div class="arrival-advice"><strong>'+esc(info.advice.title)+'</strong>'+esc(when+roadEta+info.advice.detail)+'<br><small>'+(info.custom?"Marge personnalisée": "Repère transporteur")+(info.advice.source?" · "+esc(info.advice.source):"")+'</small>'+(info.advice.url?'<br><a href="'+esc(info.advice.url)+'" target="_blank" rel="noopener noreferrer">Consigne officielle ↗</a>':"")+'</div>';
   const pauses=leg.mode==="car"&&Number(leg.drivingDurationMinutes)>120?'<div class="transport-warning">Trajet long : prévois une pause au moins toutes les 2 heures et dès les premiers signes de fatigue. '+(leg.plannedStops?"Pauses planifiées : "+esc(leg.plannedStops)+".":"")+'</div>':"";
-  return '<article class="transport-card"><div class="transport-card-head"><div class="transport-mode"><span class="transport-mode-icon">'+(icons[leg.mode]||"↗")+'</span><span><strong>'+esc(directionName[leg.direction]||"Trajet")+' · '+esc(modeName[leg.mode]||"Transport")+'</strong><small>'+esc(leg.operator||"Transporteur à préciser")+(leg.service?" · "+esc(leg.service):"")+(leg.number?" · "+esc(leg.number):"")+'</small></span></div><span class="status-pill">À vérifier</span></div><div class="transport-route"><div class="transport-stop"><strong>'+esc(leg.origin||"Départ")+'</strong><small>'+esc(leg.departureDate?dateLabel(leg.departureDate):"Date à préciser")+' · '+esc(leg.departureTime||"—")+'</small></div><span class="transport-line">→</span><div class="transport-stop"><strong>'+esc(leg.destination||"Arrivée")+'</strong><small>'+esc(leg.arrivalDate?dateLabel(leg.arrivalDate):"Date à préciser")+' · '+esc(leg.arrivalTime||"—")+'</small></div></div><div class="transport-facts">'+facts.map(f=>'<div class="transport-fact"><small>'+esc(f[0])+'</small><strong>'+esc(f[1])+'</strong></div>').join("")+'</div>'+advice+officialSources+pauses+(leg.notes?'<div class="stay-notes">'+esc(leg.notes)+'</div>':"")+'<div class="inline-links">'+(leg.ticketUrl?'<a href="'+esc(leg.ticketUrl)+'" target="_blank" rel="noopener noreferrer">Ouvrir le billet / transporteur ↗</a>':"")+'<a href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((leg.origin||"")+" "+(leg.destination||""))+'" target="_blank" rel="noopener noreferrer">Voir le trajet ↗</a></div><div class="transport-actions"><button type="button" data-action="edit-transport" data-id="'+esc(leg.id)+'">Modifier</button><button type="button" data-action="delete-transport" data-id="'+esc(leg.id)+'">Supprimer</button></div></article>';
+  return '<article class="transport-card"><div class="transport-card-head"><div class="transport-mode"><span class="transport-mode-icon">'+(icons[leg.mode]||"↗")+'</span><span><strong>'+esc(directionName[leg.direction]||"Trajet")+' · '+esc(modeName[leg.mode]||"Transport")+'</strong><small>'+esc(leg.operator||"Transporteur à préciser")+(leg.service?" · "+esc(leg.service):"")+(leg.number?" · "+esc(leg.number):"")+'</small></span></div><span class="status-pill">À vérifier</span></div><div class="transport-route"><div class="transport-stop"><strong>'+esc(leg.origin||"Départ")+'</strong><small>'+esc(leg.departureDate?dateLabel(leg.departureDate):"Date à préciser")+' · '+esc(leg.departureTime||"—")+'</small></div><span class="transport-line">→</span><div class="transport-stop"><strong>'+esc(leg.destination||"Arrivée")+'</strong><small>'+esc(leg.arrivalDate?dateLabel(leg.arrivalDate):"Date à préciser")+' · '+esc(leg.arrivalTime||"—")+'</small></div></div><div class="transport-facts">'+facts.map(f=>'<div class="transport-fact"><small>'+esc(f[0])+'</small><strong>'+esc(f[1])+'</strong></div>').join("")+'</div>'+advice+officialSources+liveStatusSlot(leg)+pauses+(leg.notes?'<div class="stay-notes">'+esc(leg.notes)+'</div>':"")+'<div class="inline-links">'+(leg.ticketUrl?'<a href="'+esc(leg.ticketUrl)+'" target="_blank" rel="noopener noreferrer">Ouvrir le billet / transporteur ↗</a>':"")+'<a href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((leg.origin||"")+" "+(leg.destination||""))+'" target="_blank" rel="noopener noreferrer">Voir le trajet ↗</a></div><div class="transport-actions"><button type="button" data-action="edit-transport" data-id="'+esc(leg.id)+'">Modifier</button><button type="button" data-action="delete-transport" data-id="'+esc(leg.id)+'">Supprimer</button></div></article>';
  }).join("")+'</div>';
  node.innerHTML+=renderLocalTransitSources(t);
- const warnings=getWarnings(t);if(warnings.length)node.innerHTML+='<div class="transport-warnings">'+warnings.map(w=>'<div class="transport-warning">⚠ '+esc(w)+'</div>').join("")+'</div>';
+ startLiveRefresh(t);\n const warnings=getWarnings(t);if(warnings.length)node.innerHTML+='<div class="transport-warnings">'+warnings.map(w=>'<div class="transport-warning">⚠ '+esc(w)+'</div>').join("")+'</div>';
 }
 function renderActivities(t){
+ const planWarnings=getPlanningWarnings(t);$("#itinerary-warnings").innerHTML=planWarnings.length?'<div class="transport-warnings">'+planWarnings.map(w=>'<div class="transport-warning">⚠ '+esc(w)+'</div>').join("")+'</div>':"";
  const items=(t.activities||[]).slice().sort((a,b)=>((a.date||"9999-99-99")+" "+(a.startTime||"99:99")).localeCompare((b.date||"9999-99-99")+" "+(b.startTime||"99:99"))),done=items.filter(a=>a.done).length;
  $("#itinerary-summary").innerHTML='<span class="summary-chip">'+items.length+' activité(s)</span><span class="summary-chip">'+done+' faite(s)</span><span class="summary-chip">'+items.filter(a=>a.bookingRequired&&!a.done).length+' réservation(s) à vérifier</span>';
  if(!items.length){$("#activities-list").innerHTML='<div class="empty-inline">Ton programme est encore vierge.<br>Ajoute un lieu ou demande à PIMI de préparer une étape.</div>';return}
@@ -169,7 +270,7 @@ function renderChecklist(t){
  $("#checklist-content").innerHTML=list.map(x=>'<label class="check-row '+(x.done?"done":"")+'"><input type="checkbox" data-action="toggle-check" data-id="'+esc(x.id)+'" '+(x.done?"checked":"")+'><span>'+esc(x.label)+'</span></label>').join("")||'<div class="empty-inline">Aucune tâche.</div>';
 }
 function renderMap(t){
- if(!window.L){setTimeout(()=>{if(window.L&&activeTrip())renderMap(activeTrip())},350);return}
+ if(!window.L){const node=$("#map");if(node)node.innerHTML='<div class="offline-map-note">La carte nécessite le chargement de Leaflet et des tuiles cartographiques. Les adresses et les étapes restent accessibles hors connexion.</div>';return}
  const center=t.geo?[t.geo.lat,t.geo.lon]:[20,0];
  if(!map){map=L.map("map",{scrollWheelZoom:false}).setView(center,t.geo?12:2);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);markers=L.layerGroup().addTo(map)}
  if(mapTripId!==t.id){mapTripId=t.id;map.setView(center,t.geo?12:2)}markers.clearLayers();
@@ -185,8 +286,35 @@ async function fetchDestination(t){const id=t.id,q=t.destination;try{const g=awa
 async function geocodeStay(){const t=activeTrip(),s=t&&t.accommodation;if(!t||!s||!s.address)return;try{const g=await geocode(s.address);if(g&&activeTrip()&&activeTrip().id===t.id){s.geo=g;save();renderMap(t)}}catch(e){}}
 const weatherText=c=>({0:"Ciel dégagé",1:"Plutôt dégagé",2:"Partiellement nuageux",3:"Couvert",45:"Brouillard",48:"Brouillard givrant",51:"Bruine légère",53:"Bruine",55:"Bruine dense",61:"Pluie faible",63:"Pluie",65:"Forte pluie",71:"Neige faible",73:"Neige",75:"Forte neige",80:"Averses",81:"Averses",82:"Fortes averses",95:"Orage",96:"Orage et grêle",99:"Orage violent"}[c]||"Conditions variables");
 const weatherIcon=c=>c===0?"☀":c<=3?"⛅":c<=48?"☁":c<=67?"🌧":c<=77?"❄":c<=82?"🌦":"⛈";
-async function fetchWeather(t){const id=++weatherRequest;weatherData=null;weatherError="";if(!t.geo)return;try{const url="https://api.open-meteo.com/v1/forecast?latitude="+t.geo.lat+"&longitude="+t.geo.lon+"&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=5&timezone=auto",r=await fetch(url);if(!r.ok)throw new Error("Prévisions indisponibles");const d=await r.json();if(id!==weatherRequest)return;weatherData={tripId:t.id,data:d};renderWeather()}catch(e){weatherError="La météo n’est pas disponible.";renderWeather()}}
-function renderWeather(){const n=$("#weather-content");if(weatherError){n.textContent=weatherError;return}if(!weatherData){n.innerHTML='<span class="loading-spinner"></span><span>Recherche de la météo…</span>';return}const c=weatherData.data.current,d=weatherData.data.daily;n.innerHTML='<div class="weather-temp">'+Math.round(c.temperature_2m)+'°</div><div class="weather-copy"><strong>'+weatherIcon(c.weather_code)+' '+weatherText(c.weather_code)+'</strong><small>Ressenti '+Math.round(c.apparent_temperature)+'° · Vent '+Math.round(c.wind_speed_10m)+' km/h</small><small>Humidité '+c.relative_humidity_2m+' %</small></div><div class="weather-days">'+d.time.map((x,i)=>'<div class="weather-day"><span>'+["Auj.","Dem.","J+2","J+3","J+4"][i]+'</span><strong>'+weatherIcon(d.weather_code[i])+'</strong><span>'+Math.round(d.temperature_2m_min[i])+'° / '+Math.round(d.temperature_2m_max[i])+'°</span></div>').join("")+'</div>'}
+async function fetchWeather(t){
+ const id=++weatherRequest,key="pepper-weather-v1:"+t.id;
+ weatherData=null;weatherError="";
+ const cached=parse(localStorage.getItem(key),null);
+ if(!navigator.onLine){
+  if(cached)weatherData={tripId:t.id,data:cached.data,fetchedAt:cached.fetchedAt,stale:true};
+  else weatherError="Météo indisponible hors connexion.";
+  renderWeather();return;
+ }
+ if(cached)weatherData={tripId:t.id,data:cached.data,fetchedAt:cached.fetchedAt,stale:true};
+ renderWeather();
+ try{
+  const url="https://api.open-meteo.com/v1/forecast?latitude="+t.geo.lat+"&longitude="+t.geo.lon+"&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=5&timezone=auto";
+  const response=await fetch(url,{signal:AbortSignal.timeout(12000)});
+  if(!response.ok)throw new Error("Prévisions indisponibles");
+  const data=await response.json();
+  if(id!==weatherRequest)return;
+  const stored={data,fetchedAt:new Date().toISOString()};
+  try{localStorage.setItem(key,JSON.stringify(stored))}catch(e){}
+  weatherData={tripId:t.id,data,fetchedAt:stored.fetchedAt,stale:false};weatherError="";
+  renderWeather();
+ }catch(error){
+  if(id!==weatherRequest)return;
+  if(cached){weatherData={tripId:t.id,data:cached.data,fetchedAt:cached.fetchedAt,stale:true};weatherError="Connexion météo indisponible. Affichage de la dernière prévision enregistrée."}
+  else weatherError="La météo n’est pas disponible.";
+  renderWeather();
+ }
+}
+function renderWeather(){const n=$("#weather-content");if(!weatherData){n.textContent=weatherError||"Recherche de la météo…";return}const c=weatherData.data.current,d=weatherData.data.daily,stamp=weatherData.fetchedAt?new Intl.DateTimeFormat("fr-FR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(weatherData.fetchedAt)):"heure inconnue";n.innerHTML='<div class="weather-temp">'+Math.round(c.temperature_2m)+'°</div><div class="weather-copy"><strong>'+weatherIcon(c.weather_code)+' '+weatherText(c.weather_code)+'</strong><small>Ressenti '+Math.round(c.apparent_temperature)+'° · Vent '+Math.round(c.wind_speed_10m)+' km/h</small><small>Humidité '+c.relative_humidity_2m+' %</small><small>'+(weatherData.stale?"Dernière donnée connue : ":"Actualisée : ")+esc(stamp)+'</small>'+(weatherError?'<small>'+esc(weatherError)+'</small>':"")+'</div><div class="weather-days">'+d.time.map((x,i)=>'<div class="weather-day"><span>'+["Auj.","Dem.","J+2","J+3","J+4"][i]+'</span><strong>'+weatherIcon(d.weather_code[i])+'</strong><span>'+Math.round(d.temperature_2m_min[i])+'° / '+Math.round(d.temperature_2m_max[i])+'°</span></div>').join("")+'</div>'}
 function openModal(title,subtitle,body){modalRoot.innerHTML='<div class="modal-overlay" data-action="close-modal"><section class="modal" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><div class="modal-head"><div><h2>'+esc(title)+'</h2><p>'+esc(subtitle||"")+'</p></div><button class="modal-close" type="button" data-action="close-modal">×</button></div>'+body+'</section></div>';const first=$("input,textarea,select,button",modalRoot);if(first)first.focus({preventScroll:true})}
 function closeModal(){modalRoot.innerHTML=""}
 function tripForm(t){
@@ -246,7 +374,45 @@ function markChecklist(event){const t=activeTrip(),item=t&&t.checklist.find(x=>x
 function addChecklist(){const label=prompt("Quelle tâche veux-tu ajouter à ta checklist ?");if(!label||!label.trim())return;const t=activeTrip();t.checklist.push({id:uid(),label:label.trim(),done:false});save();renderChecklist(t)}
 function slug(v){return String(v||"voyage").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"voyage"}
 function download(content,name,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url)}
-function exportJSON(){const t=activeTrip();if(t)download(JSON.stringify(t,null,2),slug(t.destination)+"-pepper.json","application/json")}
+function exportJSON(){const t=activeTrip();if(!t)return;const backup={format:"pepper-backup",version:1,exportedAt:new Date().toISOString(),activeTripId:state.activeTripId,trips:state.trips};download(JSON.stringify(backup,null,2),"pepper-sauvegarde-"+today()+".json","application/json")}
+
+function importModal(){
+ const body='<form id="import-form"><div class="field full"><label>FICHIER DE SAUVEGARDE JSON</label><input type="file" name="backupFile" accept=".json,application/json" required><span class="field-help">Une sauvegarde PEPPER ou un ancien export de voyage est accepté (10 Mo maximum).</span></div><div class="field full"><label>MODE D’IMPORTATION</label><select name="strategy"><option value="merge">Fusionner avec mes voyages actuels</option><option value="replace">Remplacer tous les voyages de cet appareil</option></select></div><div class="arrival-helper">L’import peut contenir des codes de réservation ou des informations privées. Le fichier est lu localement et n’est pas envoyé à GitHub.</div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit">Importer</button></div></form>';
+ openModal("Importer une sauvegarde","Restaure un voyage ou un carnet complet sur cet appareil.",body);
+}
+async function importBackup(form){
+ const file=form.elements.backupFile.files?.[0];if(!file){toast("Choisis un fichier JSON.","error");return}
+ if(file.size>10*1024*1024){toast("Le fichier dépasse la limite de 10 Mo.","error");return}
+ try{
+  const parsed=JSON.parse(await file.text());
+  let incoming=Array.isArray(parsed.trips)?parsed.trips:(parsed.trip?[parsed.trip]:(parsed.destination?[parsed]:[]));
+  if(!incoming.length||incoming.some(t=>!t||typeof t!=="object"||!String(t.destination||"").trim()))throw new Error("Ce fichier ne contient pas de voyage PEPPER valide.");
+  incoming=incoming.map(t=>{
+   const item=JSON.parse(JSON.stringify(t));
+   item.id=item.id||uid();item.activities=Array.isArray(item.activities)?item.activities:[];
+   item.transport=Array.isArray(item.transport)?item.transport:[];item.expenses=Array.isArray(item.expenses)?item.expenses:[];
+   item.checklist=Array.isArray(item.checklist)?item.checklist:DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false}));
+   return item;
+  });
+  const strategy=form.elements.strategy.value;
+  if(strategy==="replace"){
+   state.trips=incoming;state.activeTripId=incoming.some(t=>t.id===parsed.activeTripId)?parsed.activeTripId:incoming[0].id;
+  }else{
+   let added=0;
+   for(const trip of incoming){
+    if(state.trips.some(existing=>existing.id===trip.id||(
+      existing.destination===trip.destination&&existing.startDate===trip.startDate&&existing.endDate===trip.endDate
+    )))continue;
+    state.trips.push(trip);added++;
+   }
+   if(!activeTrip()&&state.trips.length)state.activeTripId=state.trips[0].id;
+   if(!added){toast("Aucun nouveau voyage : ces données semblent déjà présentes.");closeModal();return}
+  }
+  weatherData=null;weatherError="";save();closeModal();render();
+  toast(strategy==="replace"?"Sauvegarde restaurée.":" "+incoming.length+" voyage(s) analysé(s), fusion effectuée.");
+ }catch(error){toast(error.message||"Fichier JSON invalide.","error")}
+}
+
 function exportICS(){
  const t=activeTrip();if(!t)return;const pad=n=>String(n).padStart(2,"0"),stamp=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");
  const events=t.activities.filter(a=>a.date).map(a=>{
@@ -281,15 +447,15 @@ async function copyRequest(event){
 }
 
 function settingsModal(){
- const t=activeTrip();
+ const t=activeTrip(),api=apiBaseUrl();
  const body='<div class="detail-section"><h4>Stockage et confidentialité</h4><p>Les carnets de voyage, billets, références de réservation et cases à cocher sont enregistrés dans le stockage local de ce navigateur. Ils ne sont pas synchronisés avec GitHub ni envoyés dans le dépôt public.</p><p>Pour conserver une copie, exporte le voyage au format JSON et garde ce fichier dans un espace privé.</p></div><div class="detail-grid"><div class="detail-item"><small>Voyages enregistrés</small><strong>'+state.trips.length+'</strong></div><div class="detail-item"><small>Voyage actif</small><strong>'+esc(t?.destination||"Aucun")+'</strong></div></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Fermer</button><button class="primary-button" type="button" data-action="export-json" '+(!t?"disabled":"")+'>Exporter le voyage (JSON)</button></div>';
- openModal("Réglages de PEPPER","Stockage local, sauvegarde et confidentialité.",body);
+ openModal("Réglages de PEPPER","Stockage local, sauvegarde et confidentialité.",'<form id="settings-form"><div class="field full"><label>URL DU SERVICE TEMPS RÉEL PEPPER (NETLIFY)</label><input type="url" name="apiBaseUrl" value="'+esc(api)+'" placeholder="https://ton-service.netlify.app"><span class="field-help">Laisse vide tant que le service Netlify n’est pas déployé. Cette URL n’est pas un secret ; aucune clé API ne doit être saisie ici.</span></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Fermer</button><button class="primary-button" type="submit">Enregistrer</button></div></form><div class="modal-actions"><button class="secondary-button" type="button" data-action="import-json">Importer une sauvegarde</button><button class="primary-button" type="button" data-action="export-json">Exporter tous les voyages</button></div>'+body);
 }
 
 function onAction(event){
  const el=event.target.closest("[data-action]");if(!el)return;const n=el.dataset.action,id=el.dataset.id;
  if(n==="close-modal"){if(event.target===el||el.matches("button"))closeModal();return}
- if(n==="settings"){settingsModal();return}
+ if(n==="settings"){settingsModal();return}if(n==="import-json"){importModal();return}
  if(n==="create-trip"){tripForm(null);return}if(n==="edit-trip"){tripForm(activeTrip());return}
  if(n==="edit-accommodation"){stayForm();return}if(n==="add-transport"){transportForm(null);return}
  if(n==="edit-transport"){transportForm(activeTrip().transport.find(x=>x.id===id));return}if(n==="delete-transport"){if(confirm("Supprimer ce trajet ?"))deleteTransport(id);return}
@@ -306,6 +472,8 @@ document.addEventListener("change",e=>{
 });
 document.addEventListener("submit",e=>{
  const f=e.target;
+ if(f.id==="settings-form"){e.preventDefault();localStorage.setItem(API_BASE_KEY,String(new FormData(f).get("apiBaseUrl")||"").trim().replace(/\/+$/,""));closeModal();if(activeTrip())renderTransport(activeTrip());toast("Réglages enregistrés sur cet appareil.");}
+ if(f.id==="import-form"){e.preventDefault();importBackup(f)}
  if(f.id==="trip-form"){e.preventDefault();saveTripForm(f)}
  if(f.id==="stay-form"){e.preventDefault();saveStay(f)}
  if(f.id==="transport-form"){e.preventDefault();saveLeg(f)}
@@ -315,5 +483,5 @@ document.addEventListener("submit",e=>{
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
 $$("[data-scroll]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.scroll,node=id==="assistant-panel"?$(".assistant-panel"):$("#"+id);if(node)node.scrollIntoView({behavior:"smooth",block:"start"})}));
-function initialise(){if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;save();render();if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js").catch(()=>{})}
+function initialise(){if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;save();render();updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();const t=activeTrip();if(t){renderMap(t);fetchWeather(t);refreshLiveTransportStatus(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}
 initialise();
