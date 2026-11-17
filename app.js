@@ -227,7 +227,7 @@ async function refreshLocalTransitStatus(trip){
  const base=apiBaseUrl(),cacheKey="pepper-idfm-v1:"+trip.id;
  if(!base||!apiAccessToken()){
   const cached=parse(localStorage.getItem(cacheKey),null);
-  target.innerHTML=cached?renderIdfmStatus(cached):'<strong>Suivi local IDFM prêt à activer</strong><small>Déploie le service Netlify, ajoute IDFM_API_KEY dans ses variables et renseigne le MonitoringRef de l’arrêt.</small>';
+  target.innerHTML=cached?renderIdfmStatus(cached):'<strong>Suivi local IDFM prêt à activer</strong><small>Déploie le service Netlify, configure PEPPER_API_TOKEN et IDFM_API_KEY côté serveur, puis renseigne le MonitoringRef de l’arrêt.</small>';
   return;
  }
  try{
