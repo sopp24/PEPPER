@@ -26,10 +26,8 @@ test("JALAP validates message size and bounds conversation history", () => {
   assert.throws(() => validateInput({ message: "x".repeat(3001) }), /entre 1 et 3 000/);
 });
 
-test("JALAP extracts structured output from Groq Chat Completions", () => {
-  const payload = { choices: [{ message: { role: "assistant", content: '{"message":"Bonjour","operations":[]}' } }] };
+test("JALAP extracts structured output from the Claude Messages API", () => {
+  const payload = { content: [{ type: "text", text: '{"message":"Bonjour","operations":[]}' }] };
   assert.equal(outputText(payload), '{"message":"Bonjour","operations":[]}');
   assert.equal(outputText({ output_text: "direct" }), "direct");
-  const legacy = { output: [{ type: "message", content: [{ type: "output_text", text: "legacy" }] }] };
-  assert.equal(outputText(legacy), "legacy");
 });
