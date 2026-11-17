@@ -31,6 +31,7 @@ jobs:
         run: |
           node --check netlify/functions/transport-status.mjs
           node --check netlify/functions/jalap.mjs
+          node --check netlify/functions/jalap-dev.mjs
 
       - name: Validate service worker
         run: node --check service-worker.js
