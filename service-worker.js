@@ -1,4 +1,4 @@
-const CACHE = "pepper-static-v17";
+const CACHE = "pepper-static-v18";
 const CORE = [
   "./",
   "./index.html",
