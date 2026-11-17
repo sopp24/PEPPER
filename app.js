@@ -88,15 +88,63 @@ function renderStay(t){
  const facts=[["Arrivée / check-in",(s.checkInDate?dateLabel(s.checkInDate):"À confirmer")+" · "+(s.checkInTime||"Horaire à confirmer")],["Départ / check-out",(s.checkOutDate?dateLabel(s.checkOutDate):"À confirmer")+" · "+(s.checkOutTime||"Horaire à confirmer")],["Type",s.type||"Non précisé"],["Contact",s.contact||"À confirmer"],["Téléphone",s.phone||"Non renseigné"],["Équipements",s.amenities||"À préciser"],["Parking",s.parking||"À vérifier"],["Petit-déjeuner",s.breakfast||"À vérifier"]];
  node.innerHTML='<div class="stay-top"><div><div class="stay-name">'+esc(s.name)+'</div><div class="stay-address">'+esc(s.address||"Adresse à préciser")+'</div></div><span class="status-pill">'+esc(s.status||"À confirmer")+'</span></div><div class="stay-grid">'+facts.map(f=>'<div class="stay-fact"><small>'+esc(f[0])+'</small><strong>'+esc(f[1])+'</strong></div>').join("")+'</div>'+(s.access||s.notes?'<div class="stay-notes">'+(s.access?"<strong>Accès / arrivée :</strong> "+esc(s.access)+"<br>":"")+(s.notes?"<strong>Consignes :</strong> "+esc(s.notes):"")+'</div>':"")+'<div class="inline-links">'+(s.bookingUrl?'<a href="'+esc(s.bookingUrl)+'" target="_blank" rel="noopener noreferrer">Réservation ↗</a>':"")+'<a href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(s.address||s.name)+'" target="_blank" rel="noopener noreferrer">Itinéraire vers le logement ↗</a></div>';
 }
+
+function normalizedSearchText(value){return String(value||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase()}
+const OFFICIAL_LOCAL_NETWORKS=[
+ {terms:["athenes","athens"],name:"OASA Telematics — Athènes",url:"https://www.oasa.gr/en/passenger-service/tools/telematics-app/",description:"Horaires, alertes et positions en temps réel des bus et trolleybus."},
+ {terms:["bordeaux"],name:"TBM — Bordeaux",url:"https://www.infotbm.com/fr/horaires",description:"Prochains passages en temps réel et horaires des lignes du réseau TBM."},
+ {terms:["lyon"],name:"TCL — Lyon",url:"https://www.tcl.fr/infos-trafic",description:"Info trafic, horaires et itinéraires du réseau TCL."},
+ {terms:["marseille"],name:"RTM — Marseille",url:"https://www.rtm.fr/information-voyageurs",description:"Horaires, itinéraires et information voyageurs en temps réel."},
+ {terms:["nantes"],name:"Naolib — Nantes",url:"https://naolib.fr/fr/application-naolib-1",description:"Horaires en temps réel, itinéraires et info trafic."},
+ {terms:["lille"],name:"ilévia — Lille",url:"https://www.ilevia.fr/cms/institutionnel/application-ilevia",description:"Application officielle et perturbations du réseau."},
+ {terms:["rennes"],name:"STAR — Rennes",url:"https://www.star.fr/star-et-moi/nouvel-habitant-metropole/star-lappli",description:"Horaires, itinéraires, alertes et passages en temps réel."},
+ {terms:["paris","ile-de-france","ile de france"],name:"RATP / Île-de-France Mobilités — Paris",url:"https://www.ratp.fr/aide-contact/questions/preparer-mon-trajet/information-trafic/ou-minformer-cas-perturbation",description:"Info trafic des lignes et applications officielles Bonjour RATP et IDFM."}
+];
+function suggestedLocalNetwork(destination){const value=normalizedSearchText(destination);return OFFICIAL_LOCAL_NETWORKS.find(item=>item.terms.some(term=>value.includes(term)))||null}
+function officialLegSources(leg){
+ const op=normalizedSearchText(leg.operator),links=[];
+ if(leg.mode==="train"){
+  if(/sncf|inoui|ouigo|intercites|ter/.test(op)){
+   links.push({label:"SNCF Connect — billet et voyage",url:"https://www.sncf-connect.com/"});
+   links.push({label:"SNCF Open Data — horaires et perturbations",url:"https://data.sncf.com/explore/dataset/horaires-sncf/"});
+  }else if(op.includes("eurostar"))links.push({label:"Eurostar — informations de voyage",url:"https://www.eurostar.com/fr-fr"});
+  else if(op.includes("trenitalia"))links.push({label:"Trenitalia — site officiel",url:"https://www.trenitalia.com/"});
+  else if(op.includes("renfe"))links.push({label:"Renfe — site officiel",url:"https://www.renfe.com/es/en"});
+ }
+ if(leg.mode==="plane"){
+  if(op.includes("air france"))links.push({label:"Air France — application et suivi des vols",url:"https://wwws.airfrance.fr/information/prepare/services/app-air-france"});
+  else if(op.includes("easyjet"))links.push({label:"easyJet — suivi de vol en direct",url:"https://www.easyjet.com/fr/suivi-de-vol-en-direct"});
+  else if(op.includes("ryanair"))links.push({label:"Ryanair — site et espace voyage officiel",url:"https://www.ryanair.com/fr/fr"});
+ }
+ if(leg.mode==="bus"&&op.includes("flixbus"))links.push({label:"FlixBus — suivi du trajet",url:"https://global.flixbus.com/track"});
+ if(leg.mode==="car"){
+  links.push({label:"Bison Futé — trafic routier en temps réel (France)",url:"https://www.bison-fute.gouv.fr/maintenant.html"});
+  links.push({label:"Bison Futé — trafic des grandes agglomérations",url:"https://www.bison-fute.gouv.fr/trafic-des-agglomerations.html"});
+  if(op.includes("vinci"))links.push({label:"VINCI Autoroutes — trafic en direct",url:"https://www.vinci-autoroutes.com/fr/autoroutes-temps-reel/"});
+ }
+ return links;
+}
+function renderOfficialLegSources(leg){
+ const links=officialLegSources(leg);
+ if(!links.length)return "";
+ return '<div class="arrival-advice"><strong>Suivi auprès des sources officielles</strong><div class="inline-links">'+links.map(link=>'<a href="'+esc(link.url)+'" target="_blank" rel="noopener noreferrer">'+esc(link.label)+' ↗</a>').join("")+'</div><small>Les informations sont consultées sur le site ou l’application de l’opérateur ; elles ne sont pas synchronisées dans PEPPER.</small></div>';
+}
+function renderLocalTransitSources(t){
+ const inferred=suggestedLocalNetwork(t.destination),name=t.localTransitName||inferred?.name,url=t.localTransitUrl||inferred?.url,traffic=t.localTrafficUrl;
+ if(!name&&!url&&!traffic)return '<div class="arrival-advice"><strong>Transports en commun à destination</strong><p>Le réseau officiel de cette ville n’est pas encore référencé. Tu peux ajouter son nom et le lien de son application ou de son info trafic dans « Modifier le voyage ».</p></div>';
+ return '<div class="arrival-advice"><strong>Réseau de transport sur place · '+esc(name||"Source officielle")+'</strong><p>'+esc(inferred?.description||"Utilise le site ou l’application officielle du réseau pour les horaires, les perturbations, les titres et les changements de service.")+'</p><div class="inline-links">'+(url?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Ouvrir le site / l’application officielle ↗</a>':"")+(traffic?'<a href="'+esc(traffic)+'" target="_blank" rel="noopener noreferrer">Ouvrir l’info trafic officielle ↗</a>':"")+'</div><small>PEPPER ouvre la source officielle ; les données temps réel du réseau ne sont pas encore intégrées à son écran.</small></div>';
+}
+
 function renderTransport(t){
- const node=$("#transport-content"),legs=t.transport||[];if(!legs.length){node.innerHTML='<div class="empty-inline">Aucun trajet renseigné. Ajoute ton aller, ton retour ou une correspondance pour afficher les marges et alertes de planning.</div>';return}
+ const node=$("#transport-content"),legs=t.transport||[];if(!legs.length){node.innerHTML='<div class="empty-inline">Aucun trajet renseigné. Ajoute ton aller, ton retour ou une correspondance pour afficher les marges et alertes de planning.</div>'+renderLocalTransitSources(t);return}
  node.innerHTML='<div class="transport-list">'+legs.map(leg=>{
   const info=arrivalInfo(leg),dep=dateTime(leg.departureDate,leg.departureTime),arr=dateTime(leg.arrivalDate,leg.arrivalTime),facts=[["Départ",dep?dateTimeLabel(dep):"À préciser"],["Arrivée",arr?dateTimeLabel(arr):"À préciser"],["Voie / terminal",leg.platform||"À vérifier"],["Bagages",leg.baggage||"À vérifier"],["Limite d’embarquement",leg.boardingDeadline||"À vérifier"]];
   const when=info.arrivalBy?"Arrivée conseillée au plus tard : "+dateTimeLabel(info.arrivalBy)+". ":"",roadEta=info.estimatedArrival?"Arrivée voiture indicative : "+dateTimeLabel(info.estimatedArrival)+" (pauses de 15 min / 2 h estimées, hors trafic). ":"";
-  const advice='<div class="arrival-advice"><strong>'+esc(info.advice.title)+'</strong>'+esc(when+roadEta+info.advice.detail)+'<br><small>'+(info.custom?"Marge personnalisée": "Repère transporteur")+(info.advice.source?" · "+esc(info.advice.source):"")+'</small>'+(info.advice.url?'<br><a href="'+esc(info.advice.url)+'" target="_blank" rel="noopener noreferrer">Consigne officielle ↗</a>':"")+'</div>';
+  const officialSources=renderOfficialLegSources(leg);\n  const advice='<div class="arrival-advice"><strong>'+esc(info.advice.title)+'</strong>'+esc(when+roadEta+info.advice.detail)+'<br><small>'+(info.custom?"Marge personnalisée": "Repère transporteur")+(info.advice.source?" · "+esc(info.advice.source):"")+'</small>'+(info.advice.url?'<br><a href="'+esc(info.advice.url)+'" target="_blank" rel="noopener noreferrer">Consigne officielle ↗</a>':"")+'</div>';
   const pauses=leg.mode==="car"&&Number(leg.drivingDurationMinutes)>120?'<div class="transport-warning">Trajet long : prévois une pause au moins toutes les 2 heures et dès les premiers signes de fatigue. '+(leg.plannedStops?"Pauses planifiées : "+esc(leg.plannedStops)+".":"")+'</div>':"";
-  return '<article class="transport-card"><div class="transport-card-head"><div class="transport-mode"><span class="transport-mode-icon">'+(icons[leg.mode]||"↗")+'</span><span><strong>'+esc(directionName[leg.direction]||"Trajet")+' · '+esc(modeName[leg.mode]||"Transport")+'</strong><small>'+esc(leg.operator||"Transporteur à préciser")+(leg.service?" · "+esc(leg.service):"")+(leg.number?" · "+esc(leg.number):"")+'</small></span></div><span class="status-pill">À vérifier</span></div><div class="transport-route"><div class="transport-stop"><strong>'+esc(leg.origin||"Départ")+'</strong><small>'+esc(leg.departureDate?dateLabel(leg.departureDate):"Date à préciser")+' · '+esc(leg.departureTime||"—")+'</small></div><span class="transport-line">→</span><div class="transport-stop"><strong>'+esc(leg.destination||"Arrivée")+'</strong><small>'+esc(leg.arrivalDate?dateLabel(leg.arrivalDate):"Date à préciser")+' · '+esc(leg.arrivalTime||"—")+'</small></div></div><div class="transport-facts">'+facts.map(f=>'<div class="transport-fact"><small>'+esc(f[0])+'</small><strong>'+esc(f[1])+'</strong></div>').join("")+'</div>'+advice+pauses+(leg.notes?'<div class="stay-notes">'+esc(leg.notes)+'</div>':"")+'<div class="inline-links">'+(leg.ticketUrl?'<a href="'+esc(leg.ticketUrl)+'" target="_blank" rel="noopener noreferrer">Ouvrir le billet / transporteur ↗</a>':"")+'<a href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((leg.origin||"")+" "+(leg.destination||""))+'" target="_blank" rel="noopener noreferrer">Voir le trajet ↗</a></div><div class="transport-actions"><button type="button" data-action="edit-transport" data-id="'+esc(leg.id)+'">Modifier</button><button type="button" data-action="delete-transport" data-id="'+esc(leg.id)+'">Supprimer</button></div></article>';
+  return '<article class="transport-card"><div class="transport-card-head"><div class="transport-mode"><span class="transport-mode-icon">'+(icons[leg.mode]||"↗")+'</span><span><strong>'+esc(directionName[leg.direction]||"Trajet")+' · '+esc(modeName[leg.mode]||"Transport")+'</strong><small>'+esc(leg.operator||"Transporteur à préciser")+(leg.service?" · "+esc(leg.service):"")+(leg.number?" · "+esc(leg.number):"")+'</small></span></div><span class="status-pill">À vérifier</span></div><div class="transport-route"><div class="transport-stop"><strong>'+esc(leg.origin||"Départ")+'</strong><small>'+esc(leg.departureDate?dateLabel(leg.departureDate):"Date à préciser")+' · '+esc(leg.departureTime||"—")+'</small></div><span class="transport-line">→</span><div class="transport-stop"><strong>'+esc(leg.destination||"Arrivée")+'</strong><small>'+esc(leg.arrivalDate?dateLabel(leg.arrivalDate):"Date à préciser")+' · '+esc(leg.arrivalTime||"—")+'</small></div></div><div class="transport-facts">'+facts.map(f=>'<div class="transport-fact"><small>'+esc(f[0])+'</small><strong>'+esc(f[1])+'</strong></div>').join("")+'</div>'+advice+officialSources+pauses+(leg.notes?'<div class="stay-notes">'+esc(leg.notes)+'</div>':"")+'<div class="inline-links">'+(leg.ticketUrl?'<a href="'+esc(leg.ticketUrl)+'" target="_blank" rel="noopener noreferrer">Ouvrir le billet / transporteur ↗</a>':"")+'<a href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((leg.origin||"")+" "+(leg.destination||""))+'" target="_blank" rel="noopener noreferrer">Voir le trajet ↗</a></div><div class="transport-actions"><button type="button" data-action="edit-transport" data-id="'+esc(leg.id)+'">Modifier</button><button type="button" data-action="delete-transport" data-id="'+esc(leg.id)+'">Supprimer</button></div></article>';
  }).join("")+'</div>';
+ node.innerHTML+=renderLocalTransitSources(t);
  const warnings=getWarnings(t);if(warnings.length)node.innerHTML+='<div class="transport-warnings">'+warnings.map(w=>'<div class="transport-warning">⚠ '+esc(w)+'</div>').join("")+'</div>';
 }
 function renderActivities(t){
