@@ -356,3 +356,43 @@ gap:14px;align-items:stretch}
  .map-footer-actions{width:100%;justify-content:space-between}
  .tools-panel .tool-actions{grid-template-columns:1fr}
 }
+
+
+/* JALAP — dual modes and GitHub development preview */
+.jalap-mode-switch{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:13px 0 7px;padding:4px;border:1px solid rgba(255,255,255,.09);border-radius:12px;background:rgba(0,0,0,.18)}
+.jalap-mode-switch button{min-height:39px;padding:7px 10px;border:1px solid transparent;border-radius:9px;color:#aeb7ba;background:transparent;font-size:11px;font-weight:650;transition:background .18s ease,border-color .18s ease,color .18s ease}
+.jalap-mode-switch button.is-active{border-color:rgba(139,217,232,.24);color:#e0faff;background:rgba(139,217,232,.12);box-shadow:inset 0 0 0 1px rgba(139,217,232,.04)}
+.jalap-mode-switch button[data-mode="development"].is-active{border-color:rgba(237,120,197,.28);color:#ffe3f2;background:rgba(237,120,197,.12)}
+.jalap-mode-help{margin:0 0 11px;color:#899298;font-size:9px;line-height:1.55}
+.jalap-dev-preview{border-color:rgba(237,120,197,.3)}
+.jalap-dev-warning{margin:6px 0 12px;color:#b9bec2;font-size:10px;line-height:1.6}
+.jalap-dev-warning strong{color:#f2bfdc}
+.jalap-dev-file{margin:8px 0;border:1px solid rgba(255,255,255,.09);border-radius:10px;background:rgba(0,0,0,.14);overflow:hidden}
+.jalap-dev-file summary{display:flex;flex-direction:column;gap:3px;padding:11px;cursor:pointer;list-style:none}
+.jalap-dev-file summary::-webkit-details-marker{display:none}
+.jalap-dev-file summary:after{content:"Afficher les différences";color:#92d9e7;font-size:9px}
+.jalap-dev-file[open] summary:after{content:"Masquer les différences"}
+.jalap-dev-file summary strong{color:#e9eff0;font-size:11px;overflow-wrap:anywhere}
+.jalap-dev-file summary small{color:#929da1;font-size:9px;line-height:1.45}
+.jalap-dev-edit{padding:0 10px 11px}
+.jalap-dev-edit>strong{display:block;margin:8px 0;color:#d5dadd;font-size:9px}
+.jalap-dev-diff{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.jalap-dev-diff>span{color:#94a0a4;font-size:8px;font-weight:800;letter-spacing:.1em}
+.jalap-dev-diff>span:nth-of-type(3){color:#b5d994}
+.jalap-dev-diff pre{min-width:0;max-height:155px;overflow:auto;margin:0;padding:8px;border:1px solid rgba(255,255,255,.08);border-radius:7px;color:#f1c6c6;background:rgba(150,40,52,.09);font:9px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+.jalap-dev-diff pre:last-child{color:#d7edbd;background:rgba(80,130,72,.09)}
+.jalap-dev-edit .jalap-dev-diff span:nth-of-type(2){grid-column:2}
+.jalap-dev-edit .jalap-dev-diff pre:first-of-type{grid-column:1}
+.jalap-dev-edit .jalap-dev-diff pre:last-of-type{grid-column:2}
+.jalap-commit-link{margin:3px 0 8px 38px;font-size:10px}
+.jalap-commit-link a{color:#9bdce7;text-decoration:none}
+.jalap-commit-link a:hover{text-decoration:underline}
+.jalap-proposal-actions button:first-child{border-color:rgba(139,217,232,.25);color:#dffaff;background:rgba(139,217,232,.1)}
+.jalap-proposal-actions button:disabled{opacity:.5;cursor:wait}
+@media(max-width:540px){
+ .jalap-mode-switch button{min-height:43px;font-size:10px}
+ .jalap-dev-diff{grid-template-columns:1fr}
+ .jalap-dev-diff>span,.jalap-dev-diff pre{grid-column:1!important}
+ .jalap-dev-diff pre{max-height:130px}
+ .jalap-proposal-actions{flex-direction:column}
+}
