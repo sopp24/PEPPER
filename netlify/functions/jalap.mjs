@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 
-const OPENAI_URL = "https://api.openai.com/v1/responses";
-const MODEL_DEFAULT = "gpt-6-luna";
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const MODEL_DEFAULT = "openai/gpt-oss-120b";
 const MAX_BODY_BYTES = 30000;
 const MAX_MESSAGE_CHARS = 3000;
 const MAX_HISTORY_ITEMS = 10;
@@ -97,7 +97,9 @@ Ne fais jamais apparaître de code de réservation, numéro de téléphone ou d�
 Une seule demande peut générer jusqu'à 8 opérations. Ne reproduis pas le contexte entier dans le message.`;
 
 function outputText(payload) {
-  if (typeof payload.output_text === "string") return payload.output_text;
+  const chatContent = payload?.choices?.[0]?.message?.content;
+  if (typeof chatContent === "string") return chatContent;
+  if (typeof payload?.output_text === "string") return payload.output_text;
   const chunks = [];
   for (const item of payload.output || []) {
     if (item.type !== "message" || !Array.isArray(item.content)) continue;
@@ -135,8 +137,8 @@ export default async (request) => {
   if (!expectedToken) return Response.json({ error: "Le service PEPPER n'est pas configuré : variable PEPPER_API_TOKEN absente." }, { status: 503, headers });
   if (!isValidBearer(request, expectedToken)) return Response.json({ error: "Accès refusé : jeton PEPPER absent ou invalide." }, { status: 401, headers });
 
-  const apiKey = runtimeEnv("OPENAI_API_KEY");
-  if (!apiKey) return Response.json({ error: "JALAP n'est pas encore activé : ajoute OPENAI_API_KEY dans les variables Netlify (scope Functions)." }, { status: 503, headers });
+  const apiKey = runtimeEnv("GROQ_API_KEY");
+  if (!apiKey) return Response.json({ error: "JALAP n'est pas encore activé : ajoute GROQ_API_KEY dans les variables Netlify (scope Functions)." }, { status: 503, headers });
 
   const declaredLength = Number(request.headers.get("content-length") || 0);
   if (declaredLength > MAX_BODY_BYTES) return Response.json({ error: "La demande est trop volumineuse." }, { status: 413, headers });
@@ -156,24 +158,30 @@ export default async (request) => {
   };
 
   try {
-    const upstream = await fetch(OPENAI_URL, {
+    const upstream = await fetch(GROQ_URL, {
       method: "POST",
       headers: { authorization: "Bearer " + apiKey, "content-type": "application/json" },
       body: JSON.stringify({
         model,
-        instructions: INSTRUCTIONS,
-        input: [{ role: "user", content: [{ type: "input_text", text: JSON.stringify(prompt) }] }],
-        text: { format: { type: "json_schema", name: "jalap_proposal", strict: true, schema: JALAP_SCHEMA } },
-        max_output_tokens: 1800
+        messages: [
+          { role: "system", content: INSTRUCTIONS },
+          { role: "user", content: JSON.stringify(prompt) }
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: { name: "jalap_proposal", strict: true, schema: JALAP_SCHEMA }
+        },
+        reasoning_effort: "low",
+        max_completion_tokens: 1800
       }),
       signal: AbortSignal.timeout(45000)
     });
 
     const payload = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
-      const message = upstream.status === 401 ? "La clé OpenAI configurée dans Netlify est refusée." :
-        upstream.status === 429 ? "Limite ou crédit API OpenAI atteint. Vérifie l'utilisation et la facturation du projet API." :
-        "Le service IA a répondu avec une erreur (" + upstream.status + ").";
+      const message = upstream.status === 401 ? "La clé Groq configurée dans Netlify est refusée." :
+        upstream.status === 429 ? "La limite gratuite Groq a été atteinte. Attends la réinitialisation du quota et réessaie." :
+        "Le service Groq a répondu avec une erreur (" + upstream.status + ").";
       return Response.json({ error: message }, { status: upstream.status === 429 ? 429 : 502, headers });
     }
     const raw = outputText(payload);
