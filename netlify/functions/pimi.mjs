@@ -37,7 +37,7 @@ const nullableBoolean = { type: ["boolean", "null"] };
 const DATA_PROPERTIES = {
   name: nullableString, category: nullableString, date: nullableString, startTime: nullableString,
   duration: nullableNumber, address: nullableString, description: nullableString, price: nullableNumber,
-  bookingRequired: nullableBoolean, priority: nullableString, bookingUrl: nullableString,
+  bookingRequired: nullableBoolean, bookingStatus: nullableString, priority: nullableString, bookingUrl: nullableString,
   highlights: { type: ["array", "null"], items: { type: "string" } },
   mode: nullableString, direction: nullableString, operator: nullableString, service: nullableString,
   number: nullableString, origin: nullableString, destination: nullableString,
@@ -90,7 +90,7 @@ Utilise activity_add / activity_update pour les activités, activity_delete uniq
 Utilise transport_add / transport_update pour les trajets, trip_update pour destination/dates/voyageurs/budget/notes, expense_add pour les dépenses, checklist_add pour les tâches.
 Pour une mise à jour ou suppression, targetId doit être un id exact déjà présent dans le contexte. N'invente jamais d'identifiant.
 Pour les nouveaux éléments, targetId doit être null.
-Pour activity_add, le nom est obligatoire; laisse date, horaire et durée à null si non précisés.
+Pour activity_add, le nom est obligatoire; laisse date, horaire et durée à null si non précisés. Une activité sans date reste dans la rubrique « À planifier » : ne lui attribue jamais de date par défaut. Pour une activité, bookingStatus vaut unknown, to_book, booked ou not_required. Ne marque booked que si l'utilisateur confirme avoir réservé. Une réservation confirmée ne fixe pas une date à elle seule : renseigne date et startTime uniquement si le jour et l'heure sont explicitement fournis. Si l'utilisateur demande de retirer une date, utilise date:null et startTime:null.
 Pour transport_add, mode, direction, origin et destination sont obligatoires; si une information manque, demande-la et ne crée pas le trajet.
 Pour les dates, utilise YYYY-MM-DD et respecte les dates du voyage. Ne déplace pas arbitrairement des dates.
 Ne fais jamais apparaître de code de réservation, numéro de téléphone ou détail d'accès privé dans le message ni dans les opérations.
