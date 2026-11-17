@@ -285,3 +285,74 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @media(prefers-reduced-motion:reduce){.trip-section-nav{scroll-behavior:auto}}
 
 .mobile-dock[hidden]{display:none!important}
+
+
+/* PEPPER — map/list-first adaptive workspace */
+.dashboard-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-template-areas:
+ "tickets tickets tickets tickets tickets tickets tickets tickets pocket pocket pocket pocket"
+ "weather weather weather weather weather weather stay stay stay stay stay stay"
+ "map map map map map map map map itinerary itinerary itinerary itinerary"
+ "assistant assistant assistant budget budget budget budget budget essentials essentials essentials essentials";
+gap:14px;align-items:stretch}
+.main-column,.side-column{display:contents}
+.transport-panel{grid-area:tickets;min-width:0}
+.tools-panel{grid-area:pocket;min-width:0}
+.weather-panel{grid-area:weather;min-width:0}
+.stay-panel{grid-area:stay;min-width:0}
+.map-panel{grid-area:map;min-width:0}
+.itinerary-panel{grid-area:itinerary;min-width:0}
+.assistant-panel{grid-area:assistant;min-width:0}
+.budget-panel{grid-area:budget;min-width:0}
+.checklist-panel{grid-area:essentials;min-width:0}
+.map{height:clamp(390px,38vw,540px);min-height:340px}
+.itinerary-panel{display:flex;flex-direction:column}
+.activities-list{max-height:clamp(330px,38vw,510px);overflow-y:auto;padding-right:3px;overscroll-behavior:contain;scrollbar-width:thin}
+.activities-list::-webkit-scrollbar{width:5px}
+.activities-list::-webkit-scrollbar-thumb{border-radius:10px;background:rgba(255,255,255,.16)}
+.transport-panel .transport-list{max-height:320px;overflow:auto;scrollbar-width:thin}
+.tools-panel{display:flex;flex-direction:column;justify-content:center}
+.tools-panel .tool-actions{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}
+.tools-panel .tool-actions button{min-width:0;line-height:1.35}
+.assistant-panel{align-self:stretch}
+.assistant-panel .ai-thread{max-height:250px}
+.map-footer-actions{display:flex;align-items:center;gap:12px}
+.map-fallback-frame{display:block;width:100%;height:100%;border:0;background:#181b1f}
+.map-fallback-note{position:absolute;right:10px;bottom:10px;padding:6px 9px;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#dce1e3;background:rgba(12,14,16,.9);font-size:9px}
+.map{position:relative}
+.map-fallback-note a{color:#a9e5ef;text-decoration:none}
+.offline-map-note{display:flex;min-height:100%;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;color:#c5cbd0;text-align:center;font-size:12px;line-height:1.6}
+.weather-unavailable{color:#c3c8cb;font-size:11px;line-height:1.6}
+.weather-refresh{align-self:flex-start;margin-top:7px}
+@media(max-width:1100px){
+ .dashboard-grid{grid-template-columns:repeat(6,minmax(0,1fr));grid-template-areas:
+  "tickets tickets tickets tickets pocket pocket"
+  "weather weather weather stay stay stay"
+  "map map map map map map"
+  "itinerary itinerary itinerary itinerary itinerary itinerary"
+  "budget budget budget checklist checklist checklist"
+  "assistant assistant assistant assistant assistant assistant"}
+ .map{height:430px}
+ .activities-list{max-height:460px}
+ .assistant-panel .ai-thread{max-height:300px}
+}
+@media(max-width:760px){
+ .dashboard-grid{grid-template-columns:1fr;grid-template-areas:
+  "tickets"
+  "map"
+  "itinerary"
+  "weather"
+  "stay"
+  "checklist"
+  "budget"
+  "assistant"
+  "pocket"}
+ .map{height:clamp(260px,72vw,390px);min-height:250px}
+ .activities-list{max-height:none;overflow:visible}
+ .transport-panel .transport-list{max-height:none;overflow:visible}
+ .tools-panel .tool-actions{grid-template-columns:1fr 1fr}
+}
+@media(max-width:430px){
+ .map-footer{align-items:flex-start;flex-direction:column}
+ .map-footer-actions{width:100%;justify-content:space-between}
+ .tools-panel .tool-actions{grid-template-columns:1fr}
+}
