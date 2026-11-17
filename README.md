@@ -32,7 +32,7 @@ Le dossier `netlify/functions/transport-status.mjs` contient un endpoint serveur
 
 Pour activer l’affichage live dans PEPPER :
 1. Crée un compte Netlify et connecte le dépôt `sopp24/PEPPER`.
-2. Garde le répertoire de publication `.` et le fichier `netlify.toml` tel quel ; Netlify détecte `netlify/functions`.
+2. Garde le répertoire de publication `netlify-site` et le dossier Functions `netlify/functions`, comme dans `netlify.toml`.
 3. Déploie le site. L’URL du site Netlify sert ici de base au service de données ; l’application publique peut rester sur GitHub Pages.
 4. Copie l’URL `https://...netlify.app`, puis dans PEPPER → Réglages, colle-la dans « URL du service temps réel PEPPER ».
 5. Ajoute un trajet SNCF éligible avec le numéro commercial du train pour afficher les avis.
