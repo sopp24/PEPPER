@@ -17,7 +17,7 @@ const directionName={outbound:"Aller",return:"Retour",connection:"Correspondance
 let state=parse(localStorage.getItem(STORAGE_KEY),null)||parse(localStorage.getItem(RECOVERY_KEY),null)||parse(localStorage.getItem(LEGACY_KEY),null)||{trips:[],activeTripId:null};
 state.trips=Array.isArray(state.trips)?state.trips:[];
 state.trips.forEach(t=>{t.activities=t.activities||[];t.expenses=t.expenses||[];t.checklist=t.checklist||DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false}));t.transport=t.transport||[];t.accommodation=t.accommodation||null});
-let map=null,markers=null,mapTripId=null,mapLibraryRetryCount=0,weatherData=null,weatherError="",weatherRequest=0,transportRefreshTimer=null,pepperDbPromise=null;
+let map=null,markers=null,mapTripId=null,mapLibraryRetryCount=0,weatherData=null,weatherError="",weatherRequest=0,transportRefreshTimer=null,pepperDbPromise=null,leafletPromise=null,geocodeInFlight=new Set();
 let jalapMessages=[],jalapPendingProposal=null,jalapPendingTripId=null,jalapBusy=false;
 const modalRoot=$("#modal-root");
 
@@ -429,26 +429,118 @@ function renderChecklist(t){
  const list=t.checklist||[],done=list.filter(x=>x.done).length;$("#check-progress").textContent=done+" / "+list.length;
  $("#checklist-content").innerHTML=list.map(x=>'<label class="check-row '+(x.done?"done":"")+'"><input type="checkbox" data-action="toggle-check" data-id="'+esc(x.id)+'" '+(x.done?"checked":"")+'><span>'+esc(x.label)+'</span></label>').join("")||'<div class="empty-inline">Aucune tâche.</div>';
 }
+function ensureLeaflet(){
+ if(window.L)return Promise.resolve(true);
+ if(leafletPromise)return leafletPromise;
+ leafletPromise=new Promise(resolve=>{
+  const sources=["https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js","https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"];
+  let index=0;
+  const next=()=>{
+   if(window.L){resolve(true);return}
+   if(index>=sources.length){resolve(false);return}
+   const script=document.createElement("script");script.src=sources[index++];script.async=true;script.crossOrigin="anonymous";
+   script.onload=()=>resolve(!!window.L);
+   script.onerror=()=>{script.remove();next()};
+   document.head.appendChild(script);
+  };
+  next();
+ });
+ return leafletPromise;
+}
+function showFallbackMap(trip){
+ const node=$("#map");if(!node)return;
+ if(!trip.geo){
+  node.innerHTML='<div class="offline-map-note">Localisation de '+esc(trip.destination||"la destination")+' indisponible. Vérifie le nom de la ville ou réessaie la géolocalisation.<br><button type="button" class="small-button" data-action="refresh-map">Réessayer</button></div>';
+  return;
+ }
+ const lat=Number(trip.geo.lat),lon=Number(trip.geo.lon),delta=.025;
+ const bbox=[lon-delta,lat-delta,lon+delta,lat+delta].join("%2C");
+ node.innerHTML='<iframe class="map-fallback-frame" title="Carte de '+esc(trip.destination)+'" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.openstreetmap.org/export/embed.html?bbox='+bbox+'&layer=mapnik&marker='+lat+'%2C'+lon+'"></iframe><div class="map-fallback-note">Carte simplifiée · <a href="https://www.openstreetmap.org/?mlat='+lat+'&mlon='+lon+'#map=14/'+lat+'/'+lon+'" target="_blank" rel="noopener noreferrer">Ouvrir OpenStreetMap ↗</a></div>';
+}
 function renderMap(t){
- if(!window.L){const node=$("#map");if(navigator.onLine&&mapLibraryRetryCount<12){mapLibraryRetryCount++;setTimeout(()=>{if(activeTrip()?.id===t.id)renderMap(t)},300);return}if(node)node.innerHTML='<div class="offline-map-note">La carte nécessite le chargement de Leaflet et des tuiles cartographiques. Les adresses et les étapes restent accessibles hors connexion.</div>';return}
+ if(!window.L){
+  const node=$("#map");if(node)node.innerHTML='<div class="offline-map-note"><span class="loading-spinner"></span><span>Chargement de la carte…</span></div>';
+  ensureLeaflet().then(ready=>{if(activeTrip()?.id!==t.id)return;if(ready)renderMap(t);else showFallbackMap(t)});
+  return;
+ }
  mapLibraryRetryCount=0;
  const center=t.geo?[t.geo.lat,t.geo.lon]:[20,0];
- if(!map){map=L.map("map",{scrollWheelZoom:false}).setView(center,t.geo?12:2);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);markers=L.layerGroup().addTo(map)}
+ if(!map){
+  map=L.map("map",{scrollWheelZoom:false}).setView(center,t.geo?12:2);
+  const osm=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'});
+  let fallbackAdded=false;
+  osm.on("tileerror",()=>{
+   if(fallbackAdded||!map)return;fallbackAdded=true;
+   try{map.removeLayer(osm)}catch(e){}
+   L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{maxZoom:19,subdomains:"abcd",attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}).addTo(map);
+  });
+  osm.addTo(map);markers=L.layerGroup().addTo(map);
+ }
  if(mapTripId!==t.id){mapTripId=t.id;map.setView(center,t.geo?12:2)}markers.clearLayers();
  if(t.geo){const icon=L.divIcon({className:"",html:'<div class="jalap-map-pin destination"><span>✦</span></div>',iconSize:[28,28],iconAnchor:[13,26]});L.marker(center,{icon}).addTo(markers).bindPopup("<strong>"+esc(t.destination)+"</strong><br>Destination")}
  if(t.accommodation&&t.accommodation.geo){const g=t.accommodation.geo,icon=L.divIcon({className:"",html:'<div class="jalap-map-pin" style="background:#b4d58a"><span>⌂</span></div>',iconSize:[28,28],iconAnchor:[13,26]});L.marker([g.lat,g.lon],{icon}).addTo(markers).bindPopup("<strong>"+esc(t.accommodation.name)+"</strong><br>Hébergement")}
- const points=[];(t.activities||[]).forEach((a,i)=>{if(!a.geo)return;const p=[a.geo.lat,a.geo.lon];points.push(p);const icon=L.divIcon({className:"",html:'<div class="jalap-map-pin"><span>'+(i+1)+'</span></div>',iconSize:[28,28],iconAnchor:[13,26]});L.marker(p,{icon}).addTo(markers).bindPopup("<strong>"+esc(a.name)+"</strong><br>"+esc(a.date?dateLabel(a.date):"Date à définir"))});
- if(points.length>1)L.polyline(points,{color:"#ed78c5",weight:2,opacity:.62,dashArray:"5 7"}).addTo(markers);
- setTimeout(()=>map.invalidateSize(),100);
+ (t.activities||[]).forEach((a,i)=>{if(!a.geo)return;const p=[a.geo.lat,a.geo.lon];const icon=L.divIcon({className:"",html:'<div class="jalap-map-pin"><span>'+(i+1)+'</span></div>',iconSize:[28,28],iconAnchor:[13,26]});L.marker(p,{icon}).addTo(markers).bindPopup("<strong>"+esc(a.name)+"</strong><br>"+esc(a.date?dateLabel(a.date):"À planifier"))});
+ setTimeout(()=>{if(map)map.invalidateSize()},160);
 }
+
 function fitMap(){if(!map)return;const layers=markers?markers.getLayers():[];if(layers.length>1)map.fitBounds(L.featureGroup(layers).getBounds().pad(.18),{maxZoom:14});else if(activeTrip()&&activeTrip().geo)map.setView([activeTrip().geo.lat,activeTrip().geo.lon],13)}
-async function geocode(query){if(!query)return null;const r=await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q="+encodeURIComponent(query),{headers:{"Accept-Language":"fr"}});if(!r.ok)throw new Error("Géolocalisation indisponible");const rows=await r.json();if(!rows.length)return null;return{lat:Number(rows[0].lat),lon:Number(rows[0].lon),label:rows[0].display_name}}
-async function fetchDestination(t){const id=t.id,q=t.destination;try{const g=await geocode(q);if(activeTrip()&&activeTrip().id===id&&g){t.geo=g;save();renderMap(t);fetchWeather(t)}}catch(e){if(activeTrip()&&activeTrip().id===id)renderMap(t)}}
-async function geocodeStay(){const t=activeTrip(),s=t&&t.accommodation;if(!t||!s||!s.address)return;try{const g=await geocode(s.address);if(g&&activeTrip()&&activeTrip().id===t.id){s.geo=g;save();renderMap(t)}}catch(e){}}
+async function geocode(query){
+ if(!query)return null;
+ const parts=String(query).split(",").map(x=>x.trim()).filter(Boolean),name=parts[0],expected=normalizedSearchText(parts.slice(1).join(" "));
+ try{
+  const url="https://geocoding-api.open-meteo.com/v1/search?name="+encodeURIComponent(name)+"&count=10&language=fr&format=json";
+  const response=await fetch(url,{signal:AbortSignal.timeout(9000)});
+  if(response.ok){
+   const payload=await response.json(),rows=Array.isArray(payload.results)?payload.results:[];
+   if(rows.length){
+    const chosen=(expected&&rows.find(x=>normalizedSearchText(x.country||"").includes(expected)||normalizedSearchText(x.admin1||"").includes(expected)))||rows.find(x=>normalizedSearchText(x.name||"")===normalizedSearchText(name))||rows[0];
+    return{lat:Number(chosen.latitude),lon:Number(chosen.longitude),label:[chosen.name,chosen.admin1,chosen.country].filter(Boolean).join(", "),country:chosen.country||""};
+   }
+  }
+ }catch(error){}
+ try{
+  const response=await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q="+encodeURIComponent(query),{headers:{"Accept-Language":"fr"},signal:AbortSignal.timeout(9000)});
+  if(!response.ok)throw new Error("Géolocalisation indisponible");
+  const rows=await response.json();if(!rows.length)return null;
+  return{lat:Number(rows[0].lat),lon:Number(rows[0].lon),label:rows[0].display_name};
+ }catch(error){return null}
+}
+async function geocodeMissingActivities(trip){
+ if(!trip||geocodeInFlight.has(trip.id))return;
+ geocodeInFlight.add(trip.id);
+ try{
+  for(const activity of (trip.activities||[]).filter(x=>!x.geo).slice(0,20)){
+   if(activeTrip()?.id!==trip.id)break;
+   const query=(activity.address||activity.name)+", "+(trip.destination||"");
+   const point=await geocode(query);
+   if(point&&activeTrip()?.id===trip.id){activity.geo=point;save();renderMap(trip)}
+  }
+ }finally{geocodeInFlight.delete(trip.id)}
+}
+async function fetchDestination(t){
+ const id=t.id,q=t.destination;
+ try{
+  const g=await geocode(q);
+  if(activeTrip()&&activeTrip().id===id&&g){
+   t.geo=g;save();renderMap(t);fetchWeather(t);geocodeMissingActivities(t);geocodeStay();
+  }else if(activeTrip()?.id===id){
+   weatherError="Je n’arrive pas à localiser cette destination. Vérifie le nom de la ville.";
+   renderWeather();renderMap(t);
+  }
+ }catch(e){
+  if(activeTrip()?.id===id){weatherError="Géolocalisation indisponible. Vérifie ta connexion.";renderWeather();showFallbackMap(t)}
+ }
+}
+async function geocodeStay(){
+ const t=activeTrip(),s=t&&t.accommodation;if(!t||!s||!s.address||s.geo)return;
+ try{const g=await geocode(s.address);if(g&&activeTrip()?.id===t.id){s.geo=g;save();renderMap(t)}}catch(e){}
+}
+
 const weatherText=c=>({0:"Ciel dégagé",1:"Plutôt dégagé",2:"Partiellement nuageux",3:"Couvert",45:"Brouillard",48:"Brouillard givrant",51:"Bruine légère",53:"Bruine",55:"Bruine dense",61:"Pluie faible",63:"Pluie",65:"Forte pluie",71:"Neige faible",73:"Neige",75:"Forte neige",80:"Averses",81:"Averses",82:"Fortes averses",95:"Orage",96:"Orage et grêle",99:"Orage violent"}[c]||"Conditions variables");
 const weatherIcon=c=>c===0?"☀":c<=3?"⛅":c<=48?"☁":c<=67?"🌧":c<=77?"❄":c<=82?"🌦":"⛈";
 async function fetchWeather(t){
- if(!t||!t.geo)return;
+ if(!t)return;
+ if(!t.geo){weatherError="Localisation de la destination en cours…";renderWeather();return}
  const id=++weatherRequest,key="pepper-weather-v1:"+t.id;
  weatherData=null;weatherError="";
  const cached=parse(localStorage.getItem(key),null);
@@ -476,7 +568,7 @@ async function fetchWeather(t){
   renderWeather();
  }
 }
-function renderWeather(){const n=$("#weather-content");if(!weatherData){n.textContent=weatherError||"Recherche de la météo…";return}const c=weatherData.data.current,d=weatherData.data.daily,stamp=weatherData.fetchedAt?new Intl.DateTimeFormat("fr-FR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(weatherData.fetchedAt)):"heure inconnue";n.innerHTML='<div class="weather-temp">'+Math.round(c.temperature_2m)+'°</div><div class="weather-copy"><strong>'+weatherIcon(c.weather_code)+' '+weatherText(c.weather_code)+'</strong><small>Ressenti '+Math.round(c.apparent_temperature)+'° · Vent '+Math.round(c.wind_speed_10m)+' km/h</small><small>Humidité '+c.relative_humidity_2m+' %</small><small>'+(weatherData.stale?"Dernière donnée connue : ":"Actualisée : ")+esc(stamp)+'</small>'+(weatherError?'<small>'+esc(weatherError)+'</small>':"")+'</div><div class="weather-days">'+d.time.map((x,i)=>'<div class="weather-day"><span>'+["Auj.","Dem.","J+2","J+3","J+4"][i]+'</span><strong>'+weatherIcon(d.weather_code[i])+'</strong><span>'+Math.round(d.temperature_2m_min[i])+'° / '+Math.round(d.temperature_2m_max[i])+'°</span></div>').join("")+'</div>'}
+function renderWeather(){const n=$("#weather-content");if(!n)return;if(!weatherData){n.innerHTML='<div class="weather-unavailable">'+esc(weatherError||"Recherche de la météo…")+'</div><button class="text-button weather-refresh" type="button" data-action="refresh-weather">Actualiser ↻</button>';return}const c=weatherData.data.current,d=weatherData.data.daily,stamp=weatherData.fetchedAt?new Intl.DateTimeFormat("fr-FR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(weatherData.fetchedAt)):"heure inconnue";n.innerHTML='<div class="weather-temp">'+Math.round(c.temperature_2m)+'°</div><div class="weather-copy"><strong>'+weatherIcon(c.weather_code)+' '+weatherText(c.weather_code)+'</strong><small>Ressenti '+Math.round(c.apparent_temperature)+'° · Vent '+Math.round(c.wind_speed_10m)+' km/h</small><small>Humidité '+c.relative_humidity_2m+' %</small><small>'+(weatherData.stale?"Dernière donnée connue : ":"Actualisée : ")+esc(stamp)+'</small>'+(weatherError?'<small>'+esc(weatherError)+'</small>':"")+'</div><div class="weather-days">'+d.time.map((x,i)=>'<div class="weather-day"><span>'+["Auj.","Dem.","J+2","J+3","J+4"][i]+'</span><strong>'+weatherIcon(d.weather_code[i])+'</strong><span>'+Math.round(d.temperature_2m_min[i])+'° / '+Math.round(d.temperature_2m_max[i])+'°</span></div>').join("")+'</div>'}
 function openModal(title,subtitle,body){modalRoot.innerHTML='<div class="modal-overlay" data-action="close-modal"><section class="modal" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><div class="modal-head"><div><h2>'+esc(title)+'</h2><p>'+esc(subtitle||"")+'</p></div><button class="modal-close" type="button" data-action="close-modal">×</button></div>'+body+'</section></div>';const first=$("input,textarea,select,button",modalRoot);if(first)first.focus({preventScroll:true})}
 function closeModal(){modalRoot.innerHTML=""}
 function tripForm(t){
@@ -766,7 +858,7 @@ function onAction(event){
  if(n==="edit-transport"){transportForm(activeTrip().transport.find(x=>x.id===id));return}if(n==="delete-transport"){if(confirm("Supprimer ce trajet ?"))deleteTransport(id);return}
  if(n==="add-activity"){activityForm();return}if(n==="edit-activity"){const activity=activeTrip()?.activities.find(x=>x.id===id);if(activity)activityForm(activity);return}if(n==="add-expense"){expenseForm();return}
  if(n==="activity-detail"){detailModal(id);return}if(n==="mark-activity-booked"){markActivityBooked(id);return}if(n==="delete-activity"){if(confirm("Supprimer cette activité ?"))deleteActivity(id);return}
- if(n==="fit-map"){fitMap();return}if(n==="export-ics"){exportICS();return}if(n==="export-json"){exportJSON();return}
+ if(n==="fit-map"){fitMap();return}if(n==="refresh-map"){const t=activeTrip();if(t){if(!t.geo)fetchDestination(t);else{renderMap(t);geocodeMissingActivities(t)}}return}if(n==="refresh-weather"){const t=activeTrip();if(t){if(!t.geo)fetchDestination(t);else fetchWeather(t)}return}if(n==="export-ics"){exportICS();return}if(n==="export-json"){exportJSON();return}
  if(n==="add-check"){addChecklist();return}if(n==="copy-trip-context"){copyContext();return}if(n==="copy-jalap-request"){copyRequest();return}if(n==="copy-jalap-audit"){copyJalapAudit();return}
 }
 document.addEventListener("click",onAction);
