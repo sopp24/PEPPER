@@ -13,12 +13,14 @@ PEPPER est un compagnon de voyage responsive et installable (PWA), publié depui
 - Carnets de voyage : dates, destination, voyageurs, budget et devise.
 - Hébergement : adresse, type de logement, arrivée/départ, contact, accès, équipements, parking, petit-déjeuner, consignes et lien de réservation.
 - Transports : trajets aller, retour et correspondances en train, avion, voiture, bus ou ferry ; transporteur, numéro, gares/aéroports, terminaux/voies, horaires, bagages, marges d'arrivée et lien du billet.
-- Conseils contextualisés selon le mode et le transporteur, avec sources officielles et alertes de cohérence entre trajets, logement et activités.
+- Conseils contextualisés selon le mode et le transporteur, avec liens vers les applications / pages officielles des compagnies, sources de circulation routière et plusieurs réseaux urbains reconnus à destination.
+- Champs personnalisables pour le nom, l’application et l’info trafic officiels du réseau local, si la destination n’est pas reconnue automatiquement.
 - Carte OpenStreetMap avec destination, hébergement et activités.
 - Prévisions météo Open-Meteo.
 - Activités avec fiche détaillée et case « faite ».
 - Budget, dépenses, checklist, export ICS et JSON.
 - Données de voyage conservées localement dans le navigateur.
+- **Limite actuelle des données transport :** PEPPER ne lit pas encore les flux temps réel dans son interface. Il ouvre les sources officielles et l’application du transporteur ; les horaires et retards doivent être vérifiés chez l’opérateur. Les repères d’arrivée et les ETA voiture sont des estimations, pas un statut live.
 
 ## PIMI et mises à jour avec ChatGPT
 
