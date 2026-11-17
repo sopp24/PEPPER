@@ -55,7 +55,7 @@ Ce dépôt est public. Les données de voyage restent dans le stockage local du 
 
 ## Sauvegarde et mode hors connexion
 
-Les voyages sont stockés localement dans le navigateur. Une copie de récupération locale conserve l’état précédent. Le bouton « Sauvegarder tous les voyages » exporte un fichier JSON privé. « Restaurer une sauvegarde » permet de fusionner ou remplacer les voyages sur cet appareil. Une copie locale de récupération conserve également l’état précédent du carnet. Les prévisions météo déjà consultées restent affichables hors connexion avec leur horodatage. La carte, les tuiles et les sources externes ne sont pas garanties hors connexion.
+Les voyages sont stockés localement dans IndexedDB, avec un stockage navigateur de compatibilité et une copie de récupération du dernier état valide. Le bouton « Sauvegarder tous les voyages » exporte un fichier JSON privé. « Restaurer une sauvegarde » permet de fusionner ou remplacer les voyages sur cet appareil ; le fichier est lu localement et n'est pas téléversé. Les prévisions météo déjà consultées restent affichables hors connexion avec leur horodatage. La coquille de l'application et les données du carnet sont conservées ; les tuiles de carte, les sources externes et le suivi temps réel ne sont pas garantis hors connexion. La synchronisation entre appareils n'est pas encore activée : elle demandera un service d'authentification et de stockage distant privé.
 
 ## Publication GitHub Pages
 
