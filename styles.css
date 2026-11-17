@@ -70,7 +70,7 @@
  .chat-actions{flex-direction:column}
 }
 
-/* PEPPER: live transport, offline and PIMI audit */
+/* PEPPER: live transport, offline and JALAP audit */
 .network-status{position:sticky;top:0;z-index:30;margin:0 auto;padding:10px 18px;border:1px solid rgba(242,166,111,.28);border-radius:0 0 12px 12px;color:#f0c7a7;background:rgba(45,30,21,.96);font-size:11px;line-height:1.5;backdrop-filter:blur(14px)}
 .network-status[hidden]{display:none}
 #itinerary-warnings:empty{display:none}
@@ -86,7 +86,7 @@
 .chat-actions button:last-child{border-color:rgba(237,120,197,.28);color:#f4c7e5;background:rgba(237,120,197,.08)}
 @media(max-width:540px){.network-status{font-size:10px}}
 
-/* PIMI embedded AI chat */
+/* JALAP embedded AI chat */
 .jalap-proposal-actions{display:flex;gap:7px;margin-top:10px}
 .jalap-proposal-actions button{flex:1;min-height:34px;border:1px solid rgba(180,213,138,.25);border-radius:8px;color:#d7edbd;background:rgba(180,213,138,.1);font-size:9px;font-weight:600}
 .jalap-proposal-actions button:last-child{border-color:var(--line);color:#b9bdc0;background:rgba(255,255,255,.03)}
