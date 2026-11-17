@@ -107,19 +107,19 @@ function officialLegSources(leg){
  if(leg.mode==="train"){
   if(/sncf|inoui|ouigo|intercites|ter/.test(op)){
    links.push({label:"SNCF Connect — billet et voyage",url:"https://www.sncf-connect.com/"});
-   links.push({label:"SNCF Open Data — horaires et perturbations",url:"https://data.sncf.com/explore/dataset/horaires-sncf/"});
+   links.push({label:"SNCF Open Data — horaires et circulation",url:"https://ressources.data.sncf.com/explore/dataset/horaires-sncf/"});\n   links.push({label:"SNCF Open Data — alertes en temps réel (SIRI / GTFS-RT)",url:"https://ressources.data.sncf.com/explore/dataset/temps-reel-siri-sx-lite/"});
   }else if(op.includes("eurostar"))links.push({label:"Eurostar — informations de voyage",url:"https://www.eurostar.com/fr-fr"});
   else if(op.includes("trenitalia"))links.push({label:"Trenitalia — site officiel",url:"https://www.trenitalia.com/"});
   else if(op.includes("renfe"))links.push({label:"Renfe — site officiel",url:"https://www.renfe.com/es/en"});
  }
  if(leg.mode==="plane"){
-  if(op.includes("air france"))links.push({label:"Air France — application et suivi des vols",url:"https://wwws.airfrance.fr/information/prepare/services/app-air-france"});
+  if(op.includes("air france"))links.push({label:"Air France — application et suivi des vols",url:"https://wwws.airfrance.fr/information/prepare/popin_app/fonctionnalites"});
   else if(op.includes("easyjet"))links.push({label:"easyJet — suivi de vol en direct",url:"https://www.easyjet.com/fr/suivi-de-vol-en-direct"});
   else if(op.includes("ryanair"))links.push({label:"Ryanair — site et espace voyage officiel",url:"https://www.ryanair.com/fr/fr"});
  }
  if(leg.mode==="bus"&&op.includes("flixbus"))links.push({label:"FlixBus — suivi du trajet",url:"https://global.flixbus.com/track"});
  if(leg.mode==="car"){
-  links.push({label:"Bison Futé — trafic routier en temps réel (France)",url:"https://www.bison-fute.gouv.fr/maintenant.html"});
+  links.push({label:"Bison Futé — trafic routier en temps réel (France)",url:"https://www4.bison-fute.gouv.fr/maintenant.html"});
   links.push({label:"Bison Futé — trafic des grandes agglomérations",url:"https://www.bison-fute.gouv.fr/trafic-des-agglomerations.html"});
   if(op.includes("vinci"))links.push({label:"VINCI Autoroutes — trafic en direct",url:"https://www.vinci-autoroutes.com/fr/autoroutes-temps-reel/"});
  }
