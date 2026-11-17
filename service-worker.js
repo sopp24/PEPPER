@@ -1,13 +1,14 @@
-const CACHE = "pepper-static-v6";
+const CACHE = "pepper-static-v7";
 const CORE = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./manifest.webmanifest",
-  "./assets/chili.svg"
+  "./assets/chili.svg",
+  "./assets/jalap.svg"
 ];
-const STATIC_PATHS = ["/PEPPER/", "/PEPPER/index.html", "/PEPPER/styles.css", "/PEPPER/app.js", "/PEPPER/manifest.webmanifest", "/PEPPER/assets/chili.svg"];
+const STATIC_PATHS = ["/PEPPER/", "/PEPPER/index.html", "/PEPPER/styles.css", "/PEPPER/app.js", "/PEPPER/manifest.webmanifest", "/PEPPER/assets/chili.svg", "/PEPPER/assets/jalap.svg"];
 
 self.addEventListener("install", event => {
   event.waitUntil(
