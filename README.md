@@ -22,6 +22,8 @@ PEPPER est un compagnon de voyage responsive et installable (PWA), publié depui
 - Données de voyage conservées localement dans le navigateur.
 - **Limite actuelle des données transport :** PEPPER ne lit pas encore les flux temps réel dans son interface. Il ouvre les sources officielles et l’application du transporteur ; les horaires et retards doivent être vérifiés chez l’opérateur. Les repères d’arrivée et les ETA voiture sont des estimations, pas un statut live.
 
+Les sources officielles utilisées, leur périmètre et les étapes nécessaires pour intégrer de vrais flux temps réel sont décrits dans [docs/transport-sources.md](docs/transport-sources.md).
+
 ## PIMI et mises à jour avec ChatGPT
 
 PIMI est piloté depuis la conversation ChatGPT : transmets les informations d'un billet, de l'hébergement, d'une activité ou un changement de statut. ChatGPT peut vérifier les informations sur le web, poser les questions nécessaires, contrôler la cohérence du programme et modifier les fichiers de ce dépôt via l'intégration GitHub connectée.
