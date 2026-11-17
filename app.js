@@ -18,6 +18,7 @@ let state=parse(localStorage.getItem(STORAGE_KEY),null)||parse(localStorage.getI
 state.trips=Array.isArray(state.trips)?state.trips:[];
 state.trips.forEach(t=>{t.activities=t.activities||[];t.expenses=t.expenses||[];t.checklist=t.checklist||DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false}));t.transport=t.transport||[];t.accommodation=t.accommodation||null});
 let map=null,markers=null,mapTripId=null,mapLibraryRetryCount=0,weatherData=null,weatherError="",weatherRequest=0,transportRefreshTimer=null,pepperDbPromise=null;
+let pimiMessages=[],pimiPendingProposal=null,pimiPendingTripId=null,pimiBusy=false;
 const modalRoot=$("#modal-root");
 
 function openPepperDatabase(){
@@ -513,8 +514,8 @@ function shareContext(t){
  return{
   destination:t.destination,dates:{start:t.startDate,end:t.endDate},travellers:t.people,budget:t.budget,currency:t.currency,localTransport:{name:t.localTransitName||"",officialUrl:t.localTransitUrl||"",trafficUrl:t.localTrafficUrl||"",monitoringRef:t.localTransitRef||""},
   accommodation:t.accommodation?{name:t.accommodation.name,type:t.accommodation.type,address:t.accommodation.address,checkInDate:t.accommodation.checkInDate,checkInTime:t.accommodation.checkInTime,checkOutDate:t.accommodation.checkOutDate,checkOutTime:t.accommodation.checkOutTime,amenities:t.accommodation.amenities,parking:t.accommodation.parking,breakfast:t.accommodation.breakfast}:null,
-  transport:t.transport.map(x=>({direction:x.direction,mode:x.mode,operator:x.operator,service:x.service,number:x.number,origin:x.origin,destination:x.destination,departureDate:x.departureDate,departureTime:x.departureTime,arrivalDate:x.arrivalDate,arrivalTime:x.arrivalTime,platform:x.platform,baggage:x.baggage,routeType:x.routeType,arrivalBufferMinutes:x.arrivalBufferMinutes,drivingDurationMinutes:x.drivingDurationMinutes,plannedStops:x.plannedStops,boardingDeadline:x.boardingDeadline,ticketUrl:x.ticketUrl,trafficUrl:x.trafficUrl})),
-  activities:t.activities.map(x=>({name:x.name,category:x.category,date:x.date,startTime:x.startTime,duration:x.duration,address:x.address,description:x.description,priority:x.priority,done:!!x.done,bookingRequired:x.bookingRequired,bookingUrl:x.bookingUrl,price:x.price,sources:x.sources||[]})),
+  transport:t.transport.map(x=>({id:x.id,direction:x.direction,mode:x.mode,operator:x.operator,service:x.service,number:x.number,origin:x.origin,destination:x.destination,departureDate:x.departureDate,departureTime:x.departureTime,arrivalDate:x.arrivalDate,arrivalTime:x.arrivalTime,platform:x.platform,baggage:x.baggage,routeType:x.routeType,arrivalBufferMinutes:x.arrivalBufferMinutes,drivingDurationMinutes:x.drivingDurationMinutes,plannedStops:x.plannedStops,boardingDeadline:x.boardingDeadline,ticketUrl:x.ticketUrl,trafficUrl:x.trafficUrl})),
+  activities:t.activities.map(x=>({id:x.id,name:x.name,category:x.category,date:x.date,startTime:x.startTime,duration:x.duration,address:x.address,description:x.description,priority:x.priority,done:!!x.done,bookingRequired:x.bookingRequired,bookingUrl:x.bookingUrl,price:x.price,sources:x.sources||[]})),
   planningWarnings:[...getWarnings(t),...getPlanningWarnings(t)],
   checklist:t.checklist.map(x=>({label:x.label,done:!!x.done}))
  };
@@ -549,8 +550,118 @@ async function copyPimiAudit(){
  if(await copyText(prompt))toast("Audit PIMI copié. Colle-le dans cette conversation ChatGPT.");else toast("Copie impossible. Réessaie depuis le bouton de contexte.","error");
 }
 
+
+function appendPimiMessage(role,content){
+ const thread=$("#pimi-thread");if(!thread)return;
+ const node=document.createElement("div");node.className="chat-message "+(role==="user"?"user-message":"assistant-message");node.textContent=String(content||"");
+ thread.appendChild(node);thread.scrollTop=thread.scrollHeight;
+}
+function pimiOperationTitle(op){
+ const labels={activity_add:"Ajouter une activité",activity_update:"Modifier une activité",activity_delete:"Supprimer une activité",transport_add:"Ajouter un trajet",transport_update:"Modifier un trajet",trip_update:"Modifier les informations du voyage",expense_add:"Ajouter une dépense",checklist_add:"Ajouter une tâche"};
+ const name=op.data?.name||op.data?.label||op.data?.taskLabel;
+ return (labels[op.action]||"Modification")+(name?" : "+name:"");
+}
+function renderPimiProposal(){
+ const panel=$("#pimi-proposal"),content=$("#pimi-proposal-content");if(!panel||!content)return;
+ if(!pimiPendingProposal||!pimiPendingProposal.length){panel.hidden=true;content.textContent="";return}
+ panel.hidden=false;
+ content.innerHTML=pimiPendingProposal.map((op,i)=>'<div class="pimi-change"><strong>'+(i+1)+'. '+esc(pimiOperationTitle(op))+'</strong><span>'+esc(op.reason||"Modification proposée")+'</span></div>').join("");
+}
+const PIMI_ACTIVITY_FIELDS=["name","category","date","startTime","duration","address","description","price","bookingRequired","priority","bookingUrl","highlights"];
+const PIMI_TRANSPORT_FIELDS=["direction","mode","operator","service","number","origin","destination","departureDate","departureTime","arrivalDate","arrivalTime","platform","baggage","ticketUrl","trafficUrl","notes"];
+function pimiCleanData(data,fields){
+ const cleaned={};
+ for(const field of fields){
+  const value=data?.[field];if(value===null||value===undefined||value==="")continue;
+  if(typeof value==="string")cleaned[field]=value.trim().slice(0,1200);
+  else if(typeof value==="number"&&Number.isFinite(value))cleaned[field]=value;
+  else if(typeof value==="boolean")cleaned[field]=value;
+  else if(field==="highlights"&&Array.isArray(value))cleaned[field]=value.filter(x=>typeof x==="string").slice(0,12).map(x=>x.slice(0,240));
+ }
+ return cleaned;
+}
+function validatePimiProposal(operations,trip){
+ if(!Array.isArray(operations))return [];
+ const allowed=["activity_add","activity_update","activity_delete","transport_add","transport_update","trip_update","expense_add","checklist_add"];
+ return operations.slice(0,8).filter(op=>{
+  if(!op||!allowed.includes(op.action)||!op.data||typeof op.data!=="object")return false;
+  if(["activity_update","activity_delete"].includes(op.action)&&!trip.activities.some(a=>a.id===op.targetId))return false;
+  if(op.action==="transport_update"&&!trip.transport.some(x=>x.id===op.targetId))return false;
+  if(op.action==="activity_add"&&!String(op.data.name||"").trim())return false;
+  if(op.action==="transport_add"&&(!["train","plane","car","bus","ferry"].includes(op.data.mode)||!["outbound","return","connection","other"].includes(op.data.direction)||!op.data.origin||!op.data.destination))return false;
+  if(op.action==="expense_add"&&(!String(op.data.label||"").trim()||!Number.isFinite(Number(op.data.amount))||Number(op.data.amount)<0))return false;
+  if(op.action==="checklist_add"&&!String(op.data.taskLabel||"").trim())return false;
+  for(const key of ["date","departureDate","arrivalDate","startDate","endDate"])if(op.data[key]!=null&&!/^\d{4}-\d{2}-\d{2}$/.test(String(op.data[key])))return false;
+  return true;
+ }).map(op=>({...op,data:op.data}));
+}
+async function sendPimiMessage(event){
+ if(event)event.preventDefault();
+ if(pimiBusy)return;
+ const input=$("#idea-input"),message=input?.value.trim(),trip=activeTrip();
+ if(!trip){toast("Crée ou importe d’abord un voyage pour discuter avec PIMI.","error");return}
+ if(!message){input?.focus();return}
+ const base=apiBaseUrl(),token=apiAccessToken();
+ if(!base||!token){toast("Configure d’abord l’URL Netlify et le jeton PEPPER dans Réglages.","error");return}
+ pimiMessages.push({role:"user",content:message});appendPimiMessage("user",message);
+ input.value="";pimiBusy=true;
+ const button=$("#idea-form button[type=submit]");if(button){button.disabled=true;button.textContent="…"}
+ const pending=document.createElement("div");pending.id="pimi-pending";pending.className="chat-message assistant-message";pending.textContent="PIMI analyse ton voyage…";$("#pimi-thread")?.appendChild(pending);
+ try{
+  const response=await fetch(base+"/.netlify/functions/pimi",{method:"POST",headers:{...apiRequestHeaders(),"content-type":"application/json"},body:JSON.stringify({message,context:shareContext(trip),history:pimiMessages.slice(-10)}),signal:AbortSignal.timeout(50000)});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.error||"PIMI est indisponible ("+response.status+").");
+  if(activeTrip()?.id!==trip.id)throw new Error("Le voyage actif a changé pendant l'analyse. Relance ta demande depuis le bon voyage.");
+  const answer=String(data.message||"Je n'ai pas réussi à formuler une réponse.");
+  pimiMessages.push({role:"assistant",content:answer});appendPimiMessage("assistant",answer);
+  pimiPendingProposal=validatePimiProposal(data.operations,trip);pimiPendingTripId=trip.id;renderPimiProposal();
+  if(data.operations?.length&&!pimiPendingProposal.length)appendPimiMessage("assistant","Je n'ai pas pu sécuriser les modifications proposées. Précise ta demande et je réessaierai.");
+ }catch(error){appendPimiMessage("assistant",error.message||"Connexion à PIMI impossible. Vérifie le service Netlify.");}
+ finally{
+  $("#pimi-pending")?.remove();pimiBusy=false;if(button){button.disabled=false;button.textContent="↗"}
+ }
+}
+function applyPimiProposal(){
+ const trip=activeTrip(),operations=pimiPendingProposal;if(!trip||!operations?.length)return;
+ if(trip.id!==pimiPendingTripId){toast("Le voyage actif a changé. Relance la demande PIMI.","error");pimiPendingProposal=null;renderPimiProposal();return}
+ const applied=[];
+ for(const op of operations){
+  const data=op.data||{};
+  if(op.action==="activity_add"){
+   const fields=pimiCleanData(data,PIMI_ACTIVITY_FIELDS),activity={id:uid(),...fields,done:false,status:"À organiser",createdAt:new Date().toISOString()};
+   if(!activity.category)activity.category="Autre";if(!activity.priority)activity.priority="medium";if(activity.bookingRequired==null)activity.bookingRequired=false;
+   trip.activities.push(activity);applied.push("activité ajoutée");
+  }else if(op.action==="activity_update"||op.action==="activity_delete"){
+   const activity=trip.activities.find(x=>x.id===op.targetId);if(!activity)continue;
+   if(op.action==="activity_delete"){trip.activities=trip.activities.filter(x=>x.id!==op.targetId);applied.push("activité supprimée");}
+   else{Object.assign(activity,pimiCleanData(data,PIMI_ACTIVITY_FIELDS));applied.push("activité modifiée");}
+  }else if(op.action==="transport_add"){
+   const fields=pimiCleanData(data,PIMI_TRANSPORT_FIELDS);
+   trip.transport.push({id:uid(),...fields,routeType:"unknown",arrivalBufferMinutes:null,createdAt:new Date().toISOString()});applied.push("trajet ajouté");
+  }else if(op.action==="transport_update"){
+   const leg=trip.transport.find(x=>x.id===op.targetId);if(!leg)continue;
+   Object.assign(leg,pimiCleanData(data,PIMI_TRANSPORT_FIELDS));applied.push("trajet modifié");
+  }else if(op.action==="trip_update"){
+   const fields=pimiCleanData(data,["destination","startDate","endDate","people","budget","currency","notes"]);
+   const nextStart=fields.startDate||trip.startDate,nextEnd=fields.endDate||trip.endDate;
+   if(nextStart&&nextEnd&&nextEnd<nextStart){appendPimiMessage("assistant","J'ai écarté une modification des dates car la date de retour serait antérieure au départ.");continue;}
+   Object.assign(trip,fields);applied.push("voyage mis à jour");
+  }else if(op.action==="expense_add"){
+   trip.expenses.push({id:uid(),label:String(data.label||"Dépense").slice(0,120),amount:Number(data.amount),category:String(data.category||"Divers").slice(0,60),date:today()});applied.push("dépense ajoutée");
+  }else if(op.action==="checklist_add"){
+   trip.checklist.push({id:uid(),label:String(data.taskLabel||"Tâche").slice(0,180),done:false});applied.push("tâche ajoutée");
+  }
+ }
+ if(!applied.length){toast("Aucune modification valide à appliquer.","error");return;}
+ pimiPendingProposal=null;pimiPendingTripId=null;save();weatherData=null;render();renderPimiProposal();
+ const summary="C'est fait : "+applied.join(", ")+". Les changements sont enregistrés dans ce navigateur.";
+ pimiMessages.push({role:"assistant",content:summary});appendPimiMessage("assistant",summary);toast("Modifications PIMI enregistrées localement.");
+}
+function cancelPimiProposal(){pimiPendingProposal=null;pimiPendingTripId=null;renderPimiProposal();appendPimiMessage("assistant","D'accord, je n'ai rien modifié dans ton voyage.");}
+
 function onAction(event){
  const el=event.target.closest("[data-action]");if(!el)return;const n=el.dataset.action,id=el.dataset.id;
+ if(n==="pimi-apply"){applyPimiProposal();return}if(n==="pimi-cancel"){cancelPimiProposal();return}
  if(n==="close-modal"){if(event.target===el||el.matches("button"))closeModal();return}
  if(n==="settings"){settingsModal();return}if(n==="import-json"){importModal();return}
  if(n==="create-trip"){tripForm(null);return}if(n==="edit-trip"){tripForm(activeTrip());return}
@@ -576,7 +687,7 @@ document.addEventListener("submit",e=>{
  if(f.id==="transport-form"){e.preventDefault();saveLeg(f)}
  if(f.id==="activity-form"){e.preventDefault();addActivity(f)}
  if(f.id==="expense-form"){e.preventDefault();addExpense(f)}
- if(f.id==="idea-form")copyRequest(e);
+ if(f.id==="idea-form")sendPimiMessage(e);
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
 $$("[data-scroll]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.scroll,node=id==="assistant-panel"?$(".assistant-panel"):$("#"+id);if(node)node.scrollIntoView({behavior:"smooth",block:"start"})}));
