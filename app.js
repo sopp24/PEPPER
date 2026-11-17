@@ -18,7 +18,7 @@ let state=parse(localStorage.getItem(STORAGE_KEY),null)||parse(localStorage.getI
 state.trips=Array.isArray(state.trips)?state.trips:[];
 state.trips.forEach(t=>{t.activities=t.activities||[];t.expenses=t.expenses||[];t.checklist=t.checklist||DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false}));t.transport=t.transport||[];t.accommodation=t.accommodation||null});
 let map=null,markers=null,mapTripId=null,mapLibraryRetryCount=0,weatherData=null,weatherError="",weatherRequest=0,transportRefreshTimer=null,pepperDbPromise=null,leafletPromise=null,geocodeInFlight=new Set();
-let jalapMessages=[],jalapPendingProposal=null,jalapPendingTripId=null,jalapBusy=false;
+let jalapMessages=[],jalapPendingProposal=null,jalapPendingTripId=null,jalapBusy=false,jalapMode=localStorage.getItem('pepper-jalap-mode-v1')||'travel',jalapDevChanges=null,jalapDevOriginalRequest='',jalapDevBusy=false;
 const modalRoot=$("#modal-root");
 
 function openPepperDatabase(){
@@ -804,32 +804,124 @@ function validateJalapProposal(operations,trip){
   return true;
  }).map(op=>({...op,data:op.data}));
 }
+function renderJalapMode(){
+ const dev=jalapMode==="development";
+ $$("[data-action='jalap-set-mode']").forEach(button=>{
+  const active=button.dataset.mode===jalapMode;
+  button.classList.toggle("is-active",active);
+  button.setAttribute("aria-pressed",active?"true":"false");
+ });
+ const help=$("#jalap-mode-help"),input=$("#idea-input");
+ if(help)help.textContent=dev
+  ?"JALAP Dev lit le code réel de GitHub, prépare un aperçu et ne crée un commit public qu'après ta validation."
+  :"JALAP Voyage modifie ton carnet dans ce navigateur après validation. Aucun changement de code n'est publié.";
+ if(input)input.placeholder=dev
+  ?"Ex. : Sur mobile, transforme la carte et la checklist en deux onglets…"
+  :"Ex. : Ajoute les Catacombes samedi vers 10 h…";
+ const stateNode=$("#ai-connection-state");if(stateNode)stateNode.textContent=dev?"Claude Sonnet · dépôt GitHub":"Claude Haiku · carnet local";
+ const travelPanel=$("#jalap-proposal"),devPanel=$("#jalap-dev-proposal");
+ if(travelPanel&&dev)travelPanel.hidden=true;
+ if(devPanel&&!dev)devPanel.hidden=true;
+}
+function setJalapMode(mode,resetConversation=true){
+ if(!["travel","development"].includes(mode))return;
+ jalapMode=mode;
+ try{localStorage.setItem("pepper-jalap-mode-v1",mode)}catch(error){}
+ if(resetConversation){
+  jalapMessages=[];
+  jalapPendingProposal=null;jalapPendingTripId=null;
+  jalapDevChanges=null;jalapDevOriginalRequest="";
+  renderJalapProposal();renderJalapDevProposal();
+  const thread=$("#jalap-thread");if(thread)thread.innerHTML="";
+  appendJalapMessage("assistant",mode==="development"
+   ?"Mode Développement activé. Décris le changement de code souhaité. Je vais lire les fichiers du dépôt, préparer un aperçu et attendre ton approbation avant de créer un commit sur GitHub."
+   :"Mode Voyage activé. Je peux organiser ton séjour et proposer des modifications de ton carnet local.");
+ }
+ renderJalapMode();
+}
+function renderJalapDevProposal(){
+ const panel=$("#jalap-dev-proposal"),content=$("#jalap-dev-proposal-content");
+ if(!panel||!content)return;
+ if(!jalapDevChanges||!jalapDevChanges.length){panel.hidden=true;content.textContent="";return}
+ panel.hidden=false;
+ content.innerHTML=jalapDevChanges.map((file,index)=>{
+  const edits=file.edits.map((edit,i)=>{
+   const before=String(edit.old_text||"").slice(0,1400),after=String(edit.new_text||"").slice(0,1400);
+   return '<div class="jalap-dev-edit"><strong>'+esc(edit.reason||("Modification "+(i+1)))+'</strong><div class="jalap-dev-diff"><span>AVANT</span><pre>'+esc(before||"(fichier vide)")+'</pre><span>APRÈS</span><pre>'+esc(after||"(suppression)")+'</pre></div></div>';
+  }).join("");
+  return '<details class="jalap-dev-file" '+(index===0?"open":"")+'><summary><strong>'+esc(file.path)+'</strong><small>'+esc(file.summary)+'</small></summary>'+edits+'</details>';
+ }).join("");
+}
 async function sendJalapMessage(event){
  if(event)event.preventDefault();
  if(jalapBusy)return;
- const input=$("#idea-input"),message=input?.value.trim(),trip=activeTrip();
- if(!trip){toast("Crée ou importe d’abord un voyage pour discuter avec JALAP.","error");return}
+ const input=$("#idea-input"),message=input?.value.trim(),trip=activeTrip(),dev=jalapMode==="development";
+ if(!dev&&!trip){toast("Crée ou importe d’abord un voyage pour discuter avec JALAP.","error");return}
  if(!message){input?.focus();return}
  const base=apiBaseUrl(),token=apiAccessToken();
- if(!base||!token){toast("Configure d’abord l’URL Netlify et le jeton PEPPER dans Réglages.","error");return}
+ if(!base||!token){toast("Configure l’URL Netlify et le jeton PEPPER dans Réglages.","error");return}
  jalapMessages.push({role:"user",content:message});appendJalapMessage("user",message);
  input.value="";jalapBusy=true;
  const button=$("#idea-form button[type=submit]");if(button){button.disabled=true;button.textContent="…"}
- const pending=document.createElement("div");pending.id="jalap-pending";pending.className="chat-message assistant-message";pending.textContent="JALAP analyse ton voyage…";$("#jalap-thread")?.appendChild(pending);
+ const pending=document.createElement("div");pending.id="jalap-pending";pending.className="chat-message assistant-message";pending.textContent=dev?"JALAP analyse le dépôt GitHub…":"JALAP prépare ton voyage…";$("#jalap-thread")?.appendChild(pending);
  try{
-  const response=await fetch(base+"/.netlify/functions/jalap",{method:"POST",headers:{...apiRequestHeaders(),"content-type":"application/json"},body:JSON.stringify({message,context:shareContext(trip),history:jalapMessages.slice(-10)}),signal:AbortSignal.timeout(50000)});
+  const endpoint=dev?"/.netlify/functions/jalap-dev":"/.netlify/functions/jalap";
+  const body=dev
+   ?{action:"propose",message,history:jalapMessages.slice(-8)}
+   :{message,context:shareContext(trip),history:jalapMessages.slice(-10)};
+  const response=await fetch(base+endpoint,{method:"POST",headers:{...apiRequestHeaders(),"content-type":"application/json"},body:JSON.stringify(body),signal:AbortSignal.timeout(dev?110000:50000)});
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(data.error||"JALAP est indisponible ("+response.status+").");
-  if(activeTrip()?.id!==trip.id)throw new Error("Le voyage actif a changé pendant l'analyse. Relance ta demande depuis le bon voyage.");
-  const answer=String(data.message||"Je n'ai pas réussi à formuler une réponse.");
-  jalapMessages.push({role:"assistant",content:answer});appendJalapMessage("assistant",answer);
-  jalapPendingProposal=validateJalapProposal(data.operations,trip);jalapPendingTripId=trip.id;renderJalapProposal();
-  if(data.operations?.length&&!jalapPendingProposal.length)appendJalapMessage("assistant","Je n'ai pas pu sécuriser les modifications proposées. Précise ta demande et je réessaierai.");
+  if(dev){
+   const answer=String(data.message||"Je n'ai pas réussi à préparer une proposition.");
+   jalapMessages.push({role:"assistant",content:answer});appendJalapMessage("assistant",answer);
+   jalapDevChanges=Array.isArray(data.changes)?data.changes:[];
+   jalapDevOriginalRequest=message;
+   renderJalapDevProposal();
+   if(jalapDevChanges.length)appendJalapMessage("assistant",jalapDevChanges.length+" fichier(s) prêt(s) à examiner. Aucun changement n'a encore été envoyé à GitHub.");
+  }else{
+   if(activeTrip()?.id!==trip.id)throw new Error("Le voyage actif a changé pendant l'analyse. Relance ta demande depuis le bon voyage.");
+   const answer=String(data.message||"Je n'ai pas réussi à formuler une réponse.");
+   jalapMessages.push({role:"assistant",content:answer});appendJalapMessage("assistant",answer);
+   jalapPendingProposal=validateJalapProposal(data.operations,trip);jalapPendingTripId=trip.id;renderJalapProposal();
+   if(data.operations?.length&&!jalapPendingProposal.length)appendJalapMessage("assistant","Je n'ai pas pu sécuriser les modifications proposées. Précise ta demande et je réessaierai.");
+  }
  }catch(error){appendJalapMessage("assistant",error.message||"Connexion à JALAP impossible. Vérifie le service Netlify.");}
  finally{
   $("#jalap-pending")?.remove();jalapBusy=false;if(button){button.disabled=false;button.textContent="↗"}
  }
 }
+async function commitJalapDevChanges(){
+ if(jalapDevBusy||!jalapDevChanges?.length)return;
+ const base=apiBaseUrl(),token=apiAccessToken();
+ if(!base||!token){toast("Configure l’URL Netlify et le jeton PEPPER dans Réglages.","error");return}
+ if(!confirm("Valider ces modifications et les publier dans le dépôt public sopp24/PEPPER ?"))return;
+ jalapDevBusy=true;
+ const button=$("[data-action='jalap-dev-commit']");if(button){button.disabled=true;button.textContent="Commit en cours…"}
+ const pending=document.createElement("div");pending.id="jalap-dev-commit-pending";pending.className="chat-message assistant-message";pending.textContent="JALAP envoie les changements à GitHub…";$("#jalap-thread")?.appendChild(pending);
+ try{
+  const response=await fetch(base+"/.netlify/functions/jalap-dev",{method:"POST",headers:{...apiRequestHeaders(),"content-type":"application/json"},body:JSON.stringify({action:"commit",message:jalapDevOriginalRequest,changes:jalapDevChanges}),signal:AbortSignal.timeout(60000)});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.error||"Le commit GitHub a échoué ("+response.status+").");
+  jalapDevChanges=null;renderJalapDevProposal();
+  const summary=String(data.message||"Modifications commitées sur GitHub.")+" Fichiers : "+(data.files||[]).join(", ")+".";
+  appendJalapMessage("assistant",summary);
+  if(data.commitUrl&&/^https:\/\/github\.com\/sopp24\/PEPPER\/commit\/[a-f0-9]+$/.test(data.commitUrl)){
+   const line=document.createElement("div");line.className="jalap-commit-link";
+   const link=document.createElement("a");link.href=data.commitUrl;link.target="_blank";link.rel="noopener noreferrer";link.textContent="Voir le commit GitHub ↗";line.appendChild(link);$("#jalap-thread")?.appendChild(line);
+  }
+  toast("Commit créé sur GitHub. GitHub Pages va publier la mise à jour.");
+ }catch(error){appendJalapMessage("assistant",error.message||"Impossible de créer le commit.");}
+ finally{
+  $("#jalap-dev-commit-pending")?.remove();jalapDevBusy=false;
+  const action=$("[data-action='jalap-dev-commit']");if(action){action.disabled=false;action.textContent="Valider et commiter sur GitHub"}
+ }
+}
+function cancelJalapDevProposal(){
+ jalapDevChanges=null;jalapDevOriginalRequest="";renderJalapDevProposal();
+ appendJalapMessage("assistant","Proposition refusée. Aucun fichier n'a été modifié dans le dépôt.");
+}
+
 function applyJalapProposal(){
  const trip=activeTrip(),operations=jalapPendingProposal;if(!trip||!operations?.length)return;
  if(trip.id!==jalapPendingTripId){toast("Le voyage actif a changé. Relance la demande JALAP.","error");jalapPendingProposal=null;renderJalapProposal();return}
@@ -877,6 +969,9 @@ function markActivityBooked(id){
 function onAction(event){
  const el=event.target.closest("[data-action]");if(!el)return;const n=el.dataset.action,id=el.dataset.id;
  if(n==="jalap-apply"){applyJalapProposal();return}if(n==="jalap-cancel"){cancelJalapProposal();return}
+ if(n==="jalap-set-mode"){setJalapMode(el.dataset.mode);return}
+ if(n==="jalap-dev-commit"){commitJalapDevChanges();return}
+ if(n==="jalap-dev-cancel"){cancelJalapDevProposal();return}
  if(n==="close-modal"){if(event.target===el||el.matches("button"))closeModal();return}
  if(n==="settings"){settingsModal();return}if(n==="import-json"){importModal();return}
  if(n==="create-trip"){tripForm(null);return}if(n==="edit-trip"){tripForm(activeTrip());return}
@@ -906,5 +1001,5 @@ document.addEventListener("submit",e=>{
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
 $$("[data-scroll]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.scroll,node=id==="assistant-panel"?$(".assistant-panel"):$("#"+id);if(node)node.scrollIntoView({behavior:"smooth",block:"start"})}));
-async function initialise(){await restoreStateFromIndexedDB();if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;save();render();updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();const t=activeTrip();if(t){renderMap(t);fetchWeather(t);refreshLiveTransportStatus(t);refreshLocalTransitStatus(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}
+async function initialise(){await restoreStateFromIndexedDB();if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;setJalapMode(jalapMode,false);save();render();updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();const t=activeTrip();if(t){renderMap(t);fetchWeather(t);refreshLiveTransportStatus(t);refreshLocalTransitStatus(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}
 initialise();
