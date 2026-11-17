@@ -32,6 +32,11 @@ jobs:
           node --check netlify/functions/transport-status.mjs
           node --check netlify/functions/jalap.mjs
           node --check netlify/functions/jalap-dev.mjs
+          node --check lib/vercel-bridge.mjs
+          node --check api/jalap.mjs
+          node --check api/jalap-dev.mjs
+          node --check api/transport-status.mjs
+          node -e "JSON.parse(require('fs').readFileSync('vercel.json', 'utf8'))"
 
       - name: Validate service worker
         run: node --check service-worker.js
