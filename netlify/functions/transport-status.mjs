@@ -3,7 +3,7 @@ const SOURCE_URL = "https://ressources.data.sncf.com/explore/dataset/temps-reel-
 const MAX_FEED_BYTES = 12 * 1024 * 1024;
 
 function responseHeaders(origin) {
-  const allowed = Netlify.env.get("PEPPER_ALLOWED_ORIGIN") || "*";
+  const configuredOrigin = globalThis.Netlify?.env?.get?.("PEPPER_ALLOWED_ORIGIN") || process.env.PEPPER_ALLOWED_ORIGIN || "*";
   const headers = {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "public, max-age=30, s-maxage=30, stale-while-revalidate=60",
@@ -11,7 +11,9 @@ function responseHeaders(origin) {
     "access-control-allow-headers": "content-type",
     "vary": "Origin"
   };
-  if (allowed === "*" || allowed === origin) headers["access-control-allow-origin"] = allowed;
+  if (configuredOrigin === "*" || configuredOrigin === origin) {
+    headers["access-control-allow-origin"] = configuredOrigin;
+  }
   return headers;
 }
 
@@ -25,14 +27,16 @@ function xmlText(value) {
     .replace(/\\s+/g, " ").trim();
 }
 
+function tagPattern(name) {
+  return new RegExp("<(?:[A-Za-z_][\\\\w.-]*:)?"+name+"\\\\b[^>]*>([\\\\s\\\\S]*?)</(?:[A-Za-z_][\\\\w.-]*:)?"+name+"\\\\s*>", "i");
+}
+
 function tagContent(block, tagNames) {
   for (const name of tagNames) {
-    const escaped = name.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&");
-    const pattern = new RegExp("<(?:[A-Za-z_][\\w.-]*:)?"+escaped+"\\b[^>]*>([\\s\\S]*?)</(?:[A-Za-z_][\\w.-]*:)?"+escaped+"\\s*>", "i");
-    const match = block.match(pattern);
+    const match = block.match(tagPattern(name));
     if (match) {
       const inner = match[1];
-      const valueMatch = inner.match(/<(?:[A-Za-z_][\\w.-]*:)?Value\\b[^>]*>([\\s\\S]*?)<\\/(?:[A-Za-z_][\\w.-]*:)?Value\\s*>/i);
+      const valueMatch = inner.match(tagPattern("Value"));
       return xmlText(valueMatch ? valueMatch[1] : inner);
     }
   }
@@ -40,8 +44,7 @@ function tagContent(block, tagNames) {
 }
 
 function findBlocks(xml, tagName) {
-  const escaped = tagName.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&");
-  const pattern = new RegExp("<(?:[A-Za-z_][\\w.-]*:)?"+escaped+"\\b[^>]*>([\\s\\S]*?)</(?:[A-Za-z_][\\w.-]*:)?"+escaped+"\\s*>", "gi");
+  const pattern = new RegExp("<(?:[A-Za-z_][\\\\w.-]*:)?"+tagName+"\\\\b[^>]*>([\\\\s\\\\S]*?)</(?:[A-Za-z_][\\\\w.-]*:)?"+tagName+"\\\\s*>", "gi");
   return [...xml.matchAll(pattern)].map(match => match[1]);
 }
 
@@ -55,24 +58,17 @@ function parseSituations(xml, trainNumber) {
       ...findBlocks(block, "VehicleJourneyRef"),
       ...findBlocks(block, "TrainNumber")
     ].map(xmlText);
-    const matched = refs.some(ref => ref.toLowerCase().replace(/[^a-z0-9]/g, "").includes(needle));
-    if (!matched) continue;
-    const summary = tagContent(block, ["Summary", "SummaryText"]);
-    const description = tagContent(block, ["Description", "SituationDescription", "Advice"]);
-    const severity = tagContent(block, ["Severity"]);
-    const created = tagContent(block, ["CreationTime", "VersionedAtTime", "PublicationTime"]);
-    const start = tagContent(block, ["StartTime", "Start"]);
-    const end = tagContent(block, ["EndTime", "End"]);
-    const id = tagContent(block, ["SituationNumber", "SituationRef"]);
+    if (!refs.some(ref => ref.toLowerCase().replace(/[^a-z0-9]/g, "").includes(needle))) continue;
+
     output.push({
-      id: id || "sncf-" + output.length,
+      id: tagContent(block, ["SituationNumber", "SituationRef"]) || "sncf-" + output.length,
       trainNumber,
-      severity: severity || "unknown",
-      title: summary || "Information SNCF concernant ce train",
-      description: description || "",
-      createdAt: created || null,
-      validFrom: start || null,
-      validUntil: end || null
+      severity: tagContent(block, ["Severity"]) || "unknown",
+      title: tagContent(block, ["Summary", "SummaryText"]) || "Information SNCF concernant ce train",
+      description: tagContent(block, ["Description", "SituationDescription", "Advice"]),
+      createdAt: tagContent(block, ["CreationTime", "VersionedAtTime", "PublicationTime"]) || null,
+      validFrom: tagContent(block, ["StartTime", "Start"]) || null,
+      validUntil: tagContent(block, ["EndTime", "End"]) || null
     });
   }
   return output;
@@ -113,6 +109,7 @@ export default async (request) => {
     if (contentLength > MAX_FEED_BYTES) throw new Error("Flux SNCF trop volumineux.");
     const xml = await upstream.text();
     if (xml.length > MAX_FEED_BYTES) throw new Error("Flux SNCF trop volumineux.");
+
     const alerts = parseSituations(xml, trainNumber);
     return Response.json({
       provider: "SNCF",
