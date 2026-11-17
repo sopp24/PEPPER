@@ -68,25 +68,26 @@ Pour activer l’affichage live dans PEPPER :
 
 La donnée SNCF est publique, mais l’endpoint PEPPER est protégé par un jeton personnel `PEPPER_API_TOKEN`. Crée ce jeton localement (par exemple `openssl rand -hex 32`), ajoute-le comme variable d’environnement Netlify (scope Functions) et colle la même valeur dans PEPPER → Réglages → Jeton privé. Ajoute `PEPPER_ALLOWED_ORIGIN=https://sopp24.github.io` pour limiter les navigateurs à l’origine de PEPPER ; CORS ne remplace pas l’authentification. Pour activer IDFM, crée un jeton sur PRIM puis ajoute `IDFM_API_KEY` séparément dans les variables d’environnement Netlify (scope Functions), puis redeploie. Dans PEPPER, renseigne le `MonitoringRef` de l’arrêt dans les réglages du voyage. La requête utilise le header `apikey` officiel. Les autres API avec clés doivent être configurées uniquement côté serveur.
 
-## JALAP — assistant conversationnel intégré (optionnel)
+## JALAP — assistant conversationnel intégré (Groq gratuit, optionnel)
 
-Le panneau JALAP de l'application peut appeler le modèle OpenAI via `netlify/functions/jalap.mjs`. Le navigateur transmet uniquement le contexte expurgé du voyage actif et le message saisi. La fonction Netlify conserve la clé OpenAI côté serveur et renvoie une réponse structurée. Les opérations proposées sont affichées dans PEPPER ; aucune modification du carnet n'est enregistrée avant validation explicite. Après validation, les données sont sauvegardées dans le stockage local du navigateur.
+Le panneau JALAP appelle le modèle Groq `openai/gpt-oss-120b` via la fonction serveur `netlify/functions/jalap.mjs`. Le navigateur transmet uniquement le contexte expurgé du voyage actif et le message saisi. La clé Groq reste côté serveur Netlify ; elle n'est jamais intégrée au JavaScript public. Groq renvoie des propositions structurées par schéma JSON. Les opérations sont affichées dans PEPPER et aucune modification du carnet n'est enregistrée avant validation explicite.
 
-### Activation
+### Activation / migration depuis OpenAI
 
-1. Crée une clé API dans ton projet OpenAI depuis https://platform.openai.com/api-keys. L'accès à l'API et sa facturation sont distincts d'un abonnement ChatGPT.
-2. Dans Netlify → Project configuration → Environment variables, ajoute `OPENAI_API_KEY` avec cette clé et le scope **Functions**.
-3. Garde également `PEPPER_API_TOKEN` et `PEPPER_ALLOWED_ORIGIN=https://sopp24.github.io` déjà configurés.
-4. Redéploie le site Netlify pour appliquer la variable.
-5. Dans PEPPER, ouvre Réglages et vérifie que l'URL Netlify et le jeton PEPPER sont renseignés. Ouvre ensuite un voyage et écris dans le panneau JALAP.
+1. Crée un compte Groq et une clé API depuis https://console.groq.com/keys.
+2. Dans Netlify → Project configuration → Environment variables, ajoute `GROQ_API_KEY` avec cette clé et le scope **Functions**.
+3. Tu peux supprimer l'ancienne variable `OPENAI_API_KEY` après vérification que JALAP fonctionne avec Groq.
+4. Garde `PEPPER_API_TOKEN` et `PEPPER_ALLOWED_ORIGIN=https://sopp24.github.io` pour protéger la fonction.
+5. Redéploie une dernière fois la fonction Netlify pour prendre en compte `GROQ_API_KEY`. Le modèle par défaut est `openai/gpt-oss-120b` ; la variable facultative `JALAP_MODEL` permet de choisir un autre modèle Groq disponible.
 
-Le modèle par défaut est `gpt-6-luna` pour limiter le coût des échanges courants. Le modèle peut être remplacé côté serveur avec la variable facultative `JALAP_MODEL`. Vérifie les tarifs en vigueur dans la documentation OpenAI. La clé `OPENAI_API_KEY` ne doit jamais être mise dans GitHub, dans le code navigateur, dans les réglages PEPPER ou dans une conversation.
+Le plan gratuit Groq affiche des limites par modèle et par organisation ; pour `openai/gpt-oss-120b`, la documentation indique actuellement 30 requêtes/minute, 1 000 requêtes/jour, 8 000 tokens/minute et 200 000 tokens/jour. Les limites exactes peuvent évoluer et sont visibles dans la console Groq. Les requêtes d'inférence ne sont pas conservées par défaut ; des journaux temporaires peuvent toutefois contenir des données en cas d'incident de fiabilité ou d'enquête anti-abus, jusqu'à 30 jours. Groq indique ne pas utiliser les entrées/sorties pour entraîner ses modèles. L'option Zero Data Retention peut être activée dans les contrôles de données lorsque disponible.
 
-JALAP reçoit un contexte expurgé des codes de réservation, téléphones, détails privés d'accès et références de billets. Les messages et l'historique de la session de chat restent en mémoire dans l'onglet ; le carnet et les modifications validées restent dans le stockage local. JALAP ne dispose pas encore d'une recherche web dans cette première version : il ne doit pas affirmer avoir vérifié des horaires, prix ou disponibilités en direct.
+Groq constitue le fournisseur d'inférence ; Netlify ne fait que relayer les appels HTTPS et protéger la clé. Le calcul de la fonction consomme des crédits Netlify, mais pas le prix des tokens Groq. Sur le plan Netlify Free, les déploiements de production coûtent 15 crédits chacun ; désactive l'auto-publication GitHub de Netlify après ce déploiement de migration afin que chaque modification de PEPPER sur GitHub ne déclenche pas inutilement un nouveau déploiement Netlify. Le site public PEPPER continue d'être publié par GitHub Pages.
 
-Les actions actuellement proposées sont les ajouts / modifications / suppressions d'activités, les ajouts / modifications de trajets, les mises à jour des informations générales du voyage, les dépenses et les tâches de checklist. Les propositions sont validées côté navigateur puis sauvegardées localement.
+JALAP reçoit un contexte expurgé des codes de réservation, téléphones, détails privés d'accès et références de billets. Les messages et l'historique de la session de chat restent en mémoire dans l'onglet ; le carnet et les modifications validées restent dans le stockage local du navigateur. JALAP ne dispose pas encore d'une recherche web dans cette version : il ne doit pas affirmer avoir vérifié des horaires, prix ou disponibilités en direct.
 
-Le bouton « Copier le contexte du voyage » reste disponible pour utiliser cette conversation ChatGPT en complément.
+Les actions proposées sont les ajouts / modifications / suppressions d'activités, les ajouts / modifications de trajets, les mises à jour des informations générales du voyage, les dépenses et les tâches de checklist. Les propositions sont validées côté navigateur puis sauvegardées localement. Les données de voyage personnelles ne sont pas commitées dans le dépôt public PEPPER.
+
 
 ## Confidentialité
 
