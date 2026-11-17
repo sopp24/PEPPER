@@ -164,7 +164,7 @@ async function refreshLiveTransportStatus(trip){
  if(!eligible.length)return;
  const base=apiBaseUrl();
  for(const leg of eligible){
-  const target=$("#live-status-"+CSS.escape(leg.id));
+  const target=document.getElementById("live-status-"+leg.id);
   if(!target)continue;
   if(!leg.number){
    target.innerHTML="<strong>Suivi SNCF non configuré</strong><small>Ajoute le numéro commercial du train pour consulter les avis associés.</small>";
@@ -184,11 +184,11 @@ async function refreshLiveTransportStatus(trip){
    if(!response.ok)throw new Error(data.error||"Réponse du service "+response.status);
    if(activeTrip()?.id!==trip.id)return;
    localStorage.setItem(cacheKey,JSON.stringify(data));
-   const liveTarget=$("#live-status-"+CSS.escape(leg.id));
+   const liveTarget=document.getElementById("live-status-"+leg.id);
    if(liveTarget)liveTarget.innerHTML=renderLiveStatus(data,false);
   }catch(error){
    const cached=parse(localStorage.getItem(cacheKey),null);
-   const liveTarget=$("#live-status-"+CSS.escape(leg.id));
+   const liveTarget=document.getElementById("live-status-"+leg.id);
    if(liveTarget)liveTarget.innerHTML=cached?renderLiveStatus(cached,true):'<strong>Suivi temporairement indisponible</strong><small>'+esc(error.message||"Vérifie la connexion et le service API.")+'</small>';
   }
  }
@@ -248,7 +248,8 @@ function renderTransport(t){
   return '<article class="transport-card"><div class="transport-card-head"><div class="transport-mode"><span class="transport-mode-icon">'+(icons[leg.mode]||"↗")+'</span><span><strong>'+esc(directionName[leg.direction]||"Trajet")+' · '+esc(modeName[leg.mode]||"Transport")+'</strong><small>'+esc(leg.operator||"Transporteur à préciser")+(leg.service?" · "+esc(leg.service):"")+(leg.number?" · "+esc(leg.number):"")+'</small></span></div><span class="status-pill">À vérifier</span></div><div class="transport-route"><div class="transport-stop"><strong>'+esc(leg.origin||"Départ")+'</strong><small>'+esc(leg.departureDate?dateLabel(leg.departureDate):"Date à préciser")+' · '+esc(leg.departureTime||"—")+'</small></div><span class="transport-line">→</span><div class="transport-stop"><strong>'+esc(leg.destination||"Arrivée")+'</strong><small>'+esc(leg.arrivalDate?dateLabel(leg.arrivalDate):"Date à préciser")+' · '+esc(leg.arrivalTime||"—")+'</small></div></div><div class="transport-facts">'+facts.map(f=>'<div class="transport-fact"><small>'+esc(f[0])+'</small><strong>'+esc(f[1])+'</strong></div>').join("")+'</div>'+advice+officialSources+liveStatusSlot(leg)+pauses+(leg.notes?'<div class="stay-notes">'+esc(leg.notes)+'</div>':"")+'<div class="inline-links">'+(leg.ticketUrl?'<a href="'+esc(leg.ticketUrl)+'" target="_blank" rel="noopener noreferrer">Ouvrir le billet / transporteur ↗</a>':"")+'<a href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((leg.origin||"")+" "+(leg.destination||""))+'" target="_blank" rel="noopener noreferrer">Voir le trajet ↗</a></div><div class="transport-actions"><button type="button" data-action="edit-transport" data-id="'+esc(leg.id)+'">Modifier</button><button type="button" data-action="delete-transport" data-id="'+esc(leg.id)+'">Supprimer</button></div></article>';
  }).join("")+'</div>';
  node.innerHTML+=renderLocalTransitSources(t);
- startLiveRefresh(t);\n const warnings=getWarnings(t);if(warnings.length)node.innerHTML+='<div class="transport-warnings">'+warnings.map(w=>'<div class="transport-warning">⚠ '+esc(w)+'</div>').join("")+'</div>';
+ startLiveRefresh(t);
+ const warnings=getWarnings(t);if(warnings.length)node.innerHTML+='<div class="transport-warnings">'+warnings.map(w=>'<div class="transport-warning">⚠ '+esc(w)+'</div>').join("")+'</div>';
 }
 function renderActivities(t){
  const planWarnings=getPlanningWarnings(t);$("#itinerary-warnings").innerHTML=planWarnings.length?'<div class="transport-warnings">'+planWarnings.map(w=>'<div class="transport-warning">⚠ '+esc(w)+'</div>').join("")+'</div>':"";
@@ -287,6 +288,7 @@ async function geocodeStay(){const t=activeTrip(),s=t&&t.accommodation;if(!t||!s
 const weatherText=c=>({0:"Ciel dégagé",1:"Plutôt dégagé",2:"Partiellement nuageux",3:"Couvert",45:"Brouillard",48:"Brouillard givrant",51:"Bruine légère",53:"Bruine",55:"Bruine dense",61:"Pluie faible",63:"Pluie",65:"Forte pluie",71:"Neige faible",73:"Neige",75:"Forte neige",80:"Averses",81:"Averses",82:"Fortes averses",95:"Orage",96:"Orage et grêle",99:"Orage violent"}[c]||"Conditions variables");
 const weatherIcon=c=>c===0?"☀":c<=3?"⛅":c<=48?"☁":c<=67?"🌧":c<=77?"❄":c<=82?"🌦":"⛈";
 async function fetchWeather(t){
+ if(!t||!t.geo)return;
  const id=++weatherRequest,key="pepper-weather-v1:"+t.id;
  weatherData=null;weatherError="";
  const cached=parse(localStorage.getItem(key),null);
@@ -425,8 +427,9 @@ function shareContext(t){
  return{
   destination:t.destination,dates:{start:t.startDate,end:t.endDate},travellers:t.people,budget:t.budget,currency:t.currency,localTransport:{name:t.localTransitName||"",officialUrl:t.localTransitUrl||"",trafficUrl:t.localTrafficUrl||""},
   accommodation:t.accommodation?{name:t.accommodation.name,type:t.accommodation.type,address:t.accommodation.address,checkInDate:t.accommodation.checkInDate,checkInTime:t.accommodation.checkInTime,checkOutDate:t.accommodation.checkOutDate,checkOutTime:t.accommodation.checkOutTime,amenities:t.accommodation.amenities,parking:t.accommodation.parking,breakfast:t.accommodation.breakfast}:null,
-  transport:t.transport.map(x=>({direction:x.direction,mode:x.mode,operator:x.operator,service:x.service,number:x.number,origin:x.origin,destination:x.destination,departureDate:x.departureDate,departureTime:x.departureTime,arrivalDate:x.arrivalDate,arrivalTime:x.arrivalTime,platform:x.platform,baggage:x.baggage,routeType:x.routeType,arrivalBufferMinutes:x.arrivalBufferMinutes,drivingDurationMinutes:x.drivingDurationMinutes,plannedStops:x.plannedStops,boardingDeadline:x.boardingDeadline,trafficUrl:x.trafficUrl})),
-  activities:t.activities.map(x=>({name:x.name,category:x.category,date:x.date,startTime:x.startTime,duration:x.duration,address:x.address,description:x.description,priority:x.priority,done:!!x.done,bookingRequired:x.bookingRequired,price:x.price})),
+  transport:t.transport.map(x=>({direction:x.direction,mode:x.mode,operator:x.operator,service:x.service,number:x.number,origin:x.origin,destination:x.destination,departureDate:x.departureDate,departureTime:x.departureTime,arrivalDate:x.arrivalDate,arrivalTime:x.arrivalTime,platform:x.platform,baggage:x.baggage,routeType:x.routeType,arrivalBufferMinutes:x.arrivalBufferMinutes,drivingDurationMinutes:x.drivingDurationMinutes,plannedStops:x.plannedStops,boardingDeadline:x.boardingDeadline,ticketUrl:x.ticketUrl,trafficUrl:x.trafficUrl})),
+  activities:t.activities.map(x=>({name:x.name,category:x.category,date:x.date,startTime:x.startTime,duration:x.duration,address:x.address,description:x.description,priority:x.priority,done:!!x.done,bookingRequired:x.bookingRequired,bookingUrl:x.bookingUrl,price:x.price,sources:x.sources||[]})),
+  planningWarnings:[...getWarnings(t),...getPlanningWarnings(t)],
   checklist:t.checklist.map(x=>({label:x.label,done:!!x.done}))
  };
 }
@@ -448,8 +451,16 @@ async function copyRequest(event){
 
 function settingsModal(){
  const t=activeTrip(),api=apiBaseUrl();
- const body='<div class="detail-section"><h4>Stockage et confidentialité</h4><p>Les carnets de voyage, billets, références de réservation et cases à cocher sont enregistrés dans le stockage local de ce navigateur. Ils ne sont pas synchronisés avec GitHub ni envoyés dans le dépôt public.</p><p>Pour conserver une copie, exporte le voyage au format JSON et garde ce fichier dans un espace privé.</p></div><div class="detail-grid"><div class="detail-item"><small>Voyages enregistrés</small><strong>'+state.trips.length+'</strong></div><div class="detail-item"><small>Voyage actif</small><strong>'+esc(t?.destination||"Aucun")+'</strong></div></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Fermer</button><button class="primary-button" type="button" data-action="export-json" '+(!t?"disabled":"")+'>Exporter le voyage (JSON)</button></div>';
+ const body='<div class="detail-section"><h4>Stockage et confidentialité</h4><p>Les carnets de voyage, billets, références de réservation et cases à cocher sont enregistrés dans le stockage local de ce navigateur. Ils ne sont pas synchronisés avec GitHub ni envoyés dans le dépôt public.</p><p>Pour conserver une copie, exporte tous les voyages au format JSON et garde ce fichier dans un espace privé.</p></div><div class="detail-grid"><div class="detail-item"><small>Voyages enregistrés</small><strong>'+state.trips.length+'</strong></div><div class="detail-item"><small>Voyage actif</small><strong>'+esc(t?.destination||"Aucun")+'</strong></div></div>';
  openModal("Réglages de PEPPER","Stockage local, sauvegarde et confidentialité.",'<form id="settings-form"><div class="field full"><label>URL DU SERVICE TEMPS RÉEL PEPPER (NETLIFY)</label><input type="url" name="apiBaseUrl" value="'+esc(api)+'" placeholder="https://ton-service.netlify.app"><span class="field-help">Laisse vide tant que le service Netlify n’est pas déployé. Cette URL n’est pas un secret ; aucune clé API ne doit être saisie ici.</span></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Fermer</button><button class="primary-button" type="submit">Enregistrer</button></div></form><div class="modal-actions"><button class="secondary-button" type="button" data-action="import-json">Importer une sauvegarde</button><button class="primary-button" type="button" data-action="export-json">Exporter tous les voyages</button></div>'+body);
+}
+
+
+async function copyPimiAudit(){
+ const t=activeTrip();if(!t){toast("Crée d’abord un voyage.","error");return}
+ const warnings=[...getWarnings(t),...getPlanningWarnings(t)];
+ const prompt="PIMI, réalise un audit complet de mon voyage avant de proposer des changements. Vérifie les horaires et les règles sur les sources officielles des transporteurs, les perturbations connues, la cohérence des allers-retours et correspondances, les marges d'arrivée, les horaires du logement, les chevauchements d'activités, les temps de déplacement et les réservations. Distingue toujours les faits confirmés, les estimations et les informations à vérifier. Ne suppose jamais qu'une absence d'alerte signifie qu'un transport est à l'heure. N'invente aucun horaire, tarif ou lien. Commence par les risques prioritaires et pose uniquement les questions indispensables. Propose les modifications du programme avant de les intégrer. Les codes de réservation, téléphones et accès privés ont été volontairement exclus.\n\nCONTEXTE PEPPER :\n"+JSON.stringify(shareContext(t),null,2)+"\n\nALERTES LOCALES DÉTECTÉES :\n"+(warnings.length?warnings.map(x=>"- "+x).join("\n"):"Aucune alerte locale détectée.") ;
+ if(await copyText(prompt))toast("Audit PIMI copié. Colle-le dans cette conversation ChatGPT.");else toast("Copie impossible. Réessaie depuis le bouton de contexte.","error");
 }
 
 function onAction(event){
@@ -462,7 +473,7 @@ function onAction(event){
  if(n==="add-activity"){activityForm();return}if(n==="add-expense"){expenseForm();return}
  if(n==="activity-detail"){detailModal(id);return}if(n==="delete-activity"){if(confirm("Supprimer cette activité ?"))deleteActivity(id);return}
  if(n==="fit-map"){fitMap();return}if(n==="export-ics"){exportICS();return}if(n==="export-json"){exportJSON();return}
- if(n==="add-check"){addChecklist();return}if(n==="copy-trip-context"){copyContext();return}if(n==="copy-pimi-request"){copyRequest();return}
+ if(n==="add-check"){addChecklist();return}if(n==="copy-trip-context"){copyContext();return}if(n==="copy-pimi-request"){copyRequest();return}if(n==="copy-pimi-audit"){copyPimiAudit();return}
 }
 document.addEventListener("click",onAction);
 document.addEventListener("change",e=>{
