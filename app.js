@@ -16,7 +16,7 @@ const directionName={outbound:"Aller",return:"Retour",connection:"Correspondance
 let state=parse(localStorage.getItem(STORAGE_KEY),null)||parse(localStorage.getItem(RECOVERY_KEY),null)||parse(localStorage.getItem(LEGACY_KEY),null)||{trips:[],activeTripId:null};
 state.trips=Array.isArray(state.trips)?state.trips:[];
 state.trips.forEach(t=>{t.activities=t.activities||[];t.expenses=t.expenses||[];t.checklist=t.checklist||DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false}));t.transport=t.transport||[];t.accommodation=t.accommodation||null});
-let map=null,markers=null,mapTripId=null,weatherData=null,weatherError="",weatherRequest=0,transportRefreshTimer=null;
+let map=null,markers=null,mapTripId=null,mapLibraryRetryCount=0,weatherData=null,weatherError="",weatherRequest=0,transportRefreshTimer=null;
 const modalRoot=$("#modal-root");
 function activeTrip(){return state.trips.find(t=>t.id===state.activeTripId)||state.trips[0]||null}
 function save(){try{const previous=localStorage.getItem(STORAGE_KEY);if(previous)localStorage.setItem(RECOVERY_KEY,previous);localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}catch(e){toast("Le stockage de cet appareil est saturé. Exporte une sauvegarde pour conserver tes voyages.","error")}}
@@ -179,7 +179,7 @@ async function refreshLocalTransitStatus(trip){
   const endpoint=base+"/.netlify/functions/transport-status?provider=idfm&monitoringRef="+encodeURIComponent(trip.localTransitRef);
   const response=await fetch(endpoint,{headers:{accept:"application/json"},signal:AbortSignal.timeout(15000)});
   const data=await response.json();
-  if(!response.ok&&!data.configured)throw new Error(data.message||data.error||"IDFM non configuré");
+  if(data.configured===false){target.innerHTML=renderIdfmStatus(data);return;}
   if(!response.ok)throw new Error(data.error||"Réponse PRIM "+response.status);
   localStorage.setItem(cacheKey,JSON.stringify(data));
   if(activeTrip()?.id===trip.id&&document.getElementById("destination-live-status"))document.getElementById("destination-live-status").innerHTML=renderIdfmStatus(data);
@@ -227,7 +227,7 @@ function startLiveRefresh(trip){
  if(transportRefreshTimer)clearInterval(transportRefreshTimer);
  const needsLive=(trip.transport||[]).some(leg=>isSNCFRealtimeEligible(leg)&&leg.number)||!!trip.localTransitRef;
  if(!needsLive||!apiBaseUrl())return;
- refreshLiveTransportStatus(trip);refreshLocalTransitStatus(trip);
+ refreshLiveTransportStatus(trip);
  transportRefreshTimer=setInterval(()=>{
   if(document.visibilityState==="visible"&&navigator.onLine&&activeTrip()?.id===trip.id){refreshLiveTransportStatus(trip);refreshLocalTransitStatus(trip)}
  },120000);
@@ -301,7 +301,8 @@ function renderChecklist(t){
  $("#checklist-content").innerHTML=list.map(x=>'<label class="check-row '+(x.done?"done":"")+'"><input type="checkbox" data-action="toggle-check" data-id="'+esc(x.id)+'" '+(x.done?"checked":"")+'><span>'+esc(x.label)+'</span></label>').join("")||'<div class="empty-inline">Aucune tâche.</div>';
 }
 function renderMap(t){
- if(!window.L){const node=$("#map");if(node)node.innerHTML='<div class="offline-map-note">La carte nécessite le chargement de Leaflet et des tuiles cartographiques. Les adresses et les étapes restent accessibles hors connexion.</div>';return}
+ if(!window.L){const node=$("#map");if(navigator.onLine&&mapLibraryRetryCount<12){mapLibraryRetryCount++;setTimeout(()=>{if(activeTrip()?.id===t.id)renderMap(t)},300);return}if(node)node.innerHTML='<div class="offline-map-note">La carte nécessite le chargement de Leaflet et des tuiles cartographiques. Les adresses et les étapes restent accessibles hors connexion.</div>';return}
+ mapLibraryRetryCount=0;
  const center=t.geo?[t.geo.lat,t.geo.lon]:[20,0];
  if(!map){map=L.map("map",{scrollWheelZoom:false}).setView(center,t.geo?12:2);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);markers=L.layerGroup().addTo(map)}
  if(mapTripId!==t.id){mapTripId=t.id;map.setView(center,t.geo?12:2)}markers.clearLayers();
