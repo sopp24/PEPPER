@@ -30,6 +30,31 @@ PEPPER est un compagnon de voyage responsive et installable (PWA), publié depui
 
 Les sources officielles utilisées, leur périmètre et les étapes nécessaires pour intégrer de vrais flux temps réel sont décrits dans [docs/transport-sources.md](docs/transport-sources.md).
 
+## Expérience voyage — avant, pendant et après
+
+Le tableau de bord adapte sa vue au cycle du voyage :
+- **Avant le départ :** compte à rebours, réservations à traiter, activités encore flexibles et checklist de préparation.
+- **Pendant le séjour :** activités programmées aujourd'hui, trajets du jour, carte, météo et accès rapide à JALAP.
+- **Après le retour :** récapitulatif des étapes cochées, dépenses et export du carnet.
+
+La navigation par sections permet d'atteindre les transports, activités, hébergement, carte, budget, checklist et JALAP sans parcourir toute la page. La disposition se réorganise en colonnes sur grand écran, en blocs tablette et en parcours vertical avec barre de navigation inférieure sur téléphone.
+
+Les activités peuvent rester sans date dans « À planifier ». Une réservation confirmée n'attribue pas automatiquement de date : le jour et l'heure ne sont définis que lorsqu'ils sont connus.
+
+### Liens officiels d'activités
+
+Les fiches d'activités reconnaissent certains lieux et proposent des raccourcis vers leurs pages officielles :
+- Catacombes de Paris : [billetterie Paris Musées](https://www.billetterie-parismusees.paris.fr/). Réservation horodatée fortement recommandée ; billets mis en vente 7 jours avant.
+- Tour Eiffel : [billetterie officielle](https://ticket.toureiffel.paris/fr).
+- Bateaux-Mouches : [billets promenade officiels](https://www.bateaux-mouches.fr/fr/reservation/billets?subid=billets). Pour la promenade, aucun créneau horaire n'est nécessaire.
+- Théâtre Michel : [billetterie officielle](https://billetterie.theatre-michel.fr/).
+- Notre-Dame : [réservation gratuite facultative](https://www.notredamedeparis.fr/visiter/reserver-gratuitement/).
+- Panthéon : [billetterie du Centre des monuments nationaux](https://tickets.monuments-nationaux.fr/fr-FR/familles?site=2007056652440400272).
+- Santa Lyna : [site officiel](https://thehungryfamily.com/santa-lyna/) (informations et menu ; aucun module de réservation en ligne n'est affiché sur cette page).
+- 59 Rivoli : [site officiel](https://59rivoli.org/) (horaires et informations de visite).
+
+Un lien saisi manuellement dans la fiche reste prioritaire sur le raccourci suggéré. Les liens ouvrent le site du prestataire dans un nouvel onglet : PEPPER ne traite pas le paiement et n'affirme pas qu'une réservation est confirmée. L'utilisateur met lui-même son statut à jour après avoir reçu la confirmation du prestataire.
+
 ## Temps réel SNCF et service Netlify (optionnel)
 
 Le dossier `netlify/functions/transport-status.mjs` contient un endpoint serveur qui interroge le flux public SIRI SX de SNCF et filtre les avis par numéro commercial de train. Il concerne les TGV, Intercités, TER et OUIGO ; il ne confirme pas la ponctualité lorsqu’aucun avis n’est trouvé. Le flux SNCF est publié toutes les deux minutes. Eurostar et Transilien ne sont pas couverts.
