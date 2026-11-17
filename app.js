@@ -1,5 +1,5 @@
 const STORAGE_KEY="pepper-trip-state-v1";
-const LEGACY_KEY="pimientos-state-v1";
+const LEGACY_KEY="jalapentos-state-v1";
 const RECOVERY_KEY="pepper-last-good-state-v1";
 const API_BASE_KEY="pepper-api-base-url-v1";
 const API_TOKEN_KEY="pepper-api-access-token-v1";
@@ -18,7 +18,7 @@ let state=parse(localStorage.getItem(STORAGE_KEY),null)||parse(localStorage.getI
 state.trips=Array.isArray(state.trips)?state.trips:[];
 state.trips.forEach(t=>{t.activities=t.activities||[];t.expenses=t.expenses||[];t.checklist=t.checklist||DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false}));t.transport=t.transport||[];t.accommodation=t.accommodation||null});
 let map=null,markers=null,mapTripId=null,mapLibraryRetryCount=0,weatherData=null,weatherError="",weatherRequest=0,transportRefreshTimer=null,pepperDbPromise=null;
-let pimiMessages=[],pimiPendingProposal=null,pimiPendingTripId=null,pimiBusy=false;
+let jalapMessages=[],jalapPendingProposal=null,jalapPendingTripId=null,jalapBusy=false;
 const modalRoot=$("#modal-root");
 
 function openPepperDatabase(){
@@ -366,9 +366,9 @@ function renderMap(t){
  const center=t.geo?[t.geo.lat,t.geo.lon]:[20,0];
  if(!map){map=L.map("map",{scrollWheelZoom:false}).setView(center,t.geo?12:2);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);markers=L.layerGroup().addTo(map)}
  if(mapTripId!==t.id){mapTripId=t.id;map.setView(center,t.geo?12:2)}markers.clearLayers();
- if(t.geo){const icon=L.divIcon({className:"",html:'<div class="pimi-map-pin destination"><span>✦</span></div>',iconSize:[28,28],iconAnchor:[13,26]});L.marker(center,{icon}).addTo(markers).bindPopup("<strong>"+esc(t.destination)+"</strong><br>Destination")}
- if(t.accommodation&&t.accommodation.geo){const g=t.accommodation.geo,icon=L.divIcon({className:"",html:'<div class="pimi-map-pin" style="background:#b4d58a"><span>⌂</span></div>',iconSize:[28,28],iconAnchor:[13,26]});L.marker([g.lat,g.lon],{icon}).addTo(markers).bindPopup("<strong>"+esc(t.accommodation.name)+"</strong><br>Hébergement")}
- const points=[];(t.activities||[]).forEach((a,i)=>{if(!a.geo)return;const p=[a.geo.lat,a.geo.lon];points.push(p);const icon=L.divIcon({className:"",html:'<div class="pimi-map-pin"><span>'+(i+1)+'</span></div>',iconSize:[28,28],iconAnchor:[13,26]});L.marker(p,{icon}).addTo(markers).bindPopup("<strong>"+esc(a.name)+"</strong><br>"+esc(a.date?dateLabel(a.date):"Date à définir"))});
+ if(t.geo){const icon=L.divIcon({className:"",html:'<div class="jalap-map-pin destination"><span>✦</span></div>',iconSize:[28,28],iconAnchor:[13,26]});L.marker(center,{icon}).addTo(markers).bindPopup("<strong>"+esc(t.destination)+"</strong><br>Destination")}
+ if(t.accommodation&&t.accommodation.geo){const g=t.accommodation.geo,icon=L.divIcon({className:"",html:'<div class="jalap-map-pin" style="background:#b4d58a"><span>⌂</span></div>',iconSize:[28,28],iconAnchor:[13,26]});L.marker([g.lat,g.lon],{icon}).addTo(markers).bindPopup("<strong>"+esc(t.accommodation.name)+"</strong><br>Hébergement")}
+ const points=[];(t.activities||[]).forEach((a,i)=>{if(!a.geo)return;const p=[a.geo.lat,a.geo.lon];points.push(p);const icon=L.divIcon({className:"",html:'<div class="jalap-map-pin"><span>'+(i+1)+'</span></div>',iconSize:[28,28],iconAnchor:[13,26]});L.marker(p,{icon}).addTo(markers).bindPopup("<strong>"+esc(a.name)+"</strong><br>"+esc(a.date?dateLabel(a.date):"Date à définir"))});
  if(points.length>1)L.polyline(points,{color:"#ed78c5",weight:2,opacity:.62,dashArray:"5 7"}).addTo(markers);
  setTimeout(()=>map.invalidateSize(),100);
 }
@@ -431,11 +431,17 @@ function activityForm(existing){
  openModal(existing?"Modifier une activité":"Ajouter une activité",existing?"Modifie les informations ou attribue une date quand tu es prêt.":"Tu peux laisser la date vide : l'activité restera dans la liste à planifier.",body);
 }
 function expenseForm(){openModal("Ajouter une dépense","Garde une vision simple du budget.",'<form id="expense-form"><div class="form-grid"><div class="field full"><label>LIBELLÉ</label><input name="label" required></div><div class="field"><label>MONTANT</label><input type="number" name="amount" min="0" step="0.01" required></div><div class="field"><label>CATÉGORIE</label><select name="category">'+["Repas","Transport","Hébergement","Visite","Shopping","Divers"].map(v=>'<option>'+v+'</option>').join("")+'</select></div></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit">Ajouter la dépense</button></div></form>')}
+function safeBookingUrl(value){
+ try{const url=new URL(String(value||""));return ["https:","http:"].includes(url.protocol)?url.href:""}catch(error){return ""}
+}
 function detailModal(id){
  const t=activeTrip(),a=t.activities.find(x=>x.id===id);if(!a)return;
- const bullets=(a.highlights||[]).map(x=>"<li>"+esc(x)+"</li>").join(""),sources=(a.sources||[]).filter(x=>x.url).map(x=>'<li><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">'+esc(x.title||x.url)+' ↗</a></li>').join(""),bookingState=a.bookingStatus||(a.bookingRequired?"to_book":"unknown"),bookingLabel=bookingState==="booked"?"Réservation confirmée":bookingState==="to_book"?"À réserver":bookingState==="not_required"?"Pas de réservation nécessaire":"À vérifier";
- openModal("Détail de l’étape","Fiche pratique, durée, budget et avancement.",'<div class="detail-hero"><h3>'+esc(a.name)+'</h3><p>'+esc(a.description||"Aucune description disponible.")+'</p></div><div class="detail-grid"><div class="detail-item"><small>Date / heure</small><strong>'+esc(a.date?dateLabel(a.date):"À planifier")+' · '+esc(a.startTime||"Libre")+'</strong></div><div class="detail-item"><small>Durée</small><strong>'+esc(a.duration?a.duration+" min":"À confirmer")+'</strong></div><div class="detail-item"><small>Budget</small><strong>'+esc(a.price!=null?money(a.price,t.currency):"À confirmer")+'</strong></div><div class="detail-item"><small>Priorité</small><strong>'+esc(a.priority==="must"?"Incontournable":a.priority==="low"?"Optionnel":"À évaluer")+'</strong></div><div class="detail-item"><small>Réservation</small><strong>'+esc(bookingLabel)+'</strong></div><div class="detail-item"><small>Avancement</small><strong>'+(a.done?"Faite ✓":"À faire")+'</strong></div></div>'+(bullets?'<div class="detail-section"><h4>À retenir</h4><ul>'+bullets+'</ul></div>':"")+(sources?'<div class="detail-section"><h4>Sources consultées</h4><ul>'+sources+'</ul></div>':"")+'<div class="detail-section"><h4>Localisation</h4><p>'+esc(a.address||"Adresse à préciser")+'</p><a class="text-button" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((a.address||a.name)+" "+t.destination)+'" target="_blank" rel="noopener noreferrer">Ouvrir dans Maps ↗</a></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="delete-activity" data-id="'+esc(a.id)+'">Supprimer</button><button class="secondary-button" type="button" data-action="edit-activity" data-id="'+esc(a.id)+'">Modifier</button><button class="primary-button" type="button" data-action="close-modal">Terminé</button></div>');
+ const bullets=(a.highlights||[]).map(x=>"<li>"+esc(x)+"</li>").join(""),sources=(a.sources||[]).filter(x=>x.url).map(x=>'<li><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">'+esc(x.title||x.url)+' ↗</a></li>').join(""),bookingState=a.bookingStatus||(a.bookingRequired?"to_book":"unknown"),bookingLabel=bookingState==="booked"?"Réservation confirmée":bookingState==="to_book"?"À réserver":bookingState==="not_required"?"Pas de réservation nécessaire":"À vérifier",bookingUrl=safeBookingUrl(a.bookingUrl);
+ const bookingAction=bookingUrl?'<a class="booking-open-link" href="'+esc(bookingUrl)+'" target="_blank" rel="noopener noreferrer">Ouvrir le site pour réserver ↗</a>':'<button class="secondary-button" type="button" data-action="edit-activity" data-id="'+esc(a.id)+'">Ajouter le lien de réservation</button>';
+ const reservationConfirm=bookingState==="booked"?'<div class="booking-confirmed"><span>✓</span> Réservation confirmée dans PEPPER</div>':'<button class="booking-confirm-button" type="button" data-action="mark-activity-booked" data-id="'+esc(a.id)+'">J’ai terminé la réservation</button>';
+ openModal("Détail de l’étape","Fiche pratique, durée, budget et réservation.",'<div class="detail-hero"><h3>'+esc(a.name)+'</h3><p>'+esc(a.description||"Aucune description disponible.")+'</p></div><div class="detail-grid"><div class="detail-item"><small>Date / heure</small><strong>'+esc(a.date?dateLabel(a.date):"À planifier")+' · '+esc(a.startTime||"Libre")+'</strong></div><div class="detail-item"><small>Durée</small><strong>'+esc(a.duration?a.duration+" min":"À confirmer")+'</strong></div><div class="detail-item"><small>Budget</small><strong>'+esc(a.price!=null?money(a.price,t.currency):"À confirmer")+'</strong></div><div class="detail-item"><small>Priorité</small><strong>'+esc(a.priority==="must"?"Incontournable":a.priority==="low"?"Optionnel":"À évaluer")+'</strong></div><div class="detail-item"><small>Réservation</small><strong>'+esc(bookingLabel)+'</strong></div><div class="detail-item"><small>Avancement</small><strong>'+(a.done?"Faite ✓":"À faire")+'</strong></div></div><div class="booking-actions">'+bookingAction+reservationConfirm+'</div><p class="booking-note">La réservation se finalise sur le site du prestataire. PEPPER ne collecte pas le paiement : reviens ici après confirmation pour mettre le statut à jour.</p>'+(bullets?'<div class="detail-section"><h4>À retenir</h4><ul>'+bullets+'</ul></div>':"")+(sources?'<div class="detail-section"><h4>Sources consultées</h4><ul>'+sources+'</ul></div>':"")+'<div class="detail-section"><h4>Localisation</h4><p>'+esc(a.address||"Adresse à préciser")+'</p><a class="text-button" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((a.address||a.name)+" "+t.destination)+'" target="_blank" rel="noopener noreferrer">Ouvrir dans Maps ↗</a></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="delete-activity" data-id="'+esc(a.id)+'">Supprimer</button><button class="secondary-button" type="button" data-action="edit-activity" data-id="'+esc(a.id)+'">Modifier</button><button class="primary-button" type="button" data-action="close-modal">Terminé</button></div>');
 }
+
 function saveTripForm(form){
  const d=Object.fromEntries(new FormData(form).entries());if(d.startDate&&d.endDate&&d.endDate<d.startDate){toast("La date de retour doit suivre celle de départ.","error");return}
  let t=state.trips.find(x=>x.id===d.id);if(!t){t={id:uid(),activities:[],transport:[],expenses:[],checklist:DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false})),accommodation:null,createdAt:new Date().toISOString()};state.trips.push(t)}
@@ -540,8 +546,8 @@ async function copyContext(){
 async function copyRequest(event){
  if(event)event.preventDefault();const t=activeTrip(),idea=$("#idea-input").value.trim();if(!t)return;
  if(!idea){await copyContext();return}
- const value="PIMI, voici une nouvelle demande pour mon voyage. Vérifie les informations officielles à jour, les horaires, les réservations, les temps de déplacement et la cohérence avec mon hébergement et mes trajets. Pose-moi les questions manquantes avant de l’intégrer. Si une mise à jour du code de l’application est nécessaire, modifie le projet GitHub sans publier de données privées.\n\nCONTEXTE :\n"+JSON.stringify(shareContext(t),null,2)+"\n\nNOUVELLE IDÉE / INFORMATION :\n"+idea;
- if(await copyText(value)){toast("Demande copiée. Colle-la dans cette conversation pour que PIMI puisse la traiter.");$("#idea-input").value=""}else toast("Copie impossible. Sélectionne et copie le texte manuellement.","error");
+ const value="JALAP, voici une nouvelle demande pour mon voyage. Vérifie les informations officielles à jour, les horaires, les réservations, les temps de déplacement et la cohérence avec mon hébergement et mes trajets. Pose-moi les questions manquantes avant de l’intégrer. Si une mise à jour du code de l’application est nécessaire, modifie le projet GitHub sans publier de données privées.\n\nCONTEXTE :\n"+JSON.stringify(shareContext(t),null,2)+"\n\nNOUVELLE IDÉE / INFORMATION :\n"+idea;
+ if(await copyText(value)){toast("Demande copiée. Colle-la dans cette conversation pour que JALAP puisse la traiter.");$("#idea-input").value=""}else toast("Copie impossible. Sélectionne et copie le texte manuellement.","error");
 }
 
 function settingsModal(){
@@ -551,33 +557,40 @@ function settingsModal(){
 }
 
 
-async function copyPimiAudit(){
+async function copyJalapAudit(){
  const t=activeTrip();if(!t){toast("Crée d’abord un voyage.","error");return}
  const warnings=[...getWarnings(t),...getPlanningWarnings(t)];
- const prompt="PIMI, réalise un audit complet de mon voyage avant de proposer des changements. Vérifie les horaires et les règles sur les sources officielles des transporteurs, les perturbations connues, la cohérence des allers-retours et correspondances, les marges d'arrivée, les horaires du logement, les chevauchements d'activités, les temps de déplacement et les réservations. Distingue toujours les faits confirmés, les estimations et les informations à vérifier. Ne suppose jamais qu'une absence d'alerte signifie qu'un transport est à l'heure. N'invente aucun horaire, tarif ou lien. Commence par les risques prioritaires et pose uniquement les questions indispensables. Propose les modifications du programme avant de les intégrer. Les codes de réservation, téléphones et accès privés ont été volontairement exclus.\n\nCONTEXTE PEPPER :\n"+JSON.stringify(shareContext(t),null,2)+"\n\nALERTES LOCALES DÉTECTÉES :\n"+(warnings.length?warnings.map(x=>"- "+x).join("\n"):"Aucune alerte locale détectée.") ;
- if(await copyText(prompt))toast("Audit PIMI copié. Colle-le dans cette conversation ChatGPT.");else toast("Copie impossible. Réessaie depuis le bouton de contexte.","error");
+ const prompt="JALAP, réalise un audit complet de mon voyage avant de proposer des changements. Vérifie les horaires et les règles sur les sources officielles des transporteurs, les perturbations connues, la cohérence des allers-retours et correspondances, les marges d'arrivée, les horaires du logement, les chevauchements d'activités, les temps de déplacement et les réservations. Distingue toujours les faits confirmés, les estimations et les informations à vérifier. Ne suppose jamais qu'une absence d'alerte signifie qu'un transport est à l'heure. N'invente aucun horaire, tarif ou lien. Commence par les risques prioritaires et pose uniquement les questions indispensables. Propose les modifications du programme avant de les intégrer. Les codes de réservation, téléphones et accès privés ont été volontairement exclus.\n\nCONTEXTE PEPPER :\n"+JSON.stringify(shareContext(t),null,2)+"\n\nALERTES LOCALES DÉTECTÉES :\n"+(warnings.length?warnings.map(x=>"- "+x).join("\n"):"Aucune alerte locale détectée.") ;
+ if(await copyText(prompt))toast("Audit JALAP copié. Colle-le dans cette conversation ChatGPT.");else toast("Copie impossible. Réessaie depuis le bouton de contexte.","error");
 }
 
 
-function appendPimiMessage(role,content){
- const thread=$("#pimi-thread");if(!thread)return;
- const node=document.createElement("div");node.className="chat-message "+(role==="user"?"user-message":"assistant-message");node.textContent=String(content||"");
- thread.appendChild(node);thread.scrollTop=thread.scrollHeight;
+function appendJalapMessage(role,content){
+ const thread=$("#jalap-thread");if(!thread)return;
+ if(role==="assistant"){
+  const line=document.createElement("div");line.className="chat-line";
+  const avatar=document.createElement("img");avatar.className="chat-mascot";avatar.src="./assets/jalap.svg";avatar.alt="JALAP";
+  const node=document.createElement("div");node.className="chat-message assistant-message";node.textContent=String(content||"");
+  line.append(avatar,node);thread.appendChild(line);
+ }else{
+  const node=document.createElement("div");node.className="chat-message user-message";node.textContent=String(content||"");thread.appendChild(node);
+ }
+ thread.scrollTop=thread.scrollHeight;
 }
-function pimiOperationTitle(op){
+function jalapOperationTitle(op){
  const labels={activity_add:"Ajouter une activité",activity_update:"Modifier une activité",activity_delete:"Supprimer une activité",transport_add:"Ajouter un trajet",transport_update:"Modifier un trajet",trip_update:"Modifier les informations du voyage",expense_add:"Ajouter une dépense",checklist_add:"Ajouter une tâche"};
  const name=op.data?.name||op.data?.label||op.data?.taskLabel;
  return (labels[op.action]||"Modification")+(name?" : "+name:"");
 }
-function renderPimiProposal(){
- const panel=$("#pimi-proposal"),content=$("#pimi-proposal-content");if(!panel||!content)return;
- if(!pimiPendingProposal||!pimiPendingProposal.length){panel.hidden=true;content.textContent="";return}
+function renderJalapProposal(){
+ const panel=$("#jalap-proposal"),content=$("#jalap-proposal-content");if(!panel||!content)return;
+ if(!jalapPendingProposal||!jalapPendingProposal.length){panel.hidden=true;content.textContent="";return}
  panel.hidden=false;
- content.innerHTML=pimiPendingProposal.map((op,i)=>'<div class="pimi-change"><strong>'+(i+1)+'. '+esc(pimiOperationTitle(op))+'</strong><span>'+esc(op.reason||"Modification proposée")+'</span></div>').join("");
+ content.innerHTML=jalapPendingProposal.map((op,i)=>'<div class="jalap-change"><strong>'+(i+1)+'. '+esc(jalapOperationTitle(op))+'</strong><span>'+esc(op.reason||"Modification proposée")+'</span></div>').join("");
 }
-const PIMI_ACTIVITY_FIELDS=["name","category","date","startTime","duration","address","description","price","bookingRequired","bookingStatus","priority","bookingUrl","highlights"];
-const PIMI_TRANSPORT_FIELDS=["direction","mode","operator","service","number","origin","destination","departureDate","departureTime","arrivalDate","arrivalTime","platform","baggage","ticketUrl","trafficUrl","notes"];
-function pimiCleanData(data,fields){
+const JALAP_ACTIVITY_FIELDS=["name","category","date","startTime","duration","address","description","price","bookingRequired","bookingStatus","priority","bookingUrl","highlights"];
+const JALAP_TRANSPORT_FIELDS=["direction","mode","operator","service","number","origin","destination","departureDate","departureTime","arrivalDate","arrivalTime","platform","baggage","ticketUrl","trafficUrl","notes"];
+function jalapCleanData(data,fields){
  const cleaned={};
  for(const field of fields){
   const value=data?.[field];if(value===null&&["date","startTime"].includes(field)){cleaned[field]="";continue}if(value===null||value===undefined||value==="")continue;
@@ -588,7 +601,7 @@ function pimiCleanData(data,fields){
  }
  return cleaned;
 }
-function validatePimiProposal(operations,trip){
+function validateJalapProposal(operations,trip){
  if(!Array.isArray(operations))return [];
  const allowed=["activity_add","activity_update","activity_delete","transport_add","transport_update","trip_update","expense_add","checklist_add"];
  return operations.slice(0,8).filter(op=>{
@@ -603,57 +616,57 @@ function validatePimiProposal(operations,trip){
   return true;
  }).map(op=>({...op,data:op.data}));
 }
-async function sendPimiMessage(event){
+async function sendJalapMessage(event){
  if(event)event.preventDefault();
- if(pimiBusy)return;
+ if(jalapBusy)return;
  const input=$("#idea-input"),message=input?.value.trim(),trip=activeTrip();
- if(!trip){toast("Crée ou importe d’abord un voyage pour discuter avec PIMI.","error");return}
+ if(!trip){toast("Crée ou importe d’abord un voyage pour discuter avec JALAP.","error");return}
  if(!message){input?.focus();return}
  const base=apiBaseUrl(),token=apiAccessToken();
  if(!base||!token){toast("Configure d’abord l’URL Netlify et le jeton PEPPER dans Réglages.","error");return}
- pimiMessages.push({role:"user",content:message});appendPimiMessage("user",message);
- input.value="";pimiBusy=true;
+ jalapMessages.push({role:"user",content:message});appendJalapMessage("user",message);
+ input.value="";jalapBusy=true;
  const button=$("#idea-form button[type=submit]");if(button){button.disabled=true;button.textContent="…"}
- const pending=document.createElement("div");pending.id="pimi-pending";pending.className="chat-message assistant-message";pending.textContent="PIMI analyse ton voyage…";$("#pimi-thread")?.appendChild(pending);
+ const pending=document.createElement("div");pending.id="jalap-pending";pending.className="chat-message assistant-message";pending.textContent="JALAP analyse ton voyage…";$("#jalap-thread")?.appendChild(pending);
  try{
-  const response=await fetch(base+"/.netlify/functions/pimi",{method:"POST",headers:{...apiRequestHeaders(),"content-type":"application/json"},body:JSON.stringify({message,context:shareContext(trip),history:pimiMessages.slice(-10)}),signal:AbortSignal.timeout(50000)});
+  const response=await fetch(base+"/.netlify/functions/jalap",{method:"POST",headers:{...apiRequestHeaders(),"content-type":"application/json"},body:JSON.stringify({message,context:shareContext(trip),history:jalapMessages.slice(-10)}),signal:AbortSignal.timeout(50000)});
   const data=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(data.error||"PIMI est indisponible ("+response.status+").");
+  if(!response.ok)throw new Error(data.error||"JALAP est indisponible ("+response.status+").");
   if(activeTrip()?.id!==trip.id)throw new Error("Le voyage actif a changé pendant l'analyse. Relance ta demande depuis le bon voyage.");
   const answer=String(data.message||"Je n'ai pas réussi à formuler une réponse.");
-  pimiMessages.push({role:"assistant",content:answer});appendPimiMessage("assistant",answer);
-  pimiPendingProposal=validatePimiProposal(data.operations,trip);pimiPendingTripId=trip.id;renderPimiProposal();
-  if(data.operations?.length&&!pimiPendingProposal.length)appendPimiMessage("assistant","Je n'ai pas pu sécuriser les modifications proposées. Précise ta demande et je réessaierai.");
- }catch(error){appendPimiMessage("assistant",error.message||"Connexion à PIMI impossible. Vérifie le service Netlify.");}
+  jalapMessages.push({role:"assistant",content:answer});appendJalapMessage("assistant",answer);
+  jalapPendingProposal=validateJalapProposal(data.operations,trip);jalapPendingTripId=trip.id;renderJalapProposal();
+  if(data.operations?.length&&!jalapPendingProposal.length)appendJalapMessage("assistant","Je n'ai pas pu sécuriser les modifications proposées. Précise ta demande et je réessaierai.");
+ }catch(error){appendJalapMessage("assistant",error.message||"Connexion à JALAP impossible. Vérifie le service Netlify.");}
  finally{
-  $("#pimi-pending")?.remove();pimiBusy=false;if(button){button.disabled=false;button.textContent="↗"}
+  $("#jalap-pending")?.remove();jalapBusy=false;if(button){button.disabled=false;button.textContent="↗"}
  }
 }
-function applyPimiProposal(){
- const trip=activeTrip(),operations=pimiPendingProposal;if(!trip||!operations?.length)return;
- if(trip.id!==pimiPendingTripId){toast("Le voyage actif a changé. Relance la demande PIMI.","error");pimiPendingProposal=null;renderPimiProposal();return}
+function applyJalapProposal(){
+ const trip=activeTrip(),operations=jalapPendingProposal;if(!trip||!operations?.length)return;
+ if(trip.id!==jalapPendingTripId){toast("Le voyage actif a changé. Relance la demande JALAP.","error");jalapPendingProposal=null;renderJalapProposal();return}
  const applied=[];
  for(const op of operations){
   const data=op.data||{};
   if(op.action==="activity_add"){
-   const fields=pimiCleanData(data,PIMI_ACTIVITY_FIELDS),activity={id:uid(),...fields,done:false,status:"À organiser",createdAt:new Date().toISOString()};
+   const fields=jalapCleanData(data,JALAP_ACTIVITY_FIELDS),activity={id:uid(),...fields,done:false,status:"À organiser",createdAt:new Date().toISOString()};
    if(!activity.category)activity.category="Autre";if(!activity.priority)activity.priority="medium";if(!activity.bookingStatus)activity.bookingStatus="unknown";
    activity.bookingRequired=activity.bookingStatus==="to_book"||activity.bookingStatus==="booked"||data.bookingRequired===true;
    trip.activities.push(activity);applied.push("activité ajoutée");
   }else if(op.action==="activity_update"||op.action==="activity_delete"){
    const activity=trip.activities.find(x=>x.id===op.targetId);if(!activity)continue;
    if(op.action==="activity_delete"){trip.activities=trip.activities.filter(x=>x.id!==op.targetId);applied.push("activité supprimée");}
-   else{const fields=pimiCleanData(data,PIMI_ACTIVITY_FIELDS);Object.assign(activity,fields);if(fields.bookingStatus)activity.bookingRequired=fields.bookingStatus==="to_book"||fields.bookingStatus==="booked";applied.push("activité modifiée");}
+   else{const fields=jalapCleanData(data,JALAP_ACTIVITY_FIELDS);Object.assign(activity,fields);if(fields.bookingStatus)activity.bookingRequired=fields.bookingStatus==="to_book"||fields.bookingStatus==="booked";applied.push("activité modifiée");}
   }else if(op.action==="transport_add"){
-   const fields=pimiCleanData(data,PIMI_TRANSPORT_FIELDS);
+   const fields=jalapCleanData(data,JALAP_TRANSPORT_FIELDS);
    trip.transport.push({id:uid(),...fields,routeType:"unknown",arrivalBufferMinutes:null,createdAt:new Date().toISOString()});applied.push("trajet ajouté");
   }else if(op.action==="transport_update"){
    const leg=trip.transport.find(x=>x.id===op.targetId);if(!leg)continue;
-   Object.assign(leg,pimiCleanData(data,PIMI_TRANSPORT_FIELDS));applied.push("trajet modifié");
+   Object.assign(leg,jalapCleanData(data,JALAP_TRANSPORT_FIELDS));applied.push("trajet modifié");
   }else if(op.action==="trip_update"){
-   const fields=pimiCleanData(data,["destination","startDate","endDate","people","budget","currency","notes"]);
+   const fields=jalapCleanData(data,["destination","startDate","endDate","people","budget","currency","notes"]);
    const nextStart=fields.startDate||trip.startDate,nextEnd=fields.endDate||trip.endDate;
-   if(nextStart&&nextEnd&&nextEnd<nextStart){appendPimiMessage("assistant","J'ai écarté une modification des dates car la date de retour serait antérieure au départ.");continue;}
+   if(nextStart&&nextEnd&&nextEnd<nextStart){appendJalapMessage("assistant","J'ai écarté une modification des dates car la date de retour serait antérieure au départ.");continue;}
    Object.assign(trip,fields);applied.push("voyage mis à jour");
   }else if(op.action==="expense_add"){
    trip.expenses.push({id:uid(),label:String(data.label||"Dépense").slice(0,120),amount:Number(data.amount),category:String(data.category||"Divers").slice(0,60),date:today()});applied.push("dépense ajoutée");
@@ -662,24 +675,29 @@ function applyPimiProposal(){
   }
  }
  if(!applied.length){toast("Aucune modification valide à appliquer.","error");return;}
- pimiPendingProposal=null;pimiPendingTripId=null;save();weatherData=null;render();renderPimiProposal();
+ jalapPendingProposal=null;jalapPendingTripId=null;save();weatherData=null;render();renderJalapProposal();
  const summary="C'est fait : "+applied.join(", ")+". Les changements sont enregistrés dans ce navigateur.";
- pimiMessages.push({role:"assistant",content:summary});appendPimiMessage("assistant",summary);toast("Modifications PIMI enregistrées localement.");
+ jalapMessages.push({role:"assistant",content:summary});appendJalapMessage("assistant",summary);toast("Modifications JALAP enregistrées localement.");
 }
-function cancelPimiProposal(){pimiPendingProposal=null;pimiPendingTripId=null;renderPimiProposal();appendPimiMessage("assistant","D'accord, je n'ai rien modifié dans ton voyage.");}
+function cancelJalapProposal(){jalapPendingProposal=null;jalapPendingTripId=null;renderJalapProposal();appendJalapMessage("assistant","D'accord, je n'ai rien modifié dans ton voyage.");}
 
+function markActivityBooked(id){
+ const t=activeTrip(),activity=t?.activities.find(x=>x.id===id);if(!activity)return;
+ activity.bookingStatus="booked";activity.bookingRequired=true;activity.reservationConfirmedAt=new Date().toISOString();
+ save();render();detailModal(id);toast("Réservation marquée comme confirmée dans PEPPER.");
+}
 function onAction(event){
  const el=event.target.closest("[data-action]");if(!el)return;const n=el.dataset.action,id=el.dataset.id;
- if(n==="pimi-apply"){applyPimiProposal();return}if(n==="pimi-cancel"){cancelPimiProposal();return}
+ if(n==="jalap-apply"){applyJalapProposal();return}if(n==="jalap-cancel"){cancelJalapProposal();return}
  if(n==="close-modal"){if(event.target===el||el.matches("button"))closeModal();return}
  if(n==="settings"){settingsModal();return}if(n==="import-json"){importModal();return}
  if(n==="create-trip"){tripForm(null);return}if(n==="edit-trip"){tripForm(activeTrip());return}
  if(n==="edit-accommodation"){stayForm();return}if(n==="add-transport"){transportForm(null);return}
  if(n==="edit-transport"){transportForm(activeTrip().transport.find(x=>x.id===id));return}if(n==="delete-transport"){if(confirm("Supprimer ce trajet ?"))deleteTransport(id);return}
  if(n==="add-activity"){activityForm();return}if(n==="edit-activity"){const activity=activeTrip()?.activities.find(x=>x.id===id);if(activity)activityForm(activity);return}if(n==="add-expense"){expenseForm();return}
- if(n==="activity-detail"){detailModal(id);return}if(n==="delete-activity"){if(confirm("Supprimer cette activité ?"))deleteActivity(id);return}
+ if(n==="activity-detail"){detailModal(id);return}if(n==="mark-activity-booked"){markActivityBooked(id);return}if(n==="delete-activity"){if(confirm("Supprimer cette activité ?"))deleteActivity(id);return}
  if(n==="fit-map"){fitMap();return}if(n==="export-ics"){exportICS();return}if(n==="export-json"){exportJSON();return}
- if(n==="add-check"){addChecklist();return}if(n==="copy-trip-context"){copyContext();return}if(n==="copy-pimi-request"){copyRequest();return}if(n==="copy-pimi-audit"){copyPimiAudit();return}
+ if(n==="add-check"){addChecklist();return}if(n==="copy-trip-context"){copyContext();return}if(n==="copy-jalap-request"){copyRequest();return}if(n==="copy-jalap-audit"){copyJalapAudit();return}
 }
 document.addEventListener("click",onAction);
 document.addEventListener("change",e=>{
@@ -696,7 +714,7 @@ document.addEventListener("submit",e=>{
  if(f.id==="transport-form"){e.preventDefault();saveLeg(f)}
  if(f.id==="activity-form"){e.preventDefault();addActivity(f)}
  if(f.id==="expense-form"){e.preventDefault();addExpense(f)}
- if(f.id==="idea-form")sendPimiMessage(e);
+ if(f.id==="idea-form")sendJalapMessage(e);
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
 $$("[data-scroll]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.scroll,node=id==="assistant-panel"?$(".assistant-panel"):$("#"+id);if(node)node.scrollIntoView({behavior:"smooth",block:"start"})}));
