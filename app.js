@@ -16,10 +16,62 @@ const directionName={outbound:"Aller",return:"Retour",connection:"Correspondance
 let state=parse(localStorage.getItem(STORAGE_KEY),null)||parse(localStorage.getItem(RECOVERY_KEY),null)||parse(localStorage.getItem(LEGACY_KEY),null)||{trips:[],activeTripId:null};
 state.trips=Array.isArray(state.trips)?state.trips:[];
 state.trips.forEach(t=>{t.activities=t.activities||[];t.expenses=t.expenses||[];t.checklist=t.checklist||DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false}));t.transport=t.transport||[];t.accommodation=t.accommodation||null});
-let map=null,markers=null,mapTripId=null,mapLibraryRetryCount=0,weatherData=null,weatherError="",weatherRequest=0,transportRefreshTimer=null;
+let map=null,markers=null,mapTripId=null,mapLibraryRetryCount=0,weatherData=null,weatherError="",weatherRequest=0,transportRefreshTimer=null,pepperDbPromise=null;
 const modalRoot=$("#modal-root");
+
+function openPepperDatabase(){
+ if(!("indexedDB" in window))return Promise.resolve(null);
+ if(pepperDbPromise)return pepperDbPromise;
+ pepperDbPromise=new Promise((resolve,reject)=>{
+  const request=indexedDB.open("pepper-private-store",1);
+  request.onupgradeneeded=()=>{
+   const db=request.result;
+   if(!db.objectStoreNames.contains("snapshots"))db.createObjectStore("snapshots");
+  };
+  request.onsuccess=()=>resolve(request.result);
+  request.onerror=()=>reject(request.error||new Error("IndexedDB indisponible"));
+  request.onblocked=()=>reject(new Error("La base locale est bloquée par un autre onglet"));
+ });
+ return pepperDbPromise;
+}
+async function persistStateToIndexedDB(snapshot){
+ try{
+  const db=await openPepperDatabase();if(!db)return false;
+  await new Promise((resolve,reject)=>{
+   const tx=db.transaction("snapshots","readwrite");
+   tx.objectStore("snapshots").put({json:snapshot,savedAt:new Date().toISOString()},"current");
+   tx.oncomplete=resolve;
+   tx.onerror=()=>reject(tx.error||new Error("Écriture IndexedDB impossible"));
+   tx.onabort=()=>reject(tx.error||new Error("Écriture IndexedDB annulée"));
+  });
+  return true;
+ }catch(error){return false}
+}
+async function readStateFromIndexedDB(){
+ try{
+  const db=await openPepperDatabase();if(!db)return null;
+  const saved=await new Promise((resolve,reject)=>{
+   const tx=db.transaction("snapshots","readonly");
+   const request=tx.objectStore("snapshots").get("current");
+   request.onsuccess=()=>resolve(request.result||null);
+   request.onerror=()=>reject(request.error||new Error("Lecture IndexedDB impossible"));
+  });
+  if(!saved||typeof saved.json!=="string")return null;
+  const restored=parse(saved.json,null);
+  return restored&&Array.isArray(restored.trips)?restored:null;
+ }catch(error){return null}
+}
+async function restoreStateFromIndexedDB(){
+ const hasBrowserState=!!(localStorage.getItem(STORAGE_KEY)||localStorage.getItem(RECOVERY_KEY)||localStorage.getItem(LEGACY_KEY));
+ if(hasBrowserState)return false;
+ const restored=await readStateFromIndexedDB();
+ if(!restored)return false;
+ state=restored;
+ return true;
+}
+
 function activeTrip(){return state.trips.find(t=>t.id===state.activeTripId)||state.trips[0]||null}
-function save(){try{const previous=localStorage.getItem(STORAGE_KEY);if(previous)localStorage.setItem(RECOVERY_KEY,previous);localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}catch(e){toast("Le stockage de cet appareil est saturé. Exporte une sauvegarde pour conserver tes voyages.","error")}}
+function save(){const snapshot=JSON.stringify(state);try{const previous=localStorage.getItem(STORAGE_KEY);if(previous)localStorage.setItem(RECOVERY_KEY,previous);localStorage.setItem(STORAGE_KEY,snapshot)}catch(e){toast("Le stockage classique est saturé. La sauvegarde locale étendue est tentée ; exporte aussi un fichier JSON privé.","error")}persistStateToIndexedDB(snapshot)}
 function toast(message,type){const n=document.createElement("div");n.className="toast "+(type||"");n.textContent=message;$("#toast-root").appendChild(n);setTimeout(()=>n.remove(),4200)}
 function dateTime(date,time){if(!date)return null;const d=new Date(date+"T"+(time||"00:00")+":00");return Number.isNaN(d.getTime())?null:d}
 function dateTimeLabel(d){return new Intl.DateTimeFormat("fr-FR",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(d)}
@@ -482,7 +534,7 @@ async function copyRequest(event){
 
 function settingsModal(){
  const t=activeTrip(),api=apiBaseUrl();
- const body='<div class="detail-section"><h4>Stockage et confidentialité</h4><p>Les carnets de voyage, billets, références de réservation et cases à cocher sont enregistrés dans le stockage local de ce navigateur. Ils ne sont pas synchronisés avec GitHub ni envoyés dans le dépôt public.</p><p>Pour conserver une copie, exporte tous les voyages au format JSON et garde ce fichier dans un espace privé.</p></div><div class="detail-grid"><div class="detail-item"><small>Voyages enregistrés</small><strong>'+state.trips.length+'</strong></div><div class="detail-item"><small>Voyage actif</small><strong>'+esc(t?.destination||"Aucun")+'</strong></div></div>';
+ const body='<div class="detail-section"><h4>Stockage et confidentialité</h4><p>Les carnets de voyage, billets, références de réservation et cases à cocher sont enregistrés localement dans ce navigateur (stockage du site et IndexedDB). Ils ne sont pas synchronisés avec GitHub ni envoyés dans le dépôt public.</p><p>Pour conserver une copie, exporte tous les voyages au format JSON et garde ce fichier dans un espace privé.</p></div><div class="detail-grid"><div class="detail-item"><small>Voyages enregistrés</small><strong>'+state.trips.length+'</strong></div><div class="detail-item"><small>Voyage actif</small><strong>'+esc(t?.destination||"Aucun")+'</strong></div></div>';
  openModal("Réglages de PEPPER","Stockage local, sauvegarde et confidentialité.",'<form id="settings-form"><div class="field full"><label>URL DU SERVICE TEMPS RÉEL PEPPER (NETLIFY)</label><input type="url" name="apiBaseUrl" value="'+esc(api)+'" placeholder="https://ton-service.netlify.app"><span class="field-help">Laisse vide tant que le service Netlify n’est pas déployé. Cette URL n’est pas un secret ; aucune clé API ne doit être saisie ici.</span></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Fermer</button><button class="primary-button" type="submit">Enregistrer</button></div></form><div class="modal-actions"><button class="secondary-button" type="button" data-action="import-json">Importer une sauvegarde</button><button class="primary-button" type="button" data-action="export-json">Exporter tous les voyages</button></div>'+body);
 }
 
@@ -525,5 +577,5 @@ document.addEventListener("submit",e=>{
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
 $$("[data-scroll]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.scroll,node=id==="assistant-panel"?$(".assistant-panel"):$("#"+id);if(node)node.scrollIntoView({behavior:"smooth",block:"start"})}));
-function initialise(){if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;save();render();updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();const t=activeTrip();if(t){renderMap(t);fetchWeather(t);refreshLiveTransportStatus(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}
+async function initialise(){await restoreStateFromIndexedDB();if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;save();render();updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();const t=activeTrip();if(t){renderMap(t);fetchWeather(t);refreshLiveTransportStatus(t);refreshLocalTransitStatus(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}
 initialise();
