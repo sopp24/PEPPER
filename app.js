@@ -2,6 +2,7 @@ const STORAGE_KEY="pepper-trip-state-v1";
 const LEGACY_KEY="pimientos-state-v1";
 const RECOVERY_KEY="pepper-last-good-state-v1";
 const API_BASE_KEY="pepper-api-base-url-v1";
+const API_TOKEN_KEY="pepper-api-access-token-v1";
 const DEFAULT_CHECKLIST=["Vérifier les papiers d’identité et les visas","Confirmer les billets, horaires et formalités d’enregistrement","Confirmer l’hébergement et les heures d’arrivée / départ","Vérifier les conditions de bagages et les documents nécessaires","Prévoir les moyens de paiement et télécharger les documents hors ligne"];
 const $=(s,root=document)=>root.querySelector(s),$$=(s,root=document)=>Array.from(root.querySelectorAll(s));
 const parse=(v,f)=>{try{return JSON.parse(v)}catch(e){return f}};
@@ -193,6 +194,8 @@ function renderLocalTransitSources(t){
 
 
 function apiBaseUrl(){return String(localStorage.getItem(API_BASE_KEY)||"").trim().replace(/\/+$/,"")}
+function apiAccessToken(){return String(localStorage.getItem(API_TOKEN_KEY)||"").trim()}
+function apiRequestHeaders(){return {accept:"application/json",Authorization:"Bearer "+apiAccessToken()}}
 function isSNCFRealtimeEligible(leg){
  if(!leg||leg.mode!=="train")return false;
  const operator=normalizedSearchText(leg.operator);
@@ -222,14 +225,14 @@ async function refreshLocalTransitStatus(trip){
  const target=document.getElementById("destination-live-status");
  if(!target||!trip.localTransitRef)return;
  const base=apiBaseUrl(),cacheKey="pepper-idfm-v1:"+trip.id;
- if(!base){
+ if(!base||!apiAccessToken()){
   const cached=parse(localStorage.getItem(cacheKey),null);
   target.innerHTML=cached?renderIdfmStatus(cached):'<strong>Suivi local IDFM prêt à activer</strong><small>Déploie le service Netlify, ajoute IDFM_API_KEY dans ses variables et renseigne le MonitoringRef de l’arrêt.</small>';
   return;
  }
  try{
   const endpoint=base+"/.netlify/functions/transport-status?provider=idfm&monitoringRef="+encodeURIComponent(trip.localTransitRef);
-  const response=await fetch(endpoint,{headers:{accept:"application/json"},signal:AbortSignal.timeout(15000)});
+  const response=await fetch(endpoint,{headers:apiRequestHeaders(),signal:AbortSignal.timeout(15000)});
   const data=await response.json();
   if(data.configured===false){target.innerHTML=renderIdfmStatus(data);return;}
   if(!response.ok)throw new Error(data.error||"Réponse PRIM "+response.status);
@@ -253,15 +256,15 @@ async function refreshLiveTransportStatus(trip){
    continue;
   }
   const cacheKey="pepper-live-status-v1:"+trip.id+":"+leg.id;
-  if(!base){
+  if(!base||!apiAccessToken()){
    const cached=parse(localStorage.getItem(cacheKey),null);
-   target.innerHTML=cached?renderLiveStatus(cached,true):'<strong>Connecteur temps réel SNCF prêt à activer</strong><small>Configure l’URL du service Netlify dans Réglages. Le suivi officiel du billet reste disponible.</small>';
+   target.innerHTML=cached?renderLiveStatus(cached,true):'<strong>Connecteur temps réel SNCF à activer</strong><small>Configure l’URL Netlify et le jeton privé PEPPER dans Réglages. Le suivi officiel du billet reste disponible.</small>';
    continue;
   }
   target.innerHTML="<strong>Consultation du flux SNCF…</strong><small>Recherche des avis associés au train "+esc(leg.number)+".</small>";
   try{
    const endpoint=base+"/.netlify/functions/transport-status?provider=sncf&number="+encodeURIComponent(leg.number);
-   const response=await fetch(endpoint,{headers:{accept:"application/json"},signal:AbortSignal.timeout(15000)});
+   const response=await fetch(endpoint,{headers:apiRequestHeaders(),signal:AbortSignal.timeout(15000)});
    const data=await response.json();
    if(!response.ok)throw new Error(data.error||"Réponse du service "+response.status);
    if(activeTrip()?.id!==trip.id)return;
@@ -278,7 +281,7 @@ async function refreshLiveTransportStatus(trip){
 function startLiveRefresh(trip){
  if(transportRefreshTimer)clearInterval(transportRefreshTimer);
  const needsLive=(trip.transport||[]).some(leg=>isSNCFRealtimeEligible(leg)&&leg.number)||!!trip.localTransitRef;
- if(!needsLive||!apiBaseUrl())return;
+ if(!needsLive||!apiBaseUrl()||!apiAccessToken())return;
  refreshLiveTransportStatus(trip);
  transportRefreshTimer=setInterval(()=>{
   if(document.visibilityState==="visible"&&navigator.onLine&&activeTrip()?.id===trip.id){refreshLiveTransportStatus(trip);refreshLocalTransitStatus(trip)}
@@ -533,9 +536,9 @@ async function copyRequest(event){
 }
 
 function settingsModal(){
- const t=activeTrip(),api=apiBaseUrl();
+ const t=activeTrip(),api=apiBaseUrl(),token=apiAccessToken();
  const body='<div class="detail-section"><h4>Stockage et confidentialité</h4><p>Les carnets de voyage, billets, références de réservation et cases à cocher sont enregistrés localement dans ce navigateur (stockage du site et IndexedDB). Ils ne sont pas synchronisés avec GitHub ni envoyés dans le dépôt public.</p><p>Pour conserver une copie, exporte tous les voyages au format JSON et garde ce fichier dans un espace privé.</p></div><div class="detail-grid"><div class="detail-item"><small>Voyages enregistrés</small><strong>'+state.trips.length+'</strong></div><div class="detail-item"><small>Voyage actif</small><strong>'+esc(t?.destination||"Aucun")+'</strong></div></div>';
- openModal("Réglages de PEPPER","Stockage local, sauvegarde et confidentialité.",'<form id="settings-form"><div class="field full"><label>URL DU SERVICE TEMPS RÉEL PEPPER (NETLIFY)</label><input type="url" name="apiBaseUrl" value="'+esc(api)+'" placeholder="https://ton-service.netlify.app"><span class="field-help">Laisse vide tant que le service Netlify n’est pas déployé. Cette URL n’est pas un secret ; aucune clé API ne doit être saisie ici.</span></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Fermer</button><button class="primary-button" type="submit">Enregistrer</button></div></form><div class="modal-actions"><button class="secondary-button" type="button" data-action="import-json">Importer une sauvegarde</button><button class="primary-button" type="button" data-action="export-json">Exporter tous les voyages</button></div>'+body);
+ openModal("Réglages de PEPPER","Stockage local, sauvegarde et confidentialité.",'<form id="settings-form"><div class="field full"><label>URL DU SERVICE TEMPS RÉEL PEPPER (NETLIFY)</label><input type="url" name="apiBaseUrl" value="'+esc(api)+'" placeholder="https://ton-service.netlify.app"><span class="field-help">URL publique de ton service. Elle ne contient aucun secret.</span></div><div class="field full"><label>JETON PRIVÉ D’ACCÈS PEPPER</label><input type="password" name="apiAccessToken" value="'+esc(token)+'" autocomplete="off" placeholder="Colle ici le jeton créé dans Netlify"><span class="field-help">Ce jeton reste dans ce navigateur et est transmis en HTTPS. Il doit être identique à PEPPER_API_TOKEN côté Netlify. Ne le colle jamais dans GitHub ni dans une conversation.</span></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Fermer</button><button class="primary-button" type="submit">Enregistrer</button></div></form><div class="modal-actions"><button class="secondary-button" type="button" data-action="import-json">Importer une sauvegarde</button><button class="primary-button" type="button" data-action="export-json">Exporter tous les voyages</button></div>'+body);
 }
 
 
@@ -566,7 +569,7 @@ document.addEventListener("change",e=>{
 });
 document.addEventListener("submit",e=>{
  const f=e.target;
- if(f.id==="settings-form"){e.preventDefault();localStorage.setItem(API_BASE_KEY,String(new FormData(f).get("apiBaseUrl")||"").trim().replace(/\/+$/,""));closeModal();if(activeTrip())renderTransport(activeTrip());toast("Réglages enregistrés sur cet appareil.");}
+ if(f.id==="settings-form"){e.preventDefault();localStorage.setItem(API_BASE_KEY,String(new FormData(f).get("apiBaseUrl")||"").trim().replace(/\/+$/,""));localStorage.setItem(API_TOKEN_KEY,String(new FormData(f).get("apiAccessToken")||"").trim());closeModal();if(activeTrip())renderTransport(activeTrip());toast("Réglages enregistrés sur cet appareil.");}
  if(f.id==="import-form"){e.preventDefault();importBackup(f)}
  if(f.id==="trip-form"){e.preventDefault();saveTripForm(f)}
  if(f.id==="stay-form"){e.preventDefault();saveStay(f)}
