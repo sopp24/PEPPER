@@ -18,11 +18,15 @@ PEPPER est un compagnon de voyage responsive et installable (PWA), publié depui
 - Carte OpenStreetMap avec destination, hébergement et activités.
 - Prévisions météo Open-Meteo.
 - Activités avec fiche détaillée et case « faite ».
+- Audit PIMI préparé depuis le carnet : copie le contexte expurgé des codes privés et des alertes de cohérence dans cette conversation ChatGPT.
 - Budget, dépenses, checklist, export ICS et sauvegarde / restauration JSON de tous les voyages.
 - Alertes locales de cohérence du programme : chevauchements, dates hors séjour, réservations sans lien et temps de déplacement manifestement courts.
 - Prévisions météo précédemment consultées affichées avec leur date lorsqu’on est hors connexion ; données du voyage disponibles localement.
-- Données de voyage conservées localement dans le navigateur.
-- **Limite actuelle des données transport :** PEPPER ne lit pas encore les flux temps réel dans son interface. Il ouvre les sources officielles et l’application du transporteur ; les horaires et retards doivent être vérifiés chez l’opérateur. Les repères d’arrivée et les ETA voiture sont des estimations, pas un statut live.
+- Données de voyage conservées localement dans IndexedDB avec stockage navigateur de compatibilité et snapshot de récupération.
+- Sauvegarde JSON versionnée de tous les voyages, fusion ou remplacement lors de la restauration.
+- Aucune synchronisation entre appareils n’est activée tant qu’un service de compte / stockage distant privé n’a pas été configuré.
+- **Données temps réel :** le connecteur serveur SNCF (SIRI SX) et l’option IDFM (PRIM) sont codés, mais ils n’apparaîtront dans l’application qu’après déploiement Netlify et configuration des éventuels jetons. Les autres compagnies utilisent leurs liens officiels. Aucun avis SNCF trouvé ne veut pas dire que le train est à l’heure.
+- **Mode hors connexion :** l’enveloppe de l’application, les voyages et les dernières prévisions météo consultées peuvent être disponibles sans réseau. Les tuiles de carte, les données live, les sites opérateurs et la météo actualisée nécessitent une connexion.
 
 Les sources officielles utilisées, leur périmètre et les étapes nécessaires pour intégrer de vrais flux temps réel sont décrits dans [docs/transport-sources.md](docs/transport-sources.md).
 
