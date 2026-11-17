@@ -57,7 +57,7 @@ function parseSituations(xml, trainNumber) {
       ...findBlocks(block, "VehicleJourneyRef"),
       ...findBlocks(block, "TrainNumber")
     ].map(xmlText);
-    if (!refs.some(ref => ref.toLowerCase().replace(/[^a-z0-9]/g, "").includes(needle))) continue;
+    if (!refs.some(ref => ref.toLowerCase().replace(/[^a-z0-9]/g, "") === needle)) continue;
 
     output.push({
       id: tagContent(block, ["SituationNumber", "SituationRef"]) || "sncf-" + output.length,
