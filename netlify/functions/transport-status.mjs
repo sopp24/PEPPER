@@ -9,7 +9,7 @@ function runtimeEnv(name) {
 }
 
 function isValidBearer(request, expected) {
-  const supplied = (request.headers.get("authorization") || "").replace(/^Bearer\\s+/i, "");
+  const supplied = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   if (!expected || !supplied) return false;
   const left = Buffer.from(expected);
   const right = Buffer.from(supplied);
