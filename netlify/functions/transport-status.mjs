@@ -19,32 +19,31 @@ function responseHeaders(origin) {
 
 function xmlText(value) {
   return String(value || "")
-    .replace(/<\\/?(?:[A-Za-z_][\\w.-]*:)?[A-Za-z_][\\w.-]*\\b[^>]*>/g, " ")
+    .replace(/<[^>]+>/g, " ")
     .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
-    .replace(/&#(\\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
     .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
-    .replace(/\\s+/g, " ").trim();
+    .replace(/\s+/g, " ").trim();
 }
 
 function tagPattern(name) {
-  return new RegExp("<(?:[A-Za-z_][\\\\w.-]*:)?"+name+"\\\\b[^>]*>([\\\\s\\\\S]*?)</(?:[A-Za-z_][\\\\w.-]*:)?"+name+"\\\\s*>", "i");
+  return new RegExp("<(?:[A-Za-z_][\\w.-]*:)?"+name+"\\b[^>]*>([\\s\\S]*?)</(?:[A-Za-z_][\\w.-]*:)?"+name+"\\s*>", "i");
 }
 
 function tagContent(block, tagNames) {
   for (const name of tagNames) {
     const match = block.match(tagPattern(name));
     if (match) {
-      const inner = match[1];
-      const valueMatch = inner.match(tagPattern("Value"));
-      return xmlText(valueMatch ? valueMatch[1] : inner);
+      const valueMatch = match[1].match(tagPattern("Value"));
+      return xmlText(valueMatch ? valueMatch[1] : match[1]);
     }
   }
   return "";
 }
 
 function findBlocks(xml, tagName) {
-  const pattern = new RegExp("<(?:[A-Za-z_][\\\\w.-]*:)?"+tagName+"\\\\b[^>]*>([\\\\s\\\\S]*?)</(?:[A-Za-z_][\\\\w.-]*:)?"+tagName+"\\\\s*>", "gi");
+  const pattern = new RegExp("<(?:[A-Za-z_][\\w.-]*:)?"+tagName+"\\b[^>]*>([\\s\\S]*?)</(?:[A-Za-z_][\\w.-]*:)?"+tagName+"\\s*>", "gi");
   return [...xml.matchAll(pattern)].map(match => match[1]);
 }
 
