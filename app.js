@@ -268,7 +268,7 @@ function updateNetworkStatus(){
 }
 
 function renderTransport(t){
- const node=$("#transport-content"),legs=t.transport||[];if(!legs.length){if(transportRefreshTimer)clearInterval(transportRefreshTimer);transportRefreshTimer=null;node.innerHTML='<div class="empty-inline">Aucun trajet renseigné. Ajoute ton aller, ton retour ou une correspondance pour afficher les marges et alertes de planning.</div>'+renderLocalTransitSources(t);refreshLocalTransitStatus(t);return}
+ const node=$("#transport-content"),legs=t.transport||[];if(!legs.length){node.innerHTML='<div class="empty-inline">Aucun trajet renseigné. Ajoute ton aller, ton retour ou une correspondance pour afficher les marges et alertes de planning.</div>'+renderLocalTransitSources(t);startLiveRefresh(t);refreshLocalTransitStatus(t);return}
  node.innerHTML='<div class="transport-list">'+legs.map(leg=>{
   const info=arrivalInfo(leg),dep=dateTime(leg.departureDate,leg.departureTime),arr=dateTime(leg.arrivalDate,leg.arrivalTime),facts=[["Départ",dep?dateTimeLabel(dep):"À préciser"],["Arrivée",arr?dateTimeLabel(arr):"À préciser"],["Voie / terminal",leg.platform||"À vérifier"],["Bagages",leg.baggage||"À vérifier"],["Limite d’embarquement",leg.boardingDeadline||"À vérifier"]];
   const when=info.arrivalBy?"Arrivée conseillée au plus tard : "+dateTimeLabel(info.arrivalBy)+". ":"",roadEta=info.estimatedArrival?"Arrivée voiture indicative : "+dateTimeLabel(info.estimatedArrival)+" (pauses de 15 min / 2 h estimées, hors trafic). ":"";
@@ -395,7 +395,7 @@ function saveLeg(form){
 async function addActivity(form){
  const d=Object.fromEntries(new FormData(form).entries()),t=activeTrip(),a={id:uid(),name:d.name.trim(),category:d.category,date:d.date,startTime:d.startTime,duration:d.duration?Number(d.duration):null,address:d.address,description:d.description,price:d.price===""?null:Number(d.price),bookingRequired:d.bookingRequired==="true",priority:d.priority||"medium",bookingUrl:d.bookingUrl||"",done:false,status:"À organiser",highlights:(d.highlights||"").split("\n").map(x=>x.trim()).filter(Boolean),createdAt:new Date().toISOString()};
  t.activities.push(a);save();closeModal();render();toast("Activité ajoutée au programme.");
- if(a.address)try{const g=await geocode(a.address+", "+t.destination);if(g){a.geo=g;save();renderMap(t)}}catch(e){}
+ if(a.address)try{const g=await geocode(a.address+", "+t.destination);if(g){a.geo=g;save();renderMap(t);renderActivities(t)}}catch(e){}
 }
 function addExpense(form){const d=Object.fromEntries(new FormData(form).entries()),t=activeTrip();t.expenses.push({id:uid(),label:d.label.trim(),amount:Number(d.amount),category:d.category,date:today()});save();closeModal();renderBudget(t);toast("Dépense ajoutée.")}
 function deleteActivity(id){const t=activeTrip();t.activities=t.activities.filter(a=>a.id!==id);save();closeModal();render();toast("Activité supprimée.")}
