@@ -445,10 +445,12 @@ function ensureLeaflet(){
   };
   next();
  });
+ leafletPromise.then(ready=>{if(!ready)leafletPromise=null});
  return leafletPromise;
 }
 function showFallbackMap(trip){
  const node=$("#map");if(!node)return;
+ if(map){try{map.remove()}catch(e){}map=null;markers=null;mapTripId=null;}
  if(!trip.geo){
   node.innerHTML='<div class="offline-map-note">Localisation de '+esc(trip.destination||"la destination")+' indisponible. Vérifie le nom de la ville ou réessaie la géolocalisation.<br><button type="button" class="small-button" data-action="refresh-map">Réessayer</button></div>';
   return;
