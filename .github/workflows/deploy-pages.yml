@@ -30,7 +30,7 @@ jobs:
       - name: Validate Netlify functions
         run: |
           node --check netlify/functions/transport-status.mjs
-          node --check netlify/functions/pimi.mjs
+          node --check netlify/functions/jalap.mjs
 
       - name: Validate service worker
         run: node --check service-worker.js
