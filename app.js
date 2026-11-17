@@ -846,7 +846,7 @@ function renderJalapDevProposal(){
  panel.hidden=false;
  content.innerHTML=jalapDevChanges.map((file,index)=>{
   const edits=file.edits.map((edit,i)=>{
-   const before=String(edit.old_text||"").slice(0,1400),after=String(edit.new_text||"").slice(0,1400);
+   const before=String(edit.old_text||""),after=String(edit.new_text||"");
    return '<div class="jalap-dev-edit"><strong>'+esc(edit.reason||("Modification "+(i+1)))+'</strong><div class="jalap-dev-diff"><span>AVANT</span><pre>'+esc(before||"(fichier vide)")+'</pre><span>APRÈS</span><pre>'+esc(after||"(suppression)")+'</pre></div></div>';
   }).join("");
   return '<details class="jalap-dev-file" '+(index===0?"open":"")+'><summary><strong>'+esc(file.path)+'</strong><small>'+esc(file.summary)+'</small></summary>'+edits+'</details>';
