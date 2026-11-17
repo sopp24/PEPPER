@@ -107,7 +107,8 @@ function officialLegSources(leg){
  if(leg.mode==="train"){
   if(/sncf|inoui|ouigo|intercites|ter/.test(op)){
    links.push({label:"SNCF Connect — billet et voyage",url:"https://www.sncf-connect.com/"});
-   links.push({label:"SNCF Open Data — horaires et circulation",url:"https://ressources.data.sncf.com/explore/dataset/horaires-sncf/"});\n   links.push({label:"SNCF Open Data — alertes en temps réel (SIRI / GTFS-RT)",url:"https://ressources.data.sncf.com/explore/dataset/temps-reel-siri-sx-lite/"});
+   links.push({label:"SNCF Open Data — horaires et circulation",url:"https://ressources.data.sncf.com/explore/dataset/horaires-sncf/"});
+   links.push({label:"SNCF Open Data — alertes en temps réel (SIRI / GTFS-RT)",url:"https://ressources.data.sncf.com/explore/dataset/temps-reel-siri-sx-lite/"});
   }else if(op.includes("eurostar"))links.push({label:"Eurostar — informations de voyage",url:"https://www.eurostar.com/fr-fr"});
   else if(op.includes("trenitalia"))links.push({label:"Trenitalia — site officiel",url:"https://www.trenitalia.com/"});
   else if(op.includes("renfe"))links.push({label:"Renfe — site officiel",url:"https://www.renfe.com/es/en"});
