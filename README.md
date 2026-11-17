@@ -18,11 +18,26 @@ PEPPER est un compagnon de voyage responsive et installable (PWA), publié depui
 - Carte OpenStreetMap avec destination, hébergement et activités.
 - Prévisions météo Open-Meteo.
 - Activités avec fiche détaillée et case « faite ».
-- Budget, dépenses, checklist, export ICS et JSON.
+- Budget, dépenses, checklist, export ICS et sauvegarde / restauration JSON de tous les voyages.
+- Alertes locales de cohérence du programme : chevauchements, dates hors séjour, réservations sans lien et temps de déplacement manifestement courts.
+- Prévisions météo précédemment consultées affichées avec leur date lorsqu’on est hors connexion ; données du voyage disponibles localement.
 - Données de voyage conservées localement dans le navigateur.
 - **Limite actuelle des données transport :** PEPPER ne lit pas encore les flux temps réel dans son interface. Il ouvre les sources officielles et l’application du transporteur ; les horaires et retards doivent être vérifiés chez l’opérateur. Les repères d’arrivée et les ETA voiture sont des estimations, pas un statut live.
 
 Les sources officielles utilisées, leur périmètre et les étapes nécessaires pour intégrer de vrais flux temps réel sont décrits dans [docs/transport-sources.md](docs/transport-sources.md).
+
+## Temps réel SNCF et service Netlify (optionnel)
+
+Le dossier `netlify/functions/transport-status.mjs` contient un endpoint serveur qui interroge le flux public SIRI SX de SNCF et filtre les avis par numéro commercial de train. Il concerne les TGV, Intercités, TER et OUIGO ; il ne confirme pas la ponctualité lorsqu’aucun avis n’est trouvé. Le flux SNCF est publié toutes les deux minutes. Eurostar et Transilien ne sont pas couverts.
+
+Pour activer l’affichage live dans PEPPER :
+1. Crée un compte Netlify et connecte le dépôt `sopp24/PEPPER`.
+2. Garde le répertoire de publication `.` et le fichier `netlify.toml` tel quel ; Netlify détecte `netlify/functions`.
+3. Déploie le site. L’URL du site Netlify sert ici de base au service de données ; l’application publique peut rester sur GitHub Pages.
+4. Copie l’URL `https://...netlify.app`, puis dans PEPPER → Réglages, colle-la dans « URL du service temps réel PEPPER ».
+5. Ajoute un trajet SNCF éligible avec le numéro commercial du train pour afficher les avis.
+
+La fonction n’exige pas de clé pour le flux SNCF public. La variable `PEPPER_ALLOWED_ORIGIN` peut être définie sur `https://sopp24.github.io` pour limiter l’accès navigateur à l’origine de PEPPER (par défaut, le service accepte les origines publiques, car la donnée SNCF est publique). Les autres API avec clés doivent être configurées uniquement côté serveur.
 
 ## PIMI et mises à jour avec ChatGPT
 
@@ -33,6 +48,10 @@ Dans l'application, le bouton « Préparer ma demande » copie un contexte de vo
 ## Confidentialité
 
 Ce dépôt est public. Les données de voyage restent dans le stockage local du navigateur, pas dans un fichier versionné. Ne publie jamais dans GitHub un QR code, billet complet, pièce d'identité, numéro de réservation, code d'accès au logement ou coordonnées personnelles. Les exports JSON peuvent contenir des données privées : garde-les hors des dépôts publics.
+
+## Sauvegarde et mode hors connexion
+
+Les voyages sont stockés localement dans le navigateur. Le bouton « Sauvegarder tous les voyages » exporte un fichier JSON privé. « Restaurer une sauvegarde » permet de fusionner ou remplacer les voyages sur cet appareil. Une copie locale de récupération conserve également l’état précédent du carnet. Les prévisions météo déjà consultées restent affichables hors connexion avec leur horodatage. La carte, les tuiles et les sources externes ne sont pas garanties hors connexion.
 
 ## Publication GitHub Pages
 
