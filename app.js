@@ -552,7 +552,7 @@ async function fetchWeather(t){
  if(cached)weatherData={tripId:t.id,data:cached.data,fetchedAt:cached.fetchedAt,stale:true};
  renderWeather();
  try{
-  const url="https://api.open-meteo.com/v1/forecast?latitude="+t.geo.lat+"&longitude="+t.geo.lon+"&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=5&timezone=auto";
+  const url="https://api.open-meteo.com/v1/forecast?latitude="+t.geo.lat+"&longitude="+t.geo.lon+"&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=16&timezone=auto";
   const response=await fetch(url,{signal:AbortSignal.timeout(12000)});
   if(!response.ok)throw new Error("Prévisions indisponibles");
   const data=await response.json();
@@ -568,7 +568,29 @@ async function fetchWeather(t){
   renderWeather();
  }
 }
-function renderWeather(){const n=$("#weather-content");if(!n)return;if(!weatherData){n.innerHTML='<div class="weather-unavailable">'+esc(weatherError||"Recherche de la météo…")+'</div><button class="text-button weather-refresh" type="button" data-action="refresh-weather">Actualiser ↻</button>';return}const c=weatherData.data.current,d=weatherData.data.daily,stamp=weatherData.fetchedAt?new Intl.DateTimeFormat("fr-FR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(weatherData.fetchedAt)):"heure inconnue";n.innerHTML='<div class="weather-temp">'+Math.round(c.temperature_2m)+'°</div><div class="weather-copy"><strong>'+weatherIcon(c.weather_code)+' '+weatherText(c.weather_code)+'</strong><small>Ressenti '+Math.round(c.apparent_temperature)+'° · Vent '+Math.round(c.wind_speed_10m)+' km/h</small><small>Humidité '+c.relative_humidity_2m+' %</small><small>'+(weatherData.stale?"Dernière donnée connue : ":"Actualisée : ")+esc(stamp)+'</small>'+(weatherError?'<small>'+esc(weatherError)+'</small>':"")+'</div><div class="weather-days">'+d.time.map((x,i)=>'<div class="weather-day"><span>'+["Auj.","Dem.","J+2","J+3","J+4"][i]+'</span><strong>'+weatherIcon(d.weather_code[i])+'</strong><span>'+Math.round(d.temperature_2m_min[i])+'° / '+Math.round(d.temperature_2m_max[i])+'°</span></div>').join("")+'</div>'}
+function renderWeather(){
+ const n=$("#weather-content");if(!n)return;
+ if(!weatherData){
+  n.innerHTML='<div class="weather-unavailable">'+esc(weatherError||"Recherche de la météo…")+'</div><button class="text-button weather-refresh" type="button" data-action="refresh-weather">Actualiser ↻</button>';
+  return;
+ }
+ const c=weatherData.data.current,d=weatherData.data.daily,trip=activeTrip();
+ const stamp=weatherData.fetchedAt?new Intl.DateTimeFormat("fr-FR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(weatherData.fetchedAt)):"heure inconnue";
+ let firstIndex=0;
+ if(trip?.startDate){
+  const matching=d.time.indexOf(trip.startDate);
+  if(matching>=0)firstIndex=matching;
+ }
+ const shownDates=d.time.slice(firstIndex,firstIndex+5);
+ const daysHtml=shownDates.map((date,i)=>{
+  const index=firstIndex+i;
+  const label=date===today()?"Auj.":new Intl.DateTimeFormat("fr-FR",{weekday:"short",day:"numeric"}).format(new Date(date+"T12:00:00"));
+  return '<div class="weather-day"><span>'+esc(label)+'</span><strong>'+weatherIcon(d.weather_code[index])+'</strong><span>'+Math.round(d.temperature_2m_min[index])+'° / '+Math.round(d.temperature_2m_max[index])+'°</span></div>';
+ }).join("");
+ const lastForecast=d.time[d.time.length-1]||today();
+ const forecastNote=trip?.startDate&&trip.startDate>lastForecast?"Prévisions du séjour pas encore disponibles : elles s’étendent actuellement jusqu’au "+dateLabel(lastForecast)+".":trip?.startDate&&firstIndex>0?"Prévisions affichées autour du début de ton séjour.":"Prévisions des prochains jours à destination.";
+ n.innerHTML='<div class="weather-temp">'+Math.round(c.temperature_2m)+'°</div><div class="weather-copy"><strong>'+weatherIcon(c.weather_code)+' '+weatherText(c.weather_code)+'</strong><small>Ressenti '+Math.round(c.apparent_temperature)+'° · Vent '+Math.round(c.wind_speed_10m)+' km/h</small><small>Humidité '+c.relative_humidity_2m+' %</small><small>'+(weatherData.stale?"Dernière donnée connue : ":"Actualisée : ")+esc(stamp)+'</small>'+(weatherError?'<small>'+esc(weatherError)+'</small>':"")+'</div><div class="weather-days">'+daysHtml+'</div><small class="weather-forecast-note">'+esc(forecastNote)+'</small>';
+}
 function openModal(title,subtitle,body){modalRoot.innerHTML='<div class="modal-overlay" data-action="close-modal"><section class="modal" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><div class="modal-head"><div><h2>'+esc(title)+'</h2><p>'+esc(subtitle||"")+'</p></div><button class="modal-close" type="button" data-action="close-modal">×</button></div>'+body+'</section></div>';const first=$("input,textarea,select,button",modalRoot);if(first)first.focus({preventScroll:true})}
 function closeModal(){modalRoot.innerHTML=""}
 function tripForm(t){
