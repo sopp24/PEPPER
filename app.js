@@ -102,7 +102,8 @@ const OFFICIAL_LOCAL_NETWORKS=[
 ];
 function suggestedLocalNetwork(destination){const value=normalizedSearchText(destination);return OFFICIAL_LOCAL_NETWORKS.find(item=>item.terms.some(term=>value.includes(term)))||null}
 function officialLegSources(leg){
- const op=normalizedSearchText(leg.operator),links=[];\n if(leg.trafficUrl)links.push({label:"Suivi / info trafic officiel renseigné",url:leg.trafficUrl});
+ const op=normalizedSearchText(leg.operator),links=[];
+ if(leg.trafficUrl)links.push({label:"Suivi / info trafic officiel renseigné",url:leg.trafficUrl});
  if(leg.mode==="train"){
   if(/sncf|inoui|ouigo|intercites|ter/.test(op)){
    links.push({label:"SNCF Connect — billet et voyage",url:"https://www.sncf-connect.com/"});
