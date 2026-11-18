@@ -1262,7 +1262,7 @@ async function sendJalapMessage(event){
    jalapPendingProposal=validateJalapProposal(data.operations,trip);jalapPendingTripId=trip.id;renderJalapProposal();
    if(data.operations?.length&&!jalapPendingProposal.length)appendJalapMessage("assistant","Je n'ai pas pu sécuriser les modifications proposées. Précise ta demande et je réessaierai.");
   }
- }catch(error){appendJalapMessage("assistant",error?.message||"Connexion à Gemini ou GitHub impossible.");}
+ }catch(error){appendJalapMessage("assistant",error?.message||"Connexion à Groq ou GitHub impossible.");}
  finally{$("#jalap-pending")?.remove();jalapBusy=false;if(button){button.disabled=false;button.textContent="↗"}}
 }
 async function commitJalapDevChanges(){
