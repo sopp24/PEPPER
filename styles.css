@@ -500,3 +500,24 @@ gap:14px;align-items:stretch}
  .trip-sync-caption{display:none}
 }
 @media(prefers-reduced-motion:reduce){.github-sync-status[data-status="syncing"] i{animation:none}}
+
+
+/* Direct GitHub synchronization and credentials */
+.settings-stack{display:flex;flex-direction:column;gap:13px}
+.github-sync-toggle{display:flex;align-items:flex-start;gap:10px;padding:13px;border:1px solid rgba(139,217,232,.19);border-radius:12px;background:rgba(139,217,232,.055);cursor:pointer}
+.github-sync-toggle input{width:18px;height:18px;flex:0 0 18px;margin-top:2px;accent-color:#8bd9e8}
+.github-sync-toggle span{display:flex;flex-direction:column;gap:4px}
+.github-sync-toggle strong{color:#e5f4f6;font-size:11px}
+.github-sync-toggle small{color:#9eaaaf;font-size:9px;line-height:1.55}
+.github-sync-links{display:flex;flex-wrap:wrap;gap:15px}
+.github-sync-links a{color:#9bdce7;font-size:10px;text-decoration:none}
+.github-sync-links a:hover{text-decoration:underline}
+.github-local-note{padding:10px 12px;border:1px solid rgba(237,120,197,.17);border-radius:10px;background:rgba(237,120,197,.045)}
+.github-local-note h4{margin-bottom:5px}
+.github-local-note p{font-size:10px;line-height:1.55}
+.activity-map-link{border:1px solid rgba(139,217,232,.2);cursor:pointer;white-space:nowrap}
+.activity-map-link:hover{border-color:rgba(139,217,232,.45);background:rgba(139,217,232,.12)}
+@media(max-width:540px){
+ .github-sync-links{flex-direction:column;gap:8px}
+ .github-sync-toggle{padding:11px}
+}
