@@ -40,6 +40,9 @@ jobs:
           node --check api/transport-status.mjs
           node -e "JSON.parse(require('fs').readFileSync('vercel.json', 'utf8'))"
 
+      - name: Validate Gemini API helper
+        run: node --check lib/gemini-api.mjs
+
       - name: Validate service worker
         run: node --check service-worker.js
 
