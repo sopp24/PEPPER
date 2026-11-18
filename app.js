@@ -4,7 +4,7 @@ const RECOVERY_KEY="pepper-last-good-state-v1";
 const API_BASE_KEY="pepper-api-base-url-v1";
 const API_TOKEN_KEY="pepper-api-access-token-v1";
 const GITHUB_TOKEN_KEY="pepper-github-token-v1";
-const ANTHROPIC_KEY_KEY="pepper-anthropic-api-key-v1";
+const GEMINI_API_KEY_KEY="pepper-gemini-api-key-v1";
 const GITHUB_SYNC_ENABLED_KEY="pepper-github-sync-enabled-v1";
 const GITHUB_OWNER="sopp24";
 const GITHUB_REPO="PEPPER";
@@ -84,7 +84,7 @@ async function restoreStateFromIndexedDB(){
 function activeTrip(){return state.trips.find(t=>t.id===state.activeTripId)||state.trips[0]||null}
 
 function githubAccessToken(){return String(localStorage.getItem(GITHUB_TOKEN_KEY)||"").trim()}
-function anthropicAccessKey(){return String(localStorage.getItem(ANTHROPIC_KEY_KEY)||"").trim()}
+function geminiApiKey(){return String(localStorage.getItem(GEMINI_API_KEY_KEY)||"").trim()}
 function githubSyncEnabled(){return localStorage.getItem(GITHUB_SYNC_ENABLED_KEY)==="true"}
 function setGitHubSyncStatus(status,message){
  githubSyncStatus=status;
@@ -924,9 +924,9 @@ async function copyRequest(event){
 }
 
 function settingsModal(){
- const t=activeTrip(),anthropic=anthropicAccessKey(),github=githubAccessToken(),enabled=githubSyncEnabled();
- const body='<div class="detail-section"><h4>Enregistrement et synchronisation</h4><p>Chaque modification est d’abord enregistrée immédiatement sur cet appareil (IndexedDB). Si la synchronisation GitHub est activée, PEPPER écrit ensuite le carnet dans <strong>sopp24/PEPPER/data/trips.json</strong>, directement via l’API GitHub, sans Cloudflare, Netlify, Vercel ou base de données intermédiaire.</p><p><strong>Attention :</strong> le dépôt est public. Le fichier de voyage synchronisé sera donc visible de tous. Les QR codes, mots de passe et codes d’accès explicites sont exclus de la copie GitHub.</p></div><form id="settings-form" class="settings-stack"><div class="field full"><label>CLÉ API CLAUDE (ANTHROPIC)</label><input type="password" name="anthropicApiKey" value="'+esc(anthropic)+'" autocomplete="off" placeholder="sk-ant-…"><span class="field-help">Appel direct depuis ce navigateur vers api.anthropic.com. Anthropic déconseille d’exposer une clé dans une application web publique : tout JavaScript servi par PEPPER pourrait potentiellement la lire. Utilise une clé dédiée avec un budget et une limite de dépense.</span></div><div class="field full"><label>JETON GITHUB FINE-GRAINED</label><input type="password" name="githubToken" value="'+esc(github)+'" autocomplete="off" placeholder="github_pat_…"><span class="field-help">Crée un jeton limité au seul dépôt sopp24/PEPPER, avec Contents : Read and write. Le jeton reste dans le stockage local de ce navigateur et est envoyé directement à api.github.com. Ne l’ajoute jamais au code.</span></div><label class="github-sync-toggle"><input type="checkbox" name="githubSyncEnabled" '+(enabled?"checked":"")+'> <span><strong>Synchroniser automatiquement le carnet avec GitHub</strong><small>Les cases cochées, activités, transports, dépenses et changements validés par JALAP seront sauvegardés dans data/trips.json après environ 2 secondes.</small></span></label><div class="github-sync-links"><a href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener noreferrer">Créer une clé Claude ↗</a><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Créer un jeton GitHub ↗</a></div><div class="detail-section github-local-note"><h4>Ce qui reste local</h4><p>Les clés API, le jeton GitHub, les brouillons JALAP et les préférences ne sont jamais ajoutés au dépôt. La copie du carnet dans GitHub est publique et synchronisée séparément.</p></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Fermer</button><button class="primary-button" type="submit">Enregistrer les réglages</button></div></form><div class="detail-grid"><div class="detail-item"><small>Voyages sur cet appareil</small><strong>'+state.trips.length+'</strong></div><div class="detail-item"><small>Voyage actif</small><strong>'+esc(t?.destination||"Aucun")+'</strong></div><div class="detail-item"><small>Synchronisation GitHub</small><strong>'+esc(enabled?"Activée":"Désactivée")+'</strong></div></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="export-json">Exporter tous les voyages</button><button class="secondary-button" type="button" data-action="import-json">Importer une sauvegarde</button></div>';
- openModal("Réglages de PEPPER","Claude et GitHub en connexion directe depuis ton navigateur.",body);
+ const t=activeTrip(),gemini=geminiApiKey(),github=githubAccessToken(),enabled=githubSyncEnabled();
+ const body='<div class="detail-section"><h4>Enregistrement et synchronisation</h4><p>Chaque modification est d’abord enregistrée immédiatement sur cet appareil (IndexedDB). Si la synchronisation GitHub est activée, PEPPER écrit ensuite le carnet dans <strong>sopp24/PEPPER/data/trips.json</strong>, directement via l’API GitHub, sans Cloudflare, Netlify, Vercel ou base de données intermédiaire.</p><p><strong>Attention :</strong> le dépôt est public. Le fichier de voyage synchronisé sera donc visible de tous. Les QR codes, mots de passe et codes d’accès explicites sont exclus de la copie GitHub.</p></div><form id="settings-form" class="settings-stack"><div class="field full"><label>CLÉ API GEMINI (GOOGLE AI STUDIO)</label><input type="password" name="geminiApiKey" value="'+esc(gemini)+'" autocomplete="off" placeholder="AIza…"><span class="field-help">Clé gratuite à créer dans Google AI Studio. JALAP utilise Gemini 3.8 Flash en direct depuis le navigateur, sans Cloudflare, Netlify ou Vercel. Le niveau gratuit applique des quotas et Google peut utiliser les requêtes pour améliorer ses produits. La clé reste dans le stockage local de cet appareil, jamais dans le dépôt GitHub.</span><div class="github-sync-links"><a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer">Créer ma clé Gemini gratuite ↗</a><a href="https://aistudio.google.com/usage" target="_blank" rel="noopener noreferrer">Voir mes quotas ↗</a></div></div><div class="field full"><label>JETON GITHUB FINE-GRAINED</label><input type="password" name="githubToken" value="'+esc(github)+'" autocomplete="off" placeholder="github_pat_…"><span class="field-help">Crée un jeton limité au seul dépôt sopp24/PEPPER, avec Contents : Read and write. Le jeton reste dans le stockage local de ce navigateur et est envoyé directement à api.github.com. Ne l’ajoute jamais au code.</span></div><label class="github-sync-toggle"><input type="checkbox" name="githubSyncEnabled" '+(enabled?"checked":"")+'> <span><strong>Synchroniser automatiquement le carnet avec GitHub</strong><small>Les cases cochées, activités, transports, dépenses et changements validés par JALAP seront sauvegardés dans data/trips.json après environ 2 secondes.</small></span></label><div class="github-sync-links"><a href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener noreferrer">Créer une clé Claude ↗</a><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Créer un jeton GitHub ↗</a></div><div class="detail-section github-local-note"><h4>Ce qui reste local</h4><p>Les clés API, le jeton GitHub, les brouillons JALAP et les préférences ne sont jamais ajoutés au dépôt. La copie du carnet dans GitHub est publique et synchronisée séparément.</p></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Fermer</button><button class="primary-button" type="submit">Enregistrer les réglages</button></div></form><div class="detail-grid"><div class="detail-item"><small>Voyages sur cet appareil</small><strong>'+state.trips.length+'</strong></div><div class="detail-item"><small>Voyage actif</small><strong>'+esc(t?.destination||"Aucun")+'</strong></div><div class="detail-item"><small>Synchronisation GitHub</small><strong>'+esc(enabled?"Activée":"Désactivée")+'</strong></div></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="export-json">Exporter tous les voyages</button><button class="secondary-button" type="button" data-action="import-json">Importer une sauvegarde</button></div>';
+ openModal("Réglages de PEPPER","Gemini gratuit et GitHub en connexion directe depuis ton navigateur.",body);
 }
 
 async function copyJalapAudit(){
@@ -1090,20 +1090,35 @@ function claudeText(payload){
  const blocks=Array.isArray(payload?.content)?payload.content:[];
  return blocks.filter(block=>block?.type==="text"&&typeof block.text==="string").map(block=>block.text).join("\n");
 }
-async function callClaudeStructured(model,system,prompt,schema,maxTokens=2200){
- const key=anthropicAccessKey();if(!key)throw new Error("Ajoute ta clé API Claude dans Réglages de PEPPER.");
- const response=await fetch("https://api.anthropic.com/v1/messages",{
+function geminiResponseText(payload){
+ const candidate=payload?.candidates?.[0];
+ const parts=Array.isArray(candidate?.content?.parts)?candidate.content.parts:[];
+ return parts.filter(part=>typeof part?.text==="string").map(part=>part.text).join("\\n");
+}
+async function callGeminiStructured(system,prompt,schema,maxTokens=2200){
+ const key=geminiApiKey();if(!key)throw new Error("Ajoute ta clé API Gemini dans Réglages de PEPPER.");
+ const model="gemini-3.8-flash";
+ const response=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent",{
   method:"POST",
-  headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-  body:JSON.stringify({model,max_tokens:maxTokens,system,messages:[{role:"user",content:typeof prompt==="string"?prompt:JSON.stringify(prompt)}],output_config:{format:{type:"json_schema",name:"pepper_jalap_output",schema}}}),
-  signal:AbortSignal.timeout(model==="claude-sonnet-5-5"?100000:50000)
+  headers:{"content-type":"application/json","x-goog-api-key":key},
+  body:JSON.stringify({
+   systemInstruction:{parts:[{text:system}]},
+   contents:[{role:"user",parts:[{text:typeof prompt==="string"?prompt:JSON.stringify(prompt)}]}],
+   generationConfig:{maxOutputTokens:maxTokens,responseMimeType:"application/json",responseJsonSchema:schema}
+  }),
+  signal:AbortSignal.timeout(100000)
  });
  const payload=await response.json().catch(()=>({}));
  if(!response.ok){
-  const message=response.status===401?"La clé Claude est refusée. Vérifie-la dans Anthropic Console.":response.status===429?"La limite ou le budget API Claude est atteint.":"Claude a répondu avec une erreur ("+response.status+"). "+(payload.error?.message||"");
+  const message=response.status===400?"Gemini a refusé le format de la demande. Réessaie ; si le problème persiste, le format JSON devra être ajusté.":
+   response.status===401||response.status===403?"La clé Gemini est refusée ou l'accès gratuit à ce modèle n'est pas disponible pour ce projet.":
+   response.status===429?"Le quota gratuit Gemini est temporairement atteint. Consulte les limites de ton projet Google AI Studio.":
+   "Gemini a répondu avec une erreur ("+response.status+"). "+(payload.error?.message||"");
   throw new Error(message);
  }
- const text=claudeText(payload);try{return JSON.parse(text)}catch(error){throw new Error("Claude n'a pas renvoyé une réponse structurée exploitable.")}
+ const responseText=geminiResponseText(payload);
+ if(!responseText)throw new Error("Gemini n'a pas renvoyé de réponse. Vérifie le quota ou les paramètres du modèle.");
+ try{return JSON.parse(responseText)}catch(error){throw new Error("Gemini n'a pas renvoyé un JSON valide.")}
 }
 async function getGitHubHeadSha(){
  const ref=await githubApi("/repos/"+GITHUB_OWNER+"/"+GITHUB_REPO+"/git/ref/heads/"+encodeURIComponent(GITHUB_BRANCH));
@@ -1146,7 +1161,7 @@ async function prepareJalapDevProposal(message,history){
  for(const path of paths)files.push(await readGitHubFileAtRef(path,baseSha));
  const codeContext=files.map(file=>"\n--- FILE: "+file.path+" ---\n"+file.content).join("\n");
  if(codeContext.length>180000)throw new Error("Le contexte du dépôt est trop volumineux. Cible un écran ou une fonctionnalité.");
- const proposal=await callClaudeStructured("claude-sonnet-5-5",JALAP_DEV_SYSTEM,{request:message,history,repository:GITHUB_OWNER+"/"+GITHUB_REPO,branch:GITHUB_BRANCH,files:codeContext},JALAP_DEV_SCHEMA,8500);
+ const proposal=await callGeminiStructured(JALAP_DEV_SYSTEM,{request:message,history,repository:GITHUB_OWNER+"/"+GITHUB_REPO,branch:GITHUB_BRANCH,files:codeContext},JALAP_DEV_SCHEMA,8500);
  const changes=Array.isArray(proposal.changes)?proposal.changes:[];
  for(const change of changes){
   if(!JALAP_DEV_PATHS.includes(change.path))throw new Error("JALAP a proposé un chemin de fichier interdit.");
@@ -1190,7 +1205,7 @@ function renderJalapMode(){
  if(input)input.placeholder=dev
   ?"Ex. : Sur mobile, transforme la carte et la checklist en deux onglets…"
   :"Ex. : Ajoute les Catacombes samedi vers 10 h…";
- const stateNode=$("#ai-connection-state");if(stateNode)stateNode.textContent=dev?"Claude Sonnet · GitHub direct":"Claude Haiku · API directe";
+ const stateNode=$("#ai-connection-state");if(stateNode)stateNode.textContent=dev?"Gemini 3.8 Flash · GitHub direct":"Gemini 3.8 Flash · API gratuite";
  const travelPanel=$("#jalap-proposal"),devPanel=$("#jalap-dev-proposal");
  if(travelPanel&&dev)travelPanel.hidden=true;
  if(devPanel&&!dev)devPanel.hidden=true;
@@ -1230,13 +1245,13 @@ async function sendJalapMessage(event){
  const input=$("#idea-input"),message=input?.value.trim(),trip=activeTrip(),dev=jalapMode==="development";
  if(!dev&&!trip){toast("Crée ou importe d’abord un voyage pour discuter avec JALAP.","error");return}
  if(!message){input?.focus();return}
- if(!anthropicAccessKey()){toast("Ajoute ta clé API Claude dans Réglages de PEPPER.","error");return}
+ if(!geminiApiKey()){toast("Ajoute ta clé API Gemini gratuite dans Réglages de PEPPER.","error");return}
  if(dev&&!githubAccessToken()){toast("Ajoute ton jeton GitHub fine-grained dans Réglages.","error");return}
  jalapMessages.push({role:"user",content:message});appendJalapMessage("user",message);
  if(dev){jalapDevChanges=null;jalapDevOriginalRequest="";jalapDevBaseSha=null;jalapDevBaseFiles=[];renderJalapDevProposal()}
  input.value="";jalapBusy=true;
  const button=$("#idea-form button[type=submit]");if(button){button.disabled=true;button.textContent="…"}
- const pending=document.createElement("div");pending.id="jalap-pending";pending.className="chat-message assistant-message";pending.textContent=dev?"JALAP lit le dépôt GitHub et prépare un diff…":"JALAP prépare ton voyage avec Claude…";$("#jalap-thread")?.appendChild(pending);
+ const pending=document.createElement("div");pending.id="jalap-pending";pending.className="chat-message assistant-message";pending.textContent=dev?"JALAP lit le dépôt GitHub et prépare un diff…":"JALAP prépare ton voyage avec Gemini…";$("#jalap-thread")?.appendChild(pending);
  try{
   const history=jalapMessages.slice(-9,-1);
   if(dev){
@@ -1245,7 +1260,7 @@ async function sendJalapMessage(event){
    jalapDevChanges=data.changes||[];jalapDevOriginalRequest=message;renderJalapDevProposal();
    if(jalapDevChanges.length)appendJalapMessage("assistant",jalapDevChanges.length+" fichier(s) prêt(s) à examiner. Le commit sera créé directement sur GitHub uniquement après ton approbation.");
   }else{
-   const data=await callClaudeStructured("claude-haiku-5-5",JALAP_TRAVEL_SYSTEM,{message,context:shareContext(trip),history},JALAP_TRAVEL_SCHEMA,2600);
+   const data=await callGeminiStructured(JALAP_TRAVEL_SYSTEM,{message,context:shareContext(trip),history},JALAP_TRAVEL_SCHEMA,2600);
    if(activeTrip()?.id!==trip.id)throw new Error("Le voyage actif a changé pendant l'analyse. Relance ta demande depuis le bon voyage.");
    const answer=String(data.message||"Je n'ai pas réussi à formuler une réponse.");
    jalapMessages.push({role:"assistant",content:answer});appendJalapMessage("assistant",answer);
@@ -1348,7 +1363,7 @@ document.addEventListener("change",e=>{
 });
 document.addEventListener("submit",e=>{
  const f=e.target;
- if(f.id==="settings-form"){e.preventDefault();const data=new FormData(f),key=String(data.get("anthropicApiKey")||"").trim(),github=String(data.get("githubToken")||"").trim(),enabled=data.get("githubSyncEnabled")==="on";if(key)localStorage.setItem(ANTHROPIC_KEY_KEY,key);else localStorage.removeItem(ANTHROPIC_KEY_KEY);if(github)localStorage.setItem(GITHUB_TOKEN_KEY,github);else localStorage.removeItem(GITHUB_TOKEN_KEY);localStorage.setItem(GITHUB_SYNC_ENABLED_KEY,enabled?"true":"false");localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);closeModal();if(enabled){connectGitHubSync().then(()=>toast("Connexion GitHub active : les modifications seront synchronisées automatiquement.")).catch(error=>{setGitHubSyncStatus("error",error.message);toast(error.message,"error")})}else{setGitHubSyncStatus("local");toast("Clés enregistrées localement. Synchronisation GitHub désactivée.")}}
+ if(f.id==="settings-form"){e.preventDefault();const data=new FormData(f),key=String(data.get("geminiApiKey")||"").trim(),github=String(data.get("githubToken")||"").trim(),enabled=data.get("githubSyncEnabled")==="on";if(key)localStorage.setItem(GEMINI_API_KEY_KEY,key);else localStorage.removeItem(GEMINI_API_KEY_KEY);if(github)localStorage.setItem(GITHUB_TOKEN_KEY,github);else localStorage.removeItem(GITHUB_TOKEN_KEY);localStorage.setItem(GITHUB_SYNC_ENABLED_KEY,enabled?"true":"false");localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);closeModal();if(enabled){connectGitHubSync().then(()=>toast("Connexion GitHub active : les modifications seront synchronisées automatiquement.")).catch(error=>{setGitHubSyncStatus("error",error.message);toast(error.message,"error")})}else{setGitHubSyncStatus("local");toast("Clés enregistrées localement. Synchronisation GitHub désactivée.")}}
  if(f.id==="import-form"){e.preventDefault();importBackup(f)}
  if(f.id==="trip-form"){e.preventDefault();saveTripForm(f)}
  if(f.id==="stay-form"){e.preventDefault();saveStay(f)}
