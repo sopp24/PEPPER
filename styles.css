@@ -396,3 +396,107 @@ gap:14px;align-items:stretch}
  .jalap-dev-diff pre{max-height:130px}
  .jalap-proposal-actions{flex-direction:column}
 }
+
+
+/* PEPPER — map-first workspace inspired by the hierarchy infographic */
+.dashboard-grid{
+ display:grid!important;
+ grid-template-columns:repeat(12,minmax(0,1fr));
+ grid-template-areas:
+  "map map map map map map map map itinerary itinerary itinerary itinerary"
+  "transport transport transport transport stay stay stay weather weather tools tools tools"
+  "checklist checklist checklist budget budget budget budget assistant assistant assistant assistant assistant";
+ gap:16px;
+ align-items:stretch;
+}
+.dashboard-grid>.main-column,.dashboard-grid>.side-column{display:contents!important}
+.dashboard-grid .map-panel{grid-area:map;min-width:0;min-height:590px;border-color:rgba(139,217,232,.23);background:linear-gradient(145deg,rgba(20,28,33,.98),rgba(15,18,21,.98))}
+.dashboard-grid .itinerary-panel{grid-area:itinerary;min-width:0;min-height:590px}
+.dashboard-grid .transport-panel{grid-area:transport;min-width:0}
+.dashboard-grid .stay-panel{grid-area:stay;min-width:0}
+.dashboard-grid .weather-panel{grid-area:weather;min-width:0}
+.dashboard-grid .tools-panel{grid-area:tools;min-width:0}
+.dashboard-grid .checklist-panel{grid-area:checklist;min-width:0}
+.dashboard-grid .budget-panel{grid-area:budget;min-width:0}
+.dashboard-grid .assistant-panel{grid-area:assistant;min-width:0}
+.map-panel-heading{align-items:flex-start}
+.map-panel-subtitle{display:block;margin-top:5px;color:#9eacb2;font-size:10px;line-height:1.5}
+.map-stage{position:relative;min-width:0;min-height:0;flex:1}
+.map-panel .map{height:clamp(500px,48vw,680px);min-height:480px;border-radius:13px;overflow:hidden}
+.map-floating-tools{position:absolute;z-index:500;top:12px;right:12px;display:flex;gap:6px}
+.map-floating-tools button{min-height:36px;padding:0 11px;border:1px solid rgba(255,255,255,.15);border-radius:10px;color:#e9f5f6;background:rgba(12,17,20,.88);font-size:10px;font-weight:650;box-shadow:0 4px 18px rgba(0,0,0,.22);backdrop-filter:blur(12px)}
+.map-floating-tools button:hover{border-color:rgba(139,217,232,.4);background:rgba(22,36,42,.94)}
+.map-floating-tools button span{margin-left:4px;color:#91dbe8}
+.map-selection-card{position:absolute;z-index:500;right:12px;bottom:12px;left:12px;max-width:410px;padding:12px 14px;border:1px solid rgba(139,217,232,.2);border-radius:13px;color:#edf5f6;background:rgba(13,18,21,.93);box-shadow:0 12px 30px rgba(0,0,0,.25);backdrop-filter:blur(15px)}
+.map-selection-card[hidden]{display:none}
+.map-selection-card strong{display:block;font-size:12px}
+.map-selection-card span{display:block;margin-top:3px;color:#9da9ad;font-size:10px}
+.map-selection-card button{margin-top:8px;padding:0;border:0;color:#9de1eb;background:none;font-size:10px;font-weight:700}
+.map-live-count{margin-left:5px;color:#8fa0a6;font-size:9px}
+.map-footer{gap:12px}
+.map-footer-actions{display:flex;align-items:center;gap:10px}
+.dashboard-grid .itinerary-panel{display:flex;flex-direction:column}
+.dashboard-grid .activities-list{max-height:clamp(410px,43vw,600px);overflow-y:auto;overflow-x:hidden;padding-right:4px;overscroll-behavior:contain}
+.dashboard-grid .activity-row{grid-template-columns:26px 40px minmax(0,1fr);gap:8px;padding:9px 7px;border-bottom:1px solid rgba(255,255,255,.06)}
+.dashboard-grid .activity-info{min-width:0;width:100%;text-align:left}
+.dashboard-grid .activity-info strong{display:block;overflow-wrap:anywhere}
+.dashboard-grid .activity-end{grid-column:3;display:flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0}
+.activity-map-link{display:inline-flex;align-items:center;min-height:27px;padding:0 7px;border:1px solid rgba(139,217,232,.16);border-radius:7px;color:#9bdce7;background:rgba(139,217,232,.055);font-size:9px;text-decoration:none}
+.activity-map-link:hover{background:rgba(139,217,232,.13)}
+.github-sync-status{display:inline-flex;align-items:center;gap:6px;color:#9eabb0;font-size:9px;line-height:1.35}
+.github-sync-status i{width:7px;height:7px;border-radius:50%;background:#849096;box-shadow:0 0 0 3px rgba(132,144,150,.12)}
+.github-sync-status[data-status="synced"]{color:#b8dc9a}
+.github-sync-status[data-status="synced"] i{background:#a8d687;box-shadow:0 0 0 3px rgba(168,214,135,.12)}
+.github-sync-status[data-status="syncing"]{color:#9bdce7}
+.github-sync-status[data-status="syncing"] i{background:#86d8e7;box-shadow:0 0 0 3px rgba(134,216,231,.15);animation:sync-pulse 1.1s ease-in-out infinite}
+.github-sync-status[data-status="error"]{color:#ffb0a0}
+.github-sync-status[data-status="error"] i{background:#e98576}
+.trip-sync-line{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:9px}
+.trip-sync-caption{color:#747f84;font-size:9px}
+@keyframes sync-pulse{50%{opacity:.35;transform:scale(.82)}}
+.ai-thread{max-height:270px}
+@media(min-width:761px) and (max-width:1120px){
+ .dashboard-grid{grid-template-columns:repeat(8,minmax(0,1fr));grid-template-areas:
+  "map map map map map itinerary itinerary itinerary"
+  "transport transport transport transport stay stay weather weather"
+  "checklist checklist checklist checklist budget budget budget budget"
+  "assistant assistant assistant assistant assistant assistant tools tools"}
+ .dashboard-grid .map-panel,.dashboard-grid .itinerary-panel{min-height:540px}
+ .dashboard-grid .map-panel .map{height:470px;min-height:430px}
+ .dashboard-grid .activities-list{max-height:430px}
+}
+@media(max-width:760px){
+ .dashboard-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:
+  "map"
+  "itinerary"
+  "transport"
+  "checklist"
+  "weather"
+  "stay"
+  "budget"
+  "assistant"
+  "tools";gap:11px}
+ .dashboard-grid>.main-column,.dashboard-grid>.side-column{display:contents!important}
+ .dashboard-grid .map-panel,.dashboard-grid .itinerary-panel{min-height:0}
+ .dashboard-grid .map-panel{padding:12px}
+ .dashboard-grid .map-panel .map{height:clamp(340px,68svh,560px);min-height:320px}
+ .dashboard-grid .itinerary-panel{padding:13px}
+ .dashboard-grid .activities-list{max-height:none;overflow:visible}
+ .dashboard-grid .activity-row{grid-template-columns:25px 38px minmax(0,1fr);gap:7px;padding:10px 4px}
+ .dashboard-grid .activity-end{grid-column:3}
+ .map-floating-tools{top:9px;right:9px;gap:5px}
+ .map-floating-tools button{min-height:38px;padding:0 10px;font-size:10px}
+ .map-selection-card{right:8px;bottom:8px;left:8px;max-width:none}
+ .map-footer{align-items:flex-start;flex-direction:column}
+ .map-footer-actions{width:100%;justify-content:space-between}
+ .trip-sync-line{gap:8px}
+ .github-sync-status{font-size:9px}
+}
+@media(max-width:430px){
+ .dashboard-grid .map-panel .map{height:58svh;min-height:300px;max-height:460px}
+ .map-floating-tools button{min-height:36px;padding:0 8px}
+ .map-selection-card{padding:10px 12px}
+ .map-selection-card strong{font-size:11px}
+ .trip-sync-caption{display:none}
+}
+@media(prefers-reduced-motion:reduce){.github-sync-status[data-status="syncing"] i{animation:none}}
