@@ -1000,12 +1000,12 @@ Pour activity_add, le nom est obligatoire; laisse date, horaire et durée à nul
 Pour transport_add, mode, direction, origin et destination sont obligatoires; sinon demande la précision manquante.
 Dates au format YYYY-MM-DD. Ne déplace pas arbitrairement les dates.
 Ne reproduis jamais de code de réservation, téléphone, code d'accès ou détail privé dans la réponse ou les opérations. Une demande peut générer jusqu'à 8 opérations.`;
-const JALAP_NULL_STRING={type:["string","null"]},JALAP_NULL_NUMBER={type:["number","null"]},JALAP_NULL_BOOLEAN={type:["boolean","null"]};
+const JALAP_NULL_STRING={anyOf:[{type:"string"},{type:"null"}]},JALAP_NULL_NUMBER={anyOf:[{type:"number"},{type:"null"}]},JALAP_NULL_BOOLEAN={anyOf:[{type:"boolean"},{type:"null"}]};
 const JALAP_DATA_PROPERTIES={
  name:JALAP_NULL_STRING,category:JALAP_NULL_STRING,date:JALAP_NULL_STRING,startTime:JALAP_NULL_STRING,
  duration:JALAP_NULL_NUMBER,address:JALAP_NULL_STRING,description:JALAP_NULL_STRING,price:JALAP_NULL_NUMBER,
  bookingRequired:JALAP_NULL_BOOLEAN,bookingStatus:JALAP_NULL_STRING,priority:JALAP_NULL_STRING,bookingUrl:JALAP_NULL_STRING,
- highlights:{type:["array","null"],items:{type:"string"}},
+ highlights:{anyOf:[{type:"array",items:{type:"string"}},{type:"null"}]},
  mode:JALAP_NULL_STRING,direction:JALAP_NULL_STRING,operator:JALAP_NULL_STRING,service:JALAP_NULL_STRING,number:JALAP_NULL_STRING,
  origin:JALAP_NULL_STRING,destination:JALAP_NULL_STRING,departureDate:JALAP_NULL_STRING,departureTime:JALAP_NULL_STRING,
  arrivalDate:JALAP_NULL_STRING,arrivalTime:JALAP_NULL_STRING,platform:JALAP_NULL_STRING,baggage:JALAP_NULL_STRING,
@@ -1155,8 +1155,8 @@ async function prepareJalapDevProposal(message,history){
  const files=[];
  for(const path of paths)files.push(await readGitHubFileAtRef(path,baseSha));
  const codeContext=files.map(file=>"\n--- FILE: "+file.path+" ---\n"+file.content).join("\n");
- if(codeContext.length>24000)throw new Error("Le code sélectionné est trop volumineux pour le quota gratuit Groq. Demande une modification plus ciblée (un composant ou un fichier à la fois).");
- const proposal=await callGroqStructured(JALAP_DEV_SYSTEM,{request:message,history,repository:GITHUB_OWNER+"/"+GITHUB_REPO,branch:GITHUB_BRANCH,files:codeContext},JALAP_DEV_SCHEMA,2600);
+ if(codeContext.length>22000)throw new Error("Le code sélectionné est trop volumineux pour le quota gratuit Groq. Demande une modification plus ciblée (un composant ou un fichier à la fois).");
+ const proposal=await callGroqStructured(JALAP_DEV_SYSTEM,{request:message,history,repository:GITHUB_OWNER+"/"+GITHUB_REPO,branch:GITHUB_BRANCH,files:codeContext},JALAP_DEV_SCHEMA,2000);
  const changes=Array.isArray(proposal.changes)?proposal.changes:[];
  for(const change of changes){
   if(!JALAP_DEV_PATHS.includes(change.path))throw new Error("JALAP a proposé un chemin de fichier interdit.");
