@@ -3,6 +3,8 @@ name: Deploy PEPPER to GitHub Pages
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'data/trips.json'
   workflow_dispatch:
 
 permissions:
