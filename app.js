@@ -140,10 +140,11 @@ function mergeGitHubTripStates(localState,remoteState){
  }).filter(Boolean);
  const active=localState?.activeTripId&&merged.some(x=>x.id===localState.activeTripId)?localState.activeTripId:
   remoteState.activeTripId&&merged.some(x=>x.id===remoteState.activeTripId)?remoteState.activeTripId:merged[0]?.id||null;
- return {...remoteState,...localState,schemaVersion:3,privacy:"public-github-repository",trips:merged,activeTripId:active,updatedAt:new Date(Math.max(Date.parse(localState?.updatedAt||0)||0,Date.parse(remoteState.updatedAt||0)||0)).toISOString()};
+ const localStamp=localState?.updatedAt?Date.parse(localState.updatedAt):0,remoteStamp=remoteState.updatedAt?Date.parse(remoteState.updatedAt):0,latest=Math.max(Number.isFinite(localStamp)?localStamp:0,Number.isFinite(remoteStamp)?remoteStamp:0);
+ return {...remoteState,...localState,schemaVersion:3,privacy:"public-github-repository",trips:merged,activeTripId:active,updatedAt:latest?new Date(latest).toISOString():new Date().toISOString()};
 }
 function sanitizePublicTripValue(value,key=""){
- if(/^(qr(code)?|password|passcode|door(code)?|access(code)?|privateaccess|reservation(reference|code)|booking(reference|code)|ticket(pdf|image|qr))$/i.test(key))return undefined;
+ if(/^(qr(code)?|password|passcode|door(code)?|access(code)?|privateaccess|reservation(reference|number|id|code)|booking(reference|number|id|code)|ticket(pdf|image|qr))$/i.test(key))return undefined;
  if(Array.isArray(value))return value.map(item=>sanitizePublicTripValue(item)).filter(item=>item!==undefined);
  if(value&&typeof value==="object"){
   const output={};
