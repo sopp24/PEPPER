@@ -1137,12 +1137,12 @@ function renderJalapMode(){
  });
  const help=$("#jalap-mode-help"),input=$("#idea-input");
  if(help)help.textContent=dev
-  ?"JALAP Dev lit le code réel de GitHub, prépare un aperçu et ne crée un commit public qu'après ta validation."
-  :"JALAP Voyage modifie ton carnet dans ce navigateur après validation. Aucun changement de code n'est publié.";
+  ?"JALAP Dev lit les fichiers du dépôt, prépare un aperçu puis crée un commit direct sur GitHub après ta validation."
+  :"JALAP Voyage met à jour le carnet sur cet appareil puis synchronise data/trips.json sur GitHub si la synchronisation est activée.";
  if(input)input.placeholder=dev
   ?"Ex. : Sur mobile, transforme la carte et la checklist en deux onglets…"
   :"Ex. : Ajoute les Catacombes samedi vers 10 h…";
- const stateNode=$("#ai-connection-state");if(stateNode)stateNode.textContent=dev?"Claude Sonnet · dépôt GitHub":"Claude Haiku · carnet local";
+ const stateNode=$("#ai-connection-state");if(stateNode)stateNode.textContent=dev?"Claude Sonnet · GitHub direct":"Claude Haiku · API directe";
  const travelPanel=$("#jalap-proposal"),devPanel=$("#jalap-dev-proposal");
  if(travelPanel&&dev)travelPanel.hidden=true;
  if(devPanel&&!dev)devPanel.hidden=true;
