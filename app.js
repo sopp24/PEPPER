@@ -1149,13 +1149,69 @@ function applyJalapCodeEdits(content,edits){
  if(/(sk-ant-[A-Za-z0-9_-]{20,}|github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,})/.test(updated))throw new Error("La proposition contient une chaîne ressemblant à un secret et a été bloquée.");
  return updated;
 }
+function buildJalapDevContext(message,files){
+ const request=String(message||"").toLowerCase();
+ const chunks=[];
+ const addWindows=(content,needles,budget)=>{
+  if(content.length<=budget)return content;
+  const ranges=[];
+  for(const needle of needles){
+   if(!needle)continue;
+   let pos=-1,count=0;
+   while((pos=content.toLowerCase().indexOf(String(needle).toLowerCase(),pos+1))>=0&&count<3){
+    ranges.push([Math.max(0,pos-700),Math.min(content.length,pos+1800)]);count++;
+   }
+  }
+  if(!ranges.length)ranges.push([0,Math.min(content.length,budget)]);
+  ranges.sort((a,b)=>a[0]-b[0]);
+  const merged=[];
+  for(const range of ranges){
+   const last=merged[merged.length-1];
+   if(last&&range[0]<=last[1])last[1]=Math.max(last[1],range[1]);
+   else merged.push(range.slice());
+  }
+  let output="";
+  for(const [from,to] of merged){
+   const piece=content.slice(from,Math.min(to,from+Math.max(0,budget-output.length)));
+   if(!piece)continue;
+   const label="/* extrait du fichier, caractères "+from+" à "+(from+piece.length)+" */\n";
+   if(output.length+label.length+piece.length>budget)break;
+   output+=label+piece+"\n…\n";
+   if(output.length>=budget)break;
+  }
+  return output||content.slice(0,budget);
+ };
+ for(const file of files){
+  let excerpt=file.content;
+  if(file.path==="styles.css"){
+   const needles=[".dashboard-grid",".map-panel",".map-stage",".map-floating-tools",".activities-list","@media(min-width:761px)","@media(max-width:760px)","@media(max-width:430px)"];
+   if(/météo|meteo|weather/i.test(request))needles.push(".weather-panel",".weather-content");
+   if(/check|tâche|essentiel|checklist/i.test(request))needles.push(".checklist-panel",".check-row");
+   if(/jalap|assistant|chat/i.test(request))needles.push(".assistant-panel",".jalap-mode-switch",".ai-form");
+   excerpt=addWindows(file.content,needles,8200);
+  }else if(file.path==="index.html"){
+   const needles=["class=\"trip-heading\"","class=\"dashboard-grid\"","id=\"trip-map\"","id=\"trip-itinerary\"","id=\"trip-checklist\"","id=\"assistant-panel\""];
+   excerpt=addWindows(file.content,needles,12500);
+  }else if(file.path==="app.js"){
+   let needles=["function render()","function save(options","function renderMap(t)","function renderActivities(t)","function renderChecklist(t)","function markActivity","function markChecklist"];
+   if(/météo|meteo|weather/i.test(request))needles.push("async function fetchWeather(t)");
+   if(/jalap|assistant|agent|claude|gemini|groq|api/i.test(request))needles.push("async function sendJalapMessage(event)","async function callGroqStructured");
+   if(/reservation|réservation|booking/i.test(request))needles.push("function activityOfficialUrl","function markActivityBooked");
+   excerpt=addWindows(file.content,needles,12500);
+  }else{
+   excerpt=addWindows(file.content,[...request.split(/[^a-z0-9àâçéèêëîïôûùüÿñæœ]+/i).filter(word=>word.length>4)],7000);
+  }
+  chunks.push("\n--- FILE: "+file.path+" ---\n"+excerpt);
+ }
+ return chunks.join("\n");
+}
 async function prepareJalapDevProposal(message,history){
  if(!githubAccessToken())throw new Error("Ajoute ton jeton GitHub (Contents: Read and write) dans Réglages de PEPPER.");
  const baseSha=await getGitHubHeadSha(),paths=selectJalapDevFiles(message);
  const files=[];
  for(const path of paths)files.push(await readGitHubFileAtRef(path,baseSha));
- const codeContext=files.map(file=>"\n--- FILE: "+file.path+" ---\n"+file.content).join("\n");
- if(codeContext.length>22000)throw new Error("Le code sélectionné est trop volumineux pour le quota gratuit Groq. Demande une modification plus ciblée (un composant ou un fichier à la fois).");
+ const codeContext=buildJalapDevContext(message,files);
+ if(codeContext.length>24000)throw new Error("Le contexte sélectionné est trop volumineux pour le quota gratuit Groq. Découpe la demande en changements plus ciblés.");
  const proposal=await callGroqStructured(JALAP_DEV_SYSTEM,{request:message,history,repository:GITHUB_OWNER+"/"+GITHUB_REPO,branch:GITHUB_BRANCH,files:codeContext},JALAP_DEV_SCHEMA,2000);
  const changes=Array.isArray(proposal.changes)?proposal.changes:[];
  for(const change of changes){
