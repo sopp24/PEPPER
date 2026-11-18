@@ -1,1 +1,7 @@
-{"schemaVersion":2,"privacy":"local-only","trips":[]}
+{
+  "schemaVersion": 3,
+  "privacy": "public-github-repository",
+  "updatedAt": null,
+  "activeTripId": null,
+  "trips": []
+}
