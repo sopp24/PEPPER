@@ -818,7 +818,7 @@ function saveTripForm(form){
  const d=Object.fromEntries(new FormData(form).entries());if(d.startDate&&d.endDate&&d.endDate<d.startDate){toast("La date de retour doit suivre celle de départ.","error");return}
  let t=state.trips.find(x=>x.id===d.id);if(!t){t={id:uid(),activities:[],transport:[],expenses:[],checklist:DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false})),accommodation:null,createdAt:new Date().toISOString()};state.trips.push(t)}
  Object.assign(t,{destination:d.destination.trim(),startDate:d.startDate,endDate:d.endDate,people:Number(d.people||1),budget:Number(d.budget||0),currency:d.currency||"EUR",localTransitName:d.localTransitName||"",localTransitUrl:d.localTransitUrl||"",localTrafficUrl:d.localTrafficUrl||"",localTransitRef:d.localTransitRef||"",notes:d.notes||""});
- state.activeTripId=t.id;weatherData=null;save();closeModal();render();toast("Voyage enregistré sur cet appareil.");
+ state.activeTripId=t.id;weatherData=null;save();closeModal();render();toast("Voyage enregistré. Synchronisation GitHub en cours si elle est activée.");
 }
 function saveStay(form){
  const d=Object.fromEntries(new FormData(form).entries()),t=activeTrip(),old=t.accommodation||{};
@@ -843,7 +843,7 @@ function addExpense(form){const d=Object.fromEntries(new FormData(form).entries(
 function deleteActivity(id){const t=activeTrip();t.activities=t.activities.filter(a=>a.id!==id);save();closeModal();render();toast("Activité supprimée.")}
 function deleteTransport(id){const t=activeTrip();t.transport=t.transport.filter(a=>a.id!==id);save();render();toast("Trajet supprimé.")}
 function markActivity(event){
- const t=activeTrip(),a=t&&t.activities.find(x=>x.id===event.target.dataset.id);if(!a)return;a.done=event.target.checked;a.completedAt=a.done?new Date().toISOString():null;save();renderActivities(t);toast(a.done?"Activité cochée comme faite. Sauvegardée sur cet appareil.":"Activité remise dans les étapes à faire.");
+ const t=activeTrip(),a=t&&t.activities.find(x=>x.id===event.target.dataset.id);if(!a)return;a.done=event.target.checked;a.completedAt=a.done?new Date().toISOString():null;save();renderActivities(t);toast(a.done?"Activité cochée et enregistrée.":"Activité remise dans les étapes à faire.");
 }
 function markChecklist(event){const t=activeTrip(),item=t&&t.checklist.find(x=>x.id===event.target.dataset.id);if(!item)return;item.done=event.target.checked;save();renderChecklist(t)}
 function addChecklist(){const label=prompt("Quelle tâche veux-tu ajouter à ta checklist ?");if(!label||!label.trim())return;const t=activeTrip();t.checklist.push({id:uid(),label:label.trim(),done:false});save();renderChecklist(t)}
@@ -1267,7 +1267,7 @@ function applyJalapProposal(){
  if(!applied.length){toast("Aucune modification valide à appliquer.","error");return;}
  jalapPendingProposal=null;jalapPendingTripId=null;save();weatherData=null;render();renderJalapProposal();
  const summary="C'est fait : "+applied.join(", ")+". Les changements sont enregistrés dans ce navigateur.";
- jalapMessages.push({role:"assistant",content:summary});appendJalapMessage("assistant",summary);toast("Modifications JALAP enregistrées localement.");
+ jalapMessages.push({role:"assistant",content:summary});appendJalapMessage("assistant",summary);toast(githubSyncEnabled()?"Modifications JALAP enregistrées et synchronisées avec GitHub.":"Modifications JALAP enregistrées localement. Active la synchronisation GitHub dans Réglages pour les publier dans le dépôt.");
 }
 function cancelJalapProposal(){jalapPendingProposal=null;jalapPendingTripId=null;renderJalapProposal();appendJalapMessage("assistant","D'accord, je n'ai rien modifié dans ton voyage.");}
 
