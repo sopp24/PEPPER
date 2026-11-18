@@ -172,7 +172,7 @@ async function readGitHubTripsFile(){
  }catch(error){if(error.status===404)return null;throw error}
 }
 async async function writeGitHubTripsFile(remoteFile){
- const snapshot=publicGitHubTripSnapshot(),textValue=JSON.stringify(snapshot,null,2)+"\\n";
+ const snapshot=publicGitHubTripSnapshot(),textValue=JSON.stringify(snapshot,null,2)+"\n";
  if(remoteFile&&remoteFile.text===textValue){githubLastContent=textValue;return false}
  const body={message:"PEPPER: synchronisation du carnet de voyage",content:encodeUtf8Base64(textValue),branch:GITHUB_BRANCH};
  if(remoteFile?.sha)body.sha=remoteFile.sha;
@@ -194,7 +194,7 @@ async function syncGitHubState(options={}){
     save({skipRemote:true,skipTouch:true});
     if(before!==after)githubSyncAgain=true;
    }
-   const snapshot=publicGitHubTripSnapshot(),json=JSON.stringify(snapshot,null,2)+"\\n";
+   const snapshot=publicGitHubTripSnapshot(),json=JSON.stringify(snapshot,null,2)+"\n";
    if(remote?.text===json){githubLastContent=json;setGitHubSyncStatus("synced");}
    else{
     try{await writeGitHubTripsFile(remote);setGitHubSyncStatus("synced")}
