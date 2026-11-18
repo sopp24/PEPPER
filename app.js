@@ -1013,12 +1013,33 @@ const JALAP_DATA_PROPERTIES={
  amount:JALAP_NULL_NUMBER,budget:JALAP_NULL_NUMBER,currency:JALAP_NULL_STRING,startDate:JALAP_NULL_STRING,endDate:JALAP_NULL_STRING,
  people:JALAP_NULL_NUMBER,taskLabel:JALAP_NULL_STRING
 };
-const JALAP_TRAVEL_SCHEMA={
- type:"object",additionalProperties:false,required:["message","operations"],
- properties:{message:{type:"string"},operations:{type:"array",maxItems:8,items:{
-  type:"object",additionalProperties:false,required:["action","targetId","reason","data"],
-  properties:{action:{type:"string",enum:["activity_add","activity_update","activity_delete","transport_add","transport_update","trip_update","expense_add","checklist_add"]},targetId:JALAP_NULL_STRING,reason:{type:"string"},data:{type:"object",additionalProperties:false,required:Object.keys(JALAP_DATA_PROPERTIES),properties:JALAP_DATA_PROPERTIES}}
- }}
+const JALAP_TRAVEL_SCHEMA = {
+ type: "object",
+ additionalProperties: false,
+ required: ["message", "operations"],
+ properties: {
+  message: { type: "string" },
+  operations: {
+   type: "array",
+   maxItems: 8,
+   items: {
+    type: "object",
+    additionalProperties: false,
+    required: ["action", "targetId", "reason", "data"],
+    properties: {
+     action: { type: "string", enum: ["activity_add", "activity_update", "activity_delete", "transport_add", "transport_update", "trip_update", "expense_add", "checklist_add"] },
+     targetId: JALAP_NULL_STRING,
+     reason: { type: "string" },
+     data: {
+      type: "object",
+      additionalProperties: false,
+      required: Object.keys(JALAP_DATA_PROPERTIES),
+      properties: JALAP_DATA_PROPERTIES
+     }
+    }
+   }
+  }
+ }
 };
 const JALAP_DEV_SYSTEM=`Tu es JALAP Dev, l'assistant développeur du dépôt GitHub public sopp24/PEPPER.
 Tu reçois le contenu réel de fichiers autorisés et proposes uniquement des remplacements de code précis.
@@ -1029,15 +1050,41 @@ Ne renvoie aucun changement pour une question ou si le contexte est insuffisant 
 Ne modifie jamais de secret, token, mot de passe, paramètre de compte, workflow GitHub ou configuration de sécurité. N'ajoute pas de nouvelle clé API ni de code permettant d'exfiltrer une clé locale ou le jeton GitHub.
 Ne propose que les chemins présents dans le schéma. Ne publie aucun secret. Un commit sur ce dépôt public rend le code visible de tous.
 La proposition ne doit pas inclure d'informations de voyage réelles provenant de data/trips.json. Le carnet est synchronisé séparément. Chaque modification doit être lisible et approuvée par l'utilisateur avant le commit.`;
-const JALAP_DEV_SCHEMA={
- type:"object",additionalProperties:false,required:["message","changes"],
- properties:{message:{type:"string"},changes:{type:"array",maxItems:8,items:{
-  type:"object",additionalProperties:false,required:["path","summary","edits"],
-  properties:{path:{type:"string",enum:JALAP_DEV_PATHS},summary:{type:"string"},edits:{type:"array",minItems:1,maxItems:8,items:{
-   type:"object",additionalProperties:false,required:["old_text","new_text","reason"],
-   properties:{old_text:{type:"string"},new_text:{type:"string"},reason:{type:"string"}}
-  }}}
- }}
+const JALAP_DEV_SCHEMA = {
+ type: "object",
+ additionalProperties: false,
+ required: ["message", "changes"],
+ properties: {
+  message: { type: "string" },
+  changes: {
+   type: "array",
+   maxItems: 8,
+   items: {
+    type: "object",
+    additionalProperties: false,
+    required: ["path", "summary", "edits"],
+    properties: {
+     path: { type: "string", enum: JALAP_DEV_PATHS },
+     summary: { type: "string" },
+     edits: {
+      type: "array",
+      minItems: 1,
+      maxItems: 8,
+      items: {
+       type: "object",
+       additionalProperties: false,
+       required: ["old_text", "new_text", "reason"],
+       properties: {
+        old_text: { type: "string" },
+        new_text: { type: "string" },
+        reason: { type: "string" }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
 };
 function claudeText(payload){
  const blocks=Array.isArray(payload?.content)?payload.content:[];
