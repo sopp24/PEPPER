@@ -68,61 +68,50 @@ Pour activer l’affichage live dans PEPPER :
 
 La donnée SNCF est publique, mais l’endpoint PEPPER est protégé par un jeton personnel `PEPPER_API_TOKEN`. Crée ce jeton localement (par exemple `openssl rand -hex 32`), ajoute-le comme variable d’environnement Netlify (scope Functions) et colle la même valeur dans PEPPER → Réglages → Jeton privé. Ajoute `PEPPER_ALLOWED_ORIGIN=https://sopp24.github.io` pour limiter les navigateurs à l’origine de PEPPER ; CORS ne remplace pas l’authentification. Pour activer IDFM, crée un jeton sur PRIM puis ajoute `IDFM_API_KEY` séparément dans les variables d’environnement Netlify (scope Functions), puis redeploie. Dans PEPPER, renseigne le `MonitoringRef` de l’arrêt dans les réglages du voyage. La requête utilise le header `apikey` officiel. Les autres API avec clés doivent être configurées uniquement côté serveur.
 
-## JALAP — Claude + mode Développement GitHub
+## JALAP — Claude et GitHub en connexion directe
 
-JALAP utilise l'API Anthropic Claude via des fonctions serveur. Le navigateur ne reçoit jamais les clés Anthropic ou GitHub.
+PEPPER ne nécessite plus de relais Cloudflare, Netlify, Vercel ou de base de données intermédiaire pour JALAP ni pour la synchronisation du carnet. Le navigateur communique directement avec l'API Anthropic et l'API GitHub.
 
-- Mode **Voyage** : Claude Haiku 5.5 (`claude-haiku-5-5`) propose des modifications structurées au carnet local.
-- Mode **Développement** : Claude Sonnet 5.5 (`claude-sonnet-5-5`) lit les fichiers actuels du dépôt `sopp24/PEPPER`, prépare des remplacements de code exacts et affiche une prévisualisation. Aucun commit n'est créé avant le clic explicite sur « Valider et commiter sur GitHub ».
+- **Mode Voyage :** Claude Haiku 5.5 propose des modifications structurées au voyage. Après validation, PEPPER sauvegarde d'abord dans IndexedDB, puis synchronise automatiquement le carnet vers `data/trips.json` dans le dépôt.
+- **Mode Développement :** Claude Sonnet 5.5 lit les fichiers de code autorisés, prépare un aperçu avant/après et crée un commit GitHub direct uniquement après validation.
+- **Cases cochées et formulaires :** chaque appel à `save()` sauvegarde immédiatement sur l'appareil. Si la synchronisation GitHub est activée, un commit du carnet est envoyé après environ 1,8 seconde sans nouvelle modification.
+- **GitHub Pages :** le workflow ignore les commits qui ne changent que `data/trips.json`, afin de ne pas reconstruire l'application pour chaque coche.
 
-### Hébergement backend recommandé : Vercel Hobby
+### Mise en route
 
-Le site PEPPER reste publié par GitHub Pages. Vercel héberge uniquement les routes API `/api/jalap`, `/api/jalap-dev` et `/api/transport-status`. Netlify reste compatible comme solution de secours.
+1. Crée une clé API Claude sur https://platform.claude.com/settings/keys.
+2. Crée un fine-grained personal access token sur https://github.com/settings/personal-access-tokens/new.
+3. Limite le token à **Only select repositories → sopp24/PEPPER**, avec uniquement **Contents: Read and write**. N'accorde pas Workflows, Actions, Administration ou l'accès à d'autres dépôts.
+4. Dans PEPPER → Réglages, colle la clé Claude et le jeton GitHub.
+5. Active **Synchroniser automatiquement le carnet avec GitHub**.
 
-1. Crée un compte sur https://vercel.com/signup.
-2. Dans Vercel, choisis **Add New → Project** et importe le dépôt GitHub `sopp24/PEPPER`.
-3. Choisis **Other** comme framework preset. Laisse la commande de build vide et conserve le répertoire racine du dépôt.
-4. Dans les variables d'environnement du projet, ajoute :
-   - `ANTHROPIC_API_KEY` : clé API Anthropic Console.
-   - `GITHUB_TOKEN` : fine-grained personal access token limité au seul dépôt `sopp24/PEPPER`, avec **Contents: Read and write**.
-   - `PEPPER_API_TOKEN` : jeton privé PEPPER déjà utilisé dans les réglages du navigateur.
-   - `PEPPER_ALLOWED_ORIGIN=https://sopp24.github.io`.
-   - Facultatif : `JALAP_TRAVEL_MODEL=claude-haiku-5-5` et `JALAP_DEV_MODEL=claude-sonnet-5-5`.
-5. Déploie le projet. Vercel fournit une URL publique en `.vercel.app`.
-6. Dans PEPPER → Réglages, remplace l'ancienne URL Netlify par l'URL `.vercel.app`. Garde le même jeton `PEPPER_API_TOKEN`.
+Les deux identifiants sont conservés dans le stockage local de ce navigateur. Le jeton GitHub est envoyé directement à `api.github.com`. La clé Claude est envoyée directement à `api.anthropic.com` avec l'en-tête `anthropic-dangerous-direct-browser-access: true` pour autoriser CORS. Anthropic recommande officiellement de conserver la clé derrière un backend, car tout JavaScript exécuté dans la page peut potentiellement la lire. Ce mode direct évite le relais serveur, mais implique donc d'utiliser une clé dédiée, avec budget et plafond de dépense dans Anthropic Console. Si l'organisation Anthropic interdit les appels directs depuis un navigateur (par exemple avec certains réglages de conformité ou Zero Data Retention), l'API peut refuser la requête ; il faudra alors réactiver un backend privé.
 
-La clé Anthropic est à créer sur https://platform.claude.com/settings/keys. Le jeton GitHub se crée sur https://github.com/settings/personal-access-tokens/new : sélectionne uniquement `sopp24/PEPPER`, autorise **Contents: Read and write**, et n'accorde pas Actions, Workflows, Administration ou l'accès à d'autres dépôts. GitHub ajoute automatiquement la permission Metadata en lecture.
+### Ce que GitHub reçoit
 
-Le forfait Vercel Hobby est gratuit pour les projets personnels non commerciaux. La documentation indique notamment 1 million d'invocations de fonctions mensuelles, 4 heures de CPU actif et 360 Go-heures de mémoire provisionnée ; des limites et règles d'usage s'appliquent. Si un quota est dépassé, certaines ressources peuvent devoir attendre leur réinitialisation. Consulte les conditions en vigueur avant de choisir ce backend comme hébergement durable.
+Le dépôt `sopp24/PEPPER` est public. Lorsque la synchronisation est activée, le contenu du carnet (voyages, activités, transports, dépenses, tâches et hébergements) est versionné et visible de tous dans `data/trips.json`. Quelques champs nommés explicitement comme QR codes, mots de passe, codes d'accès et références de réservation sont retirés de la copie publique. Les clés Claude et GitHub ne sont jamais incluses dans ce fichier.
 
-### Variables Netlify (compatibilité)
+Le stockage local reste la copie de travail immédiate et la sauvegarde hors connexion. En cas d'absence de connexion ou d'erreur GitHub, les changements restent sur l'appareil et le statut indique l'échec ou l'attente de synchronisation ; ils peuvent être réessayés lorsque la connexion revient. La synchronisation directe utilise un commit GitHub par lot de changements, après un court délai de regroupement.
 
-Les fonctions Netlify existantes utilisent les mêmes variables `ANTHROPIC_API_KEY`, `GITHUB_TOKEN`, `PEPPER_API_TOKEN` et `PEPPER_ALLOWED_ORIGIN`. Si ton quota Netlify a été épuisé et que le site Netlify est en pause, utilise plutôt Vercel pour réactiver JALAP. Le site public GitHub Pages reste indépendant.
+### Mode Développement
 
-### Parcours Développement
+JALAP Dev récupère un SHA de référence de la branche `main`, lit les fichiers autorisés, puis demande à Claude de proposer des remplacements exacts. PEPPER vérifie que chaque extrait existe une seule fois et que la proposition ne contient pas de motif ressemblant à un secret. Avant le commit, le navigateur vérifie que la branche n'a pas changé depuis la préparation du diff. Si elle a changé, il demande de recalculer la proposition au lieu d'écraser le travail plus récent.
 
-1. JALAP récupère les fichiers autorisés sur la branche `main`.
-2. Claude propose des changements ciblés sous forme de remplacements exacts.
-3. Le serveur vérifie que chaque extrait existe une seule fois, que les chemins sont autorisés et qu'aucune chaîne ressemblant à une clé d'accès n'est introduite.
-4. PEPPER affiche les fichiers, les raisons et les extraits complets avant/après.
-5. Après validation, le serveur re-télécharge les fichiers et vérifie à nouveau les extraits avant de créer un commit Git unique sur `main`.
-6. GitHub Pages déploie le site. Vercel n'a pas besoin de reconstruire le site public pour que GitHub Pages publie la nouvelle interface.
+Le mode Développement peut modifier uniquement les fichiers listés dans `JALAP_DEV_PATHS` dans `app.js`. Il ne peut pas modifier les workflows GitHub, les secrets, ses propres permissions ou créer un fichier non autorisé. Les commits sont visibles dans le dépôt public et GitHub Pages publie les modifications de code.
 
-Le mode Dev peut modifier les fichiers applicatifs listés dans `netlify/functions/jalap-dev.mjs`, y compris le moteur JALAP Voyage et le connecteur transport. Il ne peut pas modifier les workflows GitHub, les secrets, les paramètres de déploiement ni son propre endpoint de commit. Les nouveaux fichiers ne sont pas encore pris en charge par les propositions de remplacement ; il faut d'abord les créer ou élargir explicitement la liste autorisée. Le contexte transmis à Claude est sélectionné selon la nature de la demande ; une demande purement visuelle n'envoie que le HTML et le CSS.
+### Coûts Claude
 
-### Modèles et coûts Claude
+L'API Claude est facturée séparément d'un abonnement Claude.ai. Les modèles configurés sont `claude-haiku-5-5` pour les tâches de voyage et `claude-sonnet-5-5` pour le développement. Les prix et modèles peuvent évoluer : consulte https://platform.claude.com/docs/en/about-claude/pricing. Configure un budget et une limite de dépense dans Anthropic Console.
 
-L'API Claude est facturée séparément d'un abonnement Claude.ai. À la date de dernière vérification, Haiku 5.5 coûte à partir de 0,10 $ / million de tokens en entrée et 0,50 $ / million en sortie ; Sonnet 5.5 coûte 2 $ / million en entrée et 10 $ / million en sortie. Les demandes de développement qui envoient du code sont plus coûteuses qu'un échange de voyage. Configure un budget et une limite de dépense dans Anthropic Console et désactive le rechargement automatique si tu souhaites garder le contrôle.
-
-Le mode Développement écrit directement dans le dépôt public. Les fichiers commités deviennent visibles de tous. Le mode Voyage continue de sauvegarder les modifications du carnet dans le navigateur ; il ne publie pas automatiquement les informations du voyage.
 
 ## Confidentialité
 
-Ce dépôt est public. Les données de voyage restent dans le stockage local du navigateur, pas dans un fichier versionné. Ne publie jamais dans GitHub un QR code, billet complet, pièce d'identité, numéro de réservation, code d'accès au logement ou coordonnées personnelles. Les exports JSON peuvent contenir des données privées : garde-les hors des dépôts publics.
+Le dépôt est public. Si la synchronisation GitHub est activée, tout le carnet synchronisé dans `data/trips.json` est visible de tous. Les champs explicites de type QR code, mot de passe, code d'accès et référence de réservation sont filtrés de la copie publique, mais ne considère jamais ce dépôt comme un espace privé. Les clés Anthropic et GitHub restent dans le navigateur et ne sont jamais commitées. Les exports JSON locaux peuvent contenir davantage d'informations : garde-les dans un espace privé.
+
 
 ## Sauvegarde et mode hors connexion
 
-Les voyages sont stockés localement dans IndexedDB, avec un stockage navigateur de compatibilité et une copie de récupération du dernier état valide. Le bouton « Sauvegarder tous les voyages » exporte un fichier JSON privé. « Restaurer une sauvegarde » permet de fusionner ou remplacer les voyages sur cet appareil ; le fichier est lu localement et n'est pas téléversé. Les prévisions météo déjà consultées restent affichables hors connexion avec leur horodatage. La coquille de l'application et les données du carnet sont conservées ; les tuiles de carte, les sources externes et le suivi temps réel ne sont pas garantis hors connexion. La synchronisation entre appareils n'est pas encore activée : elle demandera un service d'authentification et de stockage distant privé.
+Les voyages sont stockés localement dans IndexedDB, avec un stockage navigateur de compatibilité et une copie de récupération du dernier état valide. Le bouton « Sauvegarder tous les voyages » exporte un fichier JSON privé. « Restaurer une sauvegarde » permet de fusionner ou remplacer les voyages sur cet appareil ; le fichier est lu localement et n'est pas téléversé. Les prévisions météo déjà consultées restent affichables hors connexion avec leur horodatage. La coquille de l'application et les données du carnet sont conservées ; les tuiles de carte, les sources externes et le suivi temps réel ne sont pas garantis hors connexion. La synchronisation entre appareils est facultative et se fait directement avec le fichier public `data/trips.json` sur GitHub, sans Cloudflare, Netlify, Vercel ou base distante supplémentaire. Elle nécessite un jeton GitHub et rend le carnet synchronisé public.
 
 ## Publication GitHub Pages
 
