@@ -3,6 +3,13 @@ const LEGACY_KEY="jalapentos-state-v1";
 const RECOVERY_KEY="pepper-last-good-state-v1";
 const API_BASE_KEY="pepper-api-base-url-v1";
 const API_TOKEN_KEY="pepper-api-access-token-v1";
+const GITHUB_TOKEN_KEY="pepper-github-token-v1";
+const ANTHROPIC_KEY_KEY="pepper-anthropic-api-key-v1";
+const GITHUB_SYNC_ENABLED_KEY="pepper-github-sync-enabled-v1";
+const GITHUB_OWNER="sopp24";
+const GITHUB_REPO="PEPPER";
+const GITHUB_BRANCH="main";
+const GITHUB_TRIPS_PATH="data/trips.json";
 const DEFAULT_CHECKLIST=["Vérifier les papiers d’identité et les visas","Confirmer les billets, horaires et formalités d’enregistrement","Confirmer l’hébergement et les heures d’arrivée / départ","Vérifier les conditions de bagages et les documents nécessaires","Prévoir les moyens de paiement et télécharger les documents hors ligne"];
 const $=(s,root=document)=>root.querySelector(s),$$=(s,root=document)=>Array.from(root.querySelectorAll(s));
 const parse=(v,f)=>{try{return JSON.parse(v)}catch(e){return f}};
@@ -18,7 +25,9 @@ let state=parse(localStorage.getItem(STORAGE_KEY),null)||parse(localStorage.getI
 state.trips=Array.isArray(state.trips)?state.trips:[];
 state.trips.forEach(t=>{t.activities=t.activities||[];t.expenses=t.expenses||[];t.checklist=t.checklist||DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false}));t.transport=t.transport||[];t.accommodation=t.accommodation||null});
 let map=null,markers=null,mapTripId=null,mapLibraryRetryCount=0,weatherData=null,weatherError="",weatherRequest=0,transportRefreshTimer=null,pepperDbPromise=null,leafletPromise=null,geocodeInFlight=new Set();
-let jalapMessages=[],jalapPendingProposal=null,jalapPendingTripId=null,jalapBusy=false,jalapMode=localStorage.getItem('pepper-jalap-mode-v1')||'travel',jalapDevChanges=null,jalapDevOriginalRequest='',jalapDevBusy=false;
+let jalapMessages=[],jalapPendingProposal=null,jalapPendingTripId=null,jalapBusy=false,jalapMode=localStorage.getItem('pepper-jalap-mode-v1')||'travel',jalapDevChanges=null,jalapDevOriginalRequest='',jalapDevBusy=false,jalapDevBaseSha=null,jalapDevBaseFiles=[];
+let githubSyncTimer=null,githubSyncRunning=false,githubSyncAgain=false,githubSyncStatus="local",githubLastContent="",githubSyncError="";
+const JALAP_DEV_PATHS=["index.html","app.js","styles.css","manifest.webmanifest","service-worker.js","README.md","assets/jalap.svg","assets/pepper-favicon.svg","tests/jalap.test.mjs","tests/jalap-dev.test.mjs"];
 const modalRoot=$("#modal-root");
 
 function openPepperDatabase(){
@@ -73,7 +82,157 @@ async function restoreStateFromIndexedDB(){
 }
 
 function activeTrip(){return state.trips.find(t=>t.id===state.activeTripId)||state.trips[0]||null}
-function save(){const snapshot=JSON.stringify(state);try{const previous=localStorage.getItem(STORAGE_KEY);if(previous)localStorage.setItem(RECOVERY_KEY,previous);localStorage.setItem(STORAGE_KEY,snapshot)}catch(e){toast("Le stockage classique est saturé. La sauvegarde locale étendue est tentée ; exporte aussi un fichier JSON privé.","error")}persistStateToIndexedDB(snapshot)}
+
+function githubAccessToken(){return String(localStorage.getItem(GITHUB_TOKEN_KEY)||"").trim()}
+function anthropicAccessKey(){return String(localStorage.getItem(ANTHROPIC_KEY_KEY)||"").trim()}
+function githubSyncEnabled(){return localStorage.getItem(GITHUB_SYNC_ENABLED_KEY)==="true"}
+function setGitHubSyncStatus(status,message){
+ githubSyncStatus=status;
+ const node=$("#github-sync-status");
+ if(node){node.dataset.status=status;node.innerHTML='<i></i> '+esc(message||({local:"Enregistré sur cet appareil",syncing:"Écriture sur GitHub…",synced:"Synchronisé avec GitHub",error:"GitHub : synchronisation en échec",waiting:"En attente de synchronisation"}[status]||""))}
+}
+async function githubApi(path,method="GET",body=null){
+ const token=githubAccessToken();if(!token)throw new Error("Ajoute un jeton GitHub dans les réglages de PEPPER.");
+ const response=await fetch("https://api.github.com"+path,{
+  method,
+  headers:{
+   authorization:"Bearer "+token,
+   accept:"application/vnd.github+json",
+   "x-github-api-version":"2022-11-28",
+   ...(body?{"content-type":"application/json"}:{})
+  },
+  ...(body?{body:JSON.stringify(body)}:{}),
+  signal:AbortSignal.timeout(25000)
+ });
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok){
+  const error=new Error(data.message||("GitHub API : erreur "+response.status));
+  error.status=response.status;throw error;
+ }
+ return data;
+}
+function decodeBase64Utf8(value){
+ const binary=atob(String(value||"").replace(/\\s/g,""));
+ const bytes=Uint8Array.from(binary,char=>char.charCodeAt(0));
+ return new TextDecoder().decode(bytes);
+}
+function encodeUtf8Base64(value){
+ const bytes=new TextEncoder().encode(String(value));
+ let binary="";
+ for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+ return btoa(binary);
+}
+function githubTripStamp(trip,fallback){
+ const value=trip?.updatedAt||trip?.createdAt||fallback||"1970-01-01T00:00:00.000Z";
+ const time=Date.parse(value);return Number.isFinite(time)?time:0;
+}
+function mergeGitHubTripStates(localState,remoteState){
+ if(!remoteState||!Array.isArray(remoteState.trips))return localState;
+ const localTrips=Array.isArray(localState?.trips)?localState.trips:[];
+ const remoteTrips=Array.isArray(remoteState.trips)?remoteState.trips:[];
+ const localMap=new Map(localTrips.map(trip=>[trip.id,trip]));
+ const remoteMap=new Map(remoteTrips.map(trip=>[trip.id,trip]));
+ const ids=[...new Set([...remoteTrips.map(x=>x.id),...localTrips.map(x=>x.id)])];
+ const merged=ids.map(id=>{
+  const local=localMap.get(id),remote=remoteMap.get(id);
+  if(!local)return remote;if(!remote)return local;
+  return githubTripStamp(local,localState.updatedAt)>=githubTripStamp(remote,remoteState.updatedAt)?local:remote;
+ }).filter(Boolean);
+ const active=localState?.activeTripId&&merged.some(x=>x.id===localState.activeTripId)?localState.activeTripId:
+  remoteState.activeTripId&&merged.some(x=>x.id===remoteState.activeTripId)?remoteState.activeTripId:merged[0]?.id||null;
+ return {...remoteState,...localState,schemaVersion:3,privacy:"public-github-repository",trips:merged,activeTripId:active,updatedAt:new Date(Math.max(Date.parse(localState?.updatedAt||0)||0,Date.parse(remoteState.updatedAt||0)||0)).toISOString()};
+}
+function sanitizePublicTripValue(value,key=""){
+ if(/^(qr(code)?|password|passcode|door(code)?|access(code)?|privateaccess|reservation(reference|code)|booking(reference|code)|ticket(pdf|image|qr))$/i.test(key))return undefined;
+ if(Array.isArray(value))return value.map(item=>sanitizePublicTripValue(item)).filter(item=>item!==undefined);
+ if(value&&typeof value==="object"){
+  const output={};
+  for(const [childKey,childValue] of Object.entries(value)){
+   const safe=sanitizePublicTripValue(childValue,childKey);if(safe!==undefined)output[childKey]=safe;
+  }
+  return output;
+ }
+ return value;
+}
+function publicGitHubTripSnapshot(){
+ return {
+  schemaVersion:3,
+  privacy:"public-github-repository",
+  updatedAt:state.updatedAt||new Date().toISOString(),
+  activeTripId:state.activeTripId||null,
+  trips:(state.trips||[]).map(trip=>sanitizePublicTripValue(trip))
+ };
+}
+async function readGitHubTripsFile(){
+ try{
+  const result=await githubApi("/repos/"+GITHUB_OWNER+"/"+GITHUB_REPO+"/contents/"+GITHUB_TRIPS_PATH+"?ref="+encodeURIComponent(GITHUB_BRANCH));
+  if(result.type!=="file"||typeof result.content!=="string")throw new Error("Le fichier de voyages GitHub n'est pas un fichier valide.");
+  const text=decodeBase64Utf8(result.content);
+  return{sha:result.sha,text,data:JSON.parse(text)};
+ }catch(error){if(error.status===404)return null;throw error}
+}
+async function writeGitHubTripsFile(remoteFile){
+ const snapshot=publicGitHubTripSnapshot(),textValue=JSON.stringify(snapshot,null,2)+"\\n";
+ if(remoteFile&&remoteFile.text===textValue){githubLastContent=textValue;return false}
+ const body={message:"PEPPER: synchronisation du carnet de voyage",content:encodeUtf8Base64(textValue),branch:GITHUB_BRANCH};
+ if(remoteFile?.sha)body.sha=remoteFile.sha;
+ await githubApi("/repos/"+GITHUB_OWNER+"/"+GITHUB_REPO+"/contents/"+GITHUB_TRIPS_PATH,"PUT",body);
+ githubLastContent=textValue;return true;
+}
+async function syncGitHubState(options={}){
+ if(!githubSyncEnabled()||!githubAccessToken()){setGitHubSyncStatus("local");return}
+ if(githubSyncRunning){githubSyncAgain=true;return}
+ githubSyncRunning=true;
+ try{
+  do{
+   githubSyncAgain=false;setGitHubSyncStatus("syncing");
+   let remote=await readGitHubTripsFile();
+   if(options.pull&&remote?.data&&Array.isArray(remote.data.trips)){
+    const before=JSON.stringify(publicGitHubTripSnapshot());
+    state=mergeGitHubTripStates(state,remote.data);
+    const after=JSON.stringify(publicGitHubTripSnapshot());
+    save({skipRemote:true,skipTouch:true});
+    if(before!==after)githubSyncAgain=true;
+   }
+   const snapshot=publicGitHubTripSnapshot(),json=JSON.stringify(snapshot,null,2)+"\\n";
+   if(remote?.text===json){githubLastContent=json;setGitHubSyncStatus("synced");}
+   else{
+    try{await writeGitHubTripsFile(remote);setGitHubSyncStatus("synced")}
+    catch(error){
+     if(error.status!==409&&error.status!==422)throw error;
+     remote=await readGitHubTripsFile();
+     if(remote?.data&&Array.isArray(remote.data.trips)){
+      state=mergeGitHubTripStates(state,remote.data);save({skipRemote:true,skipTouch:true});
+     }
+     await writeGitHubTripsFile(remote);setGitHubSyncStatus("synced");
+    }
+   }
+  }while(githubSyncAgain);
+  githubSyncError="";
+ }catch(error){
+  githubSyncError=error.message||"Erreur GitHub";
+  setGitHubSyncStatus("error",githubSyncError);
+  console.error("PEPPER GitHub sync:",error);
+ }finally{
+  githubSyncRunning=false;
+  if(githubSyncAgain){githubSyncAgain=false;scheduleGitHubSync(250)}
+ }
+}
+function scheduleGitHubSync(delay=1800){
+ if(!githubSyncEnabled()||!githubAccessToken()){setGitHubSyncStatus("local");return}
+ clearTimeout(githubSyncTimer);setGitHubSyncStatus("waiting");
+ githubSyncTimer=setTimeout(()=>syncGitHubState(),delay);
+}
+async function connectGitHubSync(){
+ if(!githubAccessToken())throw new Error("Ajoute ton jeton GitHub.");
+ setGitHubSyncStatus("syncing","Vérification de GitHub…");
+ await githubApi("/repos/"+GITHUB_OWNER+"/"+GITHUB_REPO+"/contents/README.md?ref="+encodeURIComponent(GITHUB_BRANCH));
+ localStorage.setItem(GITHUB_SYNC_ENABLED_KEY,"true");
+ await syncGitHubState({pull:true});
+ if(githubSyncStatus==="error")throw new Error(githubSyncError||"La synchronisation GitHub a échoué.");
+}
+
+function save(options={}){const now=new Date().toISOString();if(!options.skipTouch){state.updatedAt=now;const trip=activeTrip();if(trip)trip.updatedAt=now}const snapshot=JSON.stringify(state);try{const previous=localStorage.getItem(STORAGE_KEY);if(previous)localStorage.setItem(RECOVERY_KEY,previous);localStorage.setItem(STORAGE_KEY,snapshot)}catch(e){toast("Le stockage classique est saturé. La sauvegarde locale étendue est tentée ; exporte aussi un fichier JSON privé.","error")}persistStateToIndexedDB(snapshot);if(!options.skipRemote)scheduleGitHubSync()}
 function toast(message,type){const n=document.createElement("div");n.className="toast "+(type||"");n.textContent=message;$("#toast-root").appendChild(n);setTimeout(()=>n.remove(),4200)}
 function dateTime(date,time){if(!date)return null;const d=new Date(date+"T"+(time||"00:00")+":00");return Number.isNaN(d.getTime())?null:d}
 function dateTimeLabel(d){return new Intl.DateTimeFormat("fr-FR",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(d)}
