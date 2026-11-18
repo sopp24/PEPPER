@@ -1161,68 +1161,53 @@ async function sendJalapMessage(event){
  const input=$("#idea-input"),message=input?.value.trim(),trip=activeTrip(),dev=jalapMode==="development";
  if(!dev&&!trip){toast("Crée ou importe d’abord un voyage pour discuter avec JALAP.","error");return}
  if(!message){input?.focus();return}
- const base=apiBaseUrl(),token=apiAccessToken();
- if(!base||!token){toast("Configure l’URL Netlify et le jeton PEPPER dans Réglages.","error");return}
+ if(!anthropicAccessKey()){toast("Ajoute ta clé API Claude dans Réglages de PEPPER.","error");return}
+ if(dev&&!githubAccessToken()){toast("Ajoute ton jeton GitHub fine-grained dans Réglages.","error");return}
  jalapMessages.push({role:"user",content:message});appendJalapMessage("user",message);
- if(dev){jalapDevChanges=null;jalapDevOriginalRequest="";renderJalapDevProposal()}
+ if(dev){jalapDevChanges=null;jalapDevOriginalRequest="";jalapDevBaseSha=null;jalapDevBaseFiles=[];renderJalapDevProposal()}
  input.value="";jalapBusy=true;
  const button=$("#idea-form button[type=submit]");if(button){button.disabled=true;button.textContent="…"}
- const pending=document.createElement("div");pending.id="jalap-pending";pending.className="chat-message assistant-message";pending.textContent=dev?"JALAP analyse le dépôt GitHub…":"JALAP prépare ton voyage…";$("#jalap-thread")?.appendChild(pending);
+ const pending=document.createElement("div");pending.id="jalap-pending";pending.className="chat-message assistant-message";pending.textContent=dev?"JALAP lit le dépôt GitHub et prépare un diff…":"JALAP prépare ton voyage avec Claude…";$("#jalap-thread")?.appendChild(pending);
  try{
-  const endpoint=apiEndpoint(base,dev?"jalap-dev":"jalap");
-  const body=dev
-   ?{action:"propose",message,history:jalapMessages.slice(-9,-1)}
-   :{message,context:shareContext(trip),history:jalapMessages.slice(-11,-1)};
-  const response=await fetch(base+endpoint,{method:"POST",headers:{...apiRequestHeaders(),"content-type":"application/json"},body:JSON.stringify(body),signal:AbortSignal.timeout(dev?110000:50000)});
-  const data=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(data.error||"JALAP est indisponible ("+response.status+").");
+  const history=jalapMessages.slice(-9,-1);
   if(dev){
-   const answer=String(data.message||"Je n'ai pas réussi à préparer une proposition.");
+   const data=await prepareJalapDevProposal(message,history),answer=String(data.message||"Proposition prête.");
    jalapMessages.push({role:"assistant",content:answer});appendJalapMessage("assistant",answer);
-   jalapDevChanges=Array.isArray(data.changes)?data.changes:[];
-   jalapDevOriginalRequest=message;
-   renderJalapDevProposal();
-   if(jalapDevChanges.length)appendJalapMessage("assistant",jalapDevChanges.length+" fichier(s) prêt(s) à examiner. Aucun changement n'a encore été envoyé à GitHub.");
+   jalapDevChanges=data.changes||[];jalapDevOriginalRequest=message;renderJalapDevProposal();
+   if(jalapDevChanges.length)appendJalapMessage("assistant",jalapDevChanges.length+" fichier(s) prêt(s) à examiner. Le commit sera créé directement sur GitHub uniquement après ton approbation.");
   }else{
+   const data=await callClaudeStructured("claude-haiku-5-5",JALAP_TRAVEL_SYSTEM,{message,context:shareContext(trip),history},JALAP_TRAVEL_SCHEMA,2600);
    if(activeTrip()?.id!==trip.id)throw new Error("Le voyage actif a changé pendant l'analyse. Relance ta demande depuis le bon voyage.");
    const answer=String(data.message||"Je n'ai pas réussi à formuler une réponse.");
    jalapMessages.push({role:"assistant",content:answer});appendJalapMessage("assistant",answer);
    jalapPendingProposal=validateJalapProposal(data.operations,trip);jalapPendingTripId=trip.id;renderJalapProposal();
    if(data.operations?.length&&!jalapPendingProposal.length)appendJalapMessage("assistant","Je n'ai pas pu sécuriser les modifications proposées. Précise ta demande et je réessaierai.");
   }
- }catch(error){appendJalapMessage("assistant",error.message||"Connexion à JALAP impossible. Vérifie le service Netlify.");}
- finally{
-  $("#jalap-pending")?.remove();jalapBusy=false;if(button){button.disabled=false;button.textContent="↗"}
- }
+ }catch(error){appendJalapMessage("assistant",error?.message||"Connexion directe à Claude ou GitHub impossible.");}
+ finally{$("#jalap-pending")?.remove();jalapBusy=false;if(button){button.disabled=false;button.textContent="↗"}}
 }
 async function commitJalapDevChanges(){
  if(jalapDevBusy||!jalapDevChanges?.length)return;
- const base=apiBaseUrl(),token=apiAccessToken();
- if(!base||!token){toast("Configure l’URL Netlify et le jeton PEPPER dans Réglages.","error");return}
+ if(!githubAccessToken()){toast("Ajoute ton jeton GitHub dans les réglages.","error");return}
  if(!confirm("Valider ces modifications et les publier dans le dépôt public sopp24/PEPPER ?"))return;
  jalapDevBusy=true;
- const button=$("[data-action='jalap-dev-commit']");if(button){button.disabled=true;button.textContent="Commit en cours…"}
- const pending=document.createElement("div");pending.id="jalap-dev-commit-pending";pending.className="chat-message assistant-message";pending.textContent="JALAP envoie les changements à GitHub…";$("#jalap-thread")?.appendChild(pending);
+ const button=$("[data-action='jalap-dev-commit']");if(button){button.disabled=true;button.textContent="Commit direct en cours…"}
+ const pending=document.createElement("div");pending.id="jalap-dev-commit-pending";pending.className="chat-message assistant-message";pending.textContent="JALAP crée le commit directement sur GitHub…";$("#jalap-thread")?.appendChild(pending);
  try{
-  const response=await fetch(apiEndpoint(base,"jalap-dev"),{method:"POST",headers:{...apiRequestHeaders(),"content-type":"application/json"},body:JSON.stringify({action:"commit",message:jalapDevOriginalRequest,changes:jalapDevChanges}),signal:AbortSignal.timeout(60000)});
-  const data=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(data.error||"Le commit GitHub a échoué ("+response.status+").");
-  jalapDevChanges=null;renderJalapDevProposal();
-  const summary=String(data.message||"Modifications commitées sur GitHub.")+" Fichiers : "+(data.files||[]).join(", ")+".";
-  appendJalapMessage("assistant",summary);
-  if(data.commitUrl&&/^https:\/\/github\.com\/sopp24\/PEPPER\/commit\/[a-f0-9]+$/.test(data.commitUrl)){
-   const line=document.createElement("div");line.className="jalap-commit-link";
-   const link=document.createElement("a");link.href=data.commitUrl;link.target="_blank";link.rel="noopener noreferrer";link.textContent="Voir le commit GitHub ↗";line.appendChild(link);$("#jalap-thread")?.appendChild(line);
-  }
-  toast("Commit créé sur GitHub. GitHub Pages va publier la mise à jour.");
- }catch(error){appendJalapMessage("assistant",error.message||"Impossible de créer le commit.");}
+  const result=await commitJalapCodeChanges();
+  jalapDevChanges=null;jalapDevBaseSha=null;jalapDevBaseFiles=[];renderJalapDevProposal();
+  appendJalapMessage("assistant","Commit créé directement sur GitHub : "+result.files.join(", ")+".");
+  const line=document.createElement("div");line.className="jalap-commit-link";
+  const link=document.createElement("a");link.href=result.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent="Voir le commit GitHub ↗";line.appendChild(link);$("#jalap-thread")?.appendChild(line);
+  toast("Commit créé sur GitHub. GitHub Pages publiera la mise à jour.");
+ }catch(error){appendJalapMessage("assistant",error?.message||"Impossible de créer le commit GitHub.");}
  finally{
   $("#jalap-dev-commit-pending")?.remove();jalapDevBusy=false;
   const action=$("[data-action='jalap-dev-commit']");if(action){action.disabled=false;action.textContent="Valider et commiter sur GitHub"}
  }
 }
 function cancelJalapDevProposal(){
- jalapDevChanges=null;jalapDevOriginalRequest="";renderJalapDevProposal();
+ jalapDevChanges=null;jalapDevOriginalRequest="";jalapDevBaseSha=null;jalapDevBaseFiles=[];renderJalapDevProposal();
  appendJalapMessage("assistant","Proposition refusée. Aucun fichier n'a été modifié dans le dépôt.");
 }
 
