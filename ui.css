@@ -192,3 +192,5 @@ body[data-view="home"] .topbar,body[data-view="home"] #network-status,body[data-
 .landing-center{pointer-events:none}.landing-center>*{pointer-events:auto}
 .landing-top{pointer-events:none}.landing-top>*{pointer-events:auto}
 .landing-top{z-index:4}
+.danger-button{margin-right:auto;min-height:42px;padding:0 16px;border:1px solid rgba(255,99,82,.35);border-radius:12px;background:rgba(255,99,82,.1);color:#ff8a7a;font-weight:600}.danger-button:hover{background:rgba(255,99,82,.2)}
+@media(max-width:380px){.topbar-actions{gap:6px}.topbar-actions .lang-button{padding:0 9px;min-height:38px}.topbar-actions .ghost-button{width:36px;min-width:36px}.topbar-actions .primary-button{padding:0 9px;font-size:11px;min-height:38px}.brand-copy small{display:none}.hub-col,.hub-card{min-width:0;max-width:100%}.hub-route{grid-template-columns:1fr;gap:6px}.hub-route>span{display:none}}

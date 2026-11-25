@@ -26,6 +26,7 @@ const modeName={train:"Train",plane:"Avion",car:"Voiture",bus:"Bus",ferry:"Ferry
 const directionName={outbound:"Aller",return:"Retour",connection:"Correspondance",other:"Étape"};
 let state=parse(localStorage.getItem(STORAGE_KEY),null)||parse(localStorage.getItem(RECOVERY_KEY),null)||parse(localStorage.getItem(LEGACY_KEY),null)||{trips:[],activeTripId:null};
 state.trips=Array.isArray(state.trips)?state.trips:[];
+state.deletedTrips=state.deletedTrips&&typeof state.deletedTrips==="object"&&!Array.isArray(state.deletedTrips)?state.deletedTrips:{};
 state.trips.forEach(t=>{t.activities=t.activities||[];t.expenses=t.expenses||[];t.checklist=t.checklist||DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false}));t.transport=t.transport||[];t.accommodation=t.accommodation||null});
 let map=null,markers=null,activityMarkerIndex={},mapTripId=null,mapLibraryRetryCount=0,weatherData=null,weatherError="",weatherRequest=0,transportRefreshTimer=null,pepperDbPromise=null,leafletPromise=null,geocodeInFlight=new Set();
 let jalapMessages=[],jalapPendingProposal=null,jalapPendingTripId=null,jalapBusy=false,jalapMode=localStorage.getItem('pepper-jalap-mode-v1')||'travel',jalapDevChanges=null,jalapDevOriginalRequest='',jalapDevBusy=false,jalapDevBaseSha=null,jalapDevBaseFiles=[];
@@ -134,6 +135,8 @@ function mergeGitHubTripStates(localState,remoteState){
  if(!remoteState||!Array.isArray(remoteState.trips))return localState;
  const localTrips=Array.isArray(localState?.trips)?localState.trips:[];
  const remoteTrips=Array.isArray(remoteState.trips)?remoteState.trips:[];
+ const tombstones={...(remoteState.deletedTrips||{}),...(localState?.deletedTrips||{})};
+ for(const id of Object.keys(remoteState.deletedTrips||{}))if(!(localState?.deletedTrips||{})[id]||remoteState.deletedTrips[id]>localState.deletedTrips[id])tombstones[id]=remoteState.deletedTrips[id];
  const localMap=new Map(localTrips.map(trip=>[trip.id,trip]));
  const remoteMap=new Map(remoteTrips.map(trip=>[trip.id,trip]));
  const ids=[...new Set([...remoteTrips.map(x=>x.id),...localTrips.map(x=>x.id)])];
@@ -141,11 +144,11 @@ function mergeGitHubTripStates(localState,remoteState){
   const local=localMap.get(id),remote=remoteMap.get(id);
   if(!local)return remote;if(!remote)return local;
   return githubTripStamp(local,localState.updatedAt)>=githubTripStamp(remote,remoteState.updatedAt)?local:remote;
- }).filter(Boolean);
+ }).filter(Boolean).filter(trip=>!(tombstones[trip.id]&&Date.parse(tombstones[trip.id])>=githubTripStamp(trip)));
  const active=localState?.activeTripId&&merged.some(x=>x.id===localState.activeTripId)?localState.activeTripId:
   remoteState.activeTripId&&merged.some(x=>x.id===remoteState.activeTripId)?remoteState.activeTripId:merged[0]?.id||null;
  const localStamp=localState?.updatedAt?Date.parse(localState.updatedAt):0,remoteStamp=remoteState.updatedAt?Date.parse(remoteState.updatedAt):0,latest=Math.max(Number.isFinite(localStamp)?localStamp:0,Number.isFinite(remoteStamp)?remoteStamp:0);
- return {...remoteState,...localState,schemaVersion:3,privacy:"public-github-repository",trips:merged,activeTripId:active,updatedAt:latest?new Date(latest).toISOString():new Date().toISOString()};
+ return {...remoteState,...localState,schemaVersion:3,privacy:"public-github-repository",trips:merged,deletedTrips:tombstones,activeTripId:active,updatedAt:latest?new Date(latest).toISOString():new Date().toISOString()};
 }
 function sanitizePublicTripValue(value,key=""){
  if(/^(qr(code)?|password|passcode|door(code)?|access(code)?|privateaccess|reservation(reference|number|id|code)|booking(reference|number|id|code)|ticket(pdf|image|qr))$/i.test(key))return undefined;
@@ -165,6 +168,7 @@ function publicGitHubTripSnapshot(){
   privacy:"public-github-repository",
   updatedAt:state.updatedAt||new Date().toISOString(),
   activeTripId:state.activeTripId||null,
+  deletedTrips:state.deletedTrips||{},
   trips:(state.trips||[]).map(trip=>sanitizePublicTripValue(trip))
  };
 }
@@ -787,7 +791,7 @@ function renderWeather(){
 function openModal(title,subtitle,body){modalRoot.innerHTML='<div class="modal-overlay" data-action="close-modal"><section class="modal" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><div class="modal-head"><div><h2>'+esc(title)+'</h2><p>'+esc(subtitle||"")+'</p></div><button class="modal-close" type="button" data-action="close-modal">×</button></div>'+body+'</section></div>';const first=$("input,textarea,select,button",modalRoot);if(first)first.focus({preventScroll:true})}
 function closeModal(){modalRoot.innerHTML=""}
 function tripForm(t){
- const x=t||{},network=suggestedLocalNetwork(x.destination),body='<form id="trip-form"><input type="hidden" name="id" value="'+esc(x.id||"")+'"><div class="form-grid"><div class="field full"><label>DESTINATION</label><input name="destination" required placeholder="Ex. : Athènes, Grèce" value="'+esc(x.destination||"")+'"></div><div class="field"><label>DATE DE DÉPART</label><input type="date" name="startDate" value="'+esc(x.startDate||today())+'"></div><div class="field"><label>DATE DE RETOUR</label><input type="date" name="endDate" value="'+esc(x.endDate||"")+'"></div><div class="field"><label>VOYAGEURS</label><input type="number" min="1" max="30" name="people" value="'+esc(x.people||1)+'"></div><div class="field"><label>BUDGET TOTAL</label><input type="number" min="0" step="10" name="budget" value="'+esc(x.budget||"")+'"></div><div class="field"><label>DEVISE</label><select name="currency">'+["EUR","USD","GBP","JPY","CHF","CAD","MAD","THB"].map(c=>'<option '+((x.currency||"EUR")===c?"selected":"")+'>'+c+'</option>').join("")+'</select></div><div class="field full"><label>RÉSEAU DE TRANSPORT OFFICIEL SUR PLACE</label><input name="localTransitName" value="'+esc(x.localTransitName||"")+'" placeholder="Ex. : OASA, TBM, TCL…"></div><div class="field full"><label>LIEN DU SITE / DE L’APPLICATION OFFICIELLE</label><input type="url" name="localTransitUrl" value="'+esc(x.localTransitUrl||network?.url||"")+'" placeholder="https://…"></div><div class="field full"><label>LIEN INFO TRAFIC OFFICIELLE (FACULTATIF)</label><input type="url" name="localTrafficUrl" value="'+esc(x.localTrafficUrl||"")+'" placeholder="https://…"></div><div class="field full"><label>RÉFÉRENCE D’ARRÊT IDFM (OPTIONNELLE)</label><input name="localTransitRef" value="'+esc(x.localTransitRef||"")+'" placeholder="MonitoringRef SIRI, ex. STIF:StopPoint:..."><span class="field-help">Uniquement pour un arrêt référencé par Île-de-France Mobilités / PRIM. Sa disponibilité temps réel dépend du périmètre publié.</span></div><div class="field full"><label>NOTES GÉNÉRALES</label><textarea name="notes">'+esc(x.notes||"")+'</textarea></div></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit">Enregistrer</button></div></form>';
+ const x=t||{},network=suggestedLocalNetwork(x.destination),body='<form id="trip-form"><input type="hidden" name="id" value="'+esc(x.id||"")+'"><div class="form-grid"><div class="field full"><label>DESTINATION</label><input name="destination" required placeholder="Ex. : Athènes, Grèce" value="'+esc(x.destination||"")+'"></div><div class="field"><label>DATE DE DÉPART</label><input type="date" name="startDate" value="'+esc(x.startDate||today())+'"></div><div class="field"><label>DATE DE RETOUR</label><input type="date" name="endDate" value="'+esc(x.endDate||"")+'"></div><div class="field"><label>VOYAGEURS</label><input type="number" min="1" max="30" name="people" value="'+esc(x.people||1)+'"></div><div class="field"><label>BUDGET TOTAL</label><input type="number" min="0" step="10" name="budget" value="'+esc(x.budget||"")+'"></div><div class="field"><label>DEVISE</label><select name="currency">'+["EUR","USD","GBP","JPY","CHF","CAD","MAD","THB"].map(c=>'<option '+((x.currency||"EUR")===c?"selected":"")+'>'+c+'</option>').join("")+'</select></div><div class="field full"><label>RÉSEAU DE TRANSPORT OFFICIEL SUR PLACE</label><input name="localTransitName" value="'+esc(x.localTransitName||"")+'" placeholder="Ex. : OASA, TBM, TCL…"></div><div class="field full"><label>LIEN DU SITE / DE L’APPLICATION OFFICIELLE</label><input type="url" name="localTransitUrl" value="'+esc(x.localTransitUrl||network?.url||"")+'" placeholder="https://…"></div><div class="field full"><label>LIEN INFO TRAFIC OFFICIELLE (FACULTATIF)</label><input type="url" name="localTrafficUrl" value="'+esc(x.localTrafficUrl||"")+'" placeholder="https://…"></div><div class="field full"><label>RÉFÉRENCE D’ARRÊT IDFM (OPTIONNELLE)</label><input name="localTransitRef" value="'+esc(x.localTransitRef||"")+'" placeholder="MonitoringRef SIRI, ex. STIF:StopPoint:..."><span class="field-help">Uniquement pour un arrêt référencé par Île-de-France Mobilités / PRIM. Sa disponibilité temps réel dépend du périmètre publié.</span></div><div class="field full"><label>NOTES GÉNÉRALES</label><textarea name="notes">'+esc(x.notes||"")+'</textarea></div></div><div class="modal-actions">'+(t?'<button class="danger-button" type="button" data-action="delete-trip" data-id="'+esc(t.id)+'">Supprimer ce voyage</button>':"")+'<button class="secondary-button" type="button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit">Enregistrer</button></div></form>';
  openModal(t?"Modifier le voyage":"Créer un voyage","Les premières informations de ton carnet.",body);
 }
 function stayForm(){
@@ -847,6 +851,13 @@ async function addActivity(form){
 function addExpense(form){const d=Object.fromEntries(new FormData(form).entries()),t=activeTrip();t.expenses.push({id:uid(),label:d.label.trim(),amount:Number(d.amount),category:d.category,date:today()});save();closeModal();renderBudget(t);toast("Dépense ajoutée.")}
 function deleteActivity(id){const t=activeTrip();t.activities=t.activities.filter(a=>a.id!==id);save();closeModal();render();toast("Activité supprimée.")}
 function deleteTransport(id){const t=activeTrip();t.transport=t.transport.filter(a=>a.id!==id);save();render();toast("Trajet supprimé.")}
+function deleteTrip(id){
+ const t=state.trips.find(x=>x.id===id);if(!t)return;
+ if(!confirm("Supprimer définitivement le voyage « "+(t.destination||"sans nom")+" » ? Cette action est irréversible. Pense à exporter une sauvegarde avant."))return;
+ state.trips=state.trips.filter(x=>x.id!==id);state.deletedTrips=state.deletedTrips||{};state.deletedTrips[id]=new Date().toISOString();
+ if(state.activeTripId===id)state.activeTripId=state.trips[0]?.id||null;
+ showHome=true;weatherData=null;closeModal();save();render();toast("Voyage supprimé.");
+}
 function markActivity(event){
  const t=activeTrip(),a=t&&t.activities.find(x=>x.id===event.target.dataset.id);if(!a)return;a.done=event.target.checked;a.completedAt=a.done?new Date().toISOString():null;save();renderActivities(t);toast(a.done?"Activité cochée et enregistrée.":"Activité remise dans les étapes à faire.");
 }
@@ -1416,6 +1427,7 @@ function onAction(event){
  if(n==="jalap-dev-commit"){commitJalapDevChanges();return}
  if(n==="jalap-dev-cancel"){cancelJalapDevProposal();return}
  if(n==="close-modal"){if(event.target===el||el.matches("button"))closeModal();return}
+ if(n==="delete-trip"){deleteTrip(id);return}
  if(n==="go-home"){event.preventDefault();showHome=true;closeSheet();render();window.scrollTo({top:0});return}
  if(n==="toggle-lang"){toggleLang(el);return}if(n==="toggle-picker"){togglePicker(el);return}if(n==="pick-trip"){state.activeTripId=id;showHome=false;weatherData=null;save({skipRemote:true,skipTouch:true});render();window.scrollTo({top:0});return}
  if(n==="open-sheet"){openSheet(el.dataset.panel);return}if(n==="close-sheet"){closeSheet();return}
@@ -1436,17 +1448,17 @@ document.addEventListener("change",e=>{
  if(e.target.matches('[data-action="toggle-check"]'))markChecklist(e);
 });
 document.addEventListener("submit",e=>{
- const f=e.target;
- if(f.id==="settings-form"){e.preventDefault();const data=new FormData(f),key=String(data.get("geminiApiKey")||"").trim(),github=String(data.get("githubToken")||"").trim(),enabled=data.get("githubSyncEnabled")==="on";if(key)localStorage.setItem(GEMINI_API_KEY_KEY,key);else localStorage.removeItem(GEMINI_API_KEY_KEY);if(github)localStorage.setItem(GITHUB_TOKEN_KEY,github);else localStorage.removeItem(GITHUB_TOKEN_KEY);localStorage.setItem(GITHUB_SYNC_ENABLED_KEY,enabled?"true":"false");localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);closeModal();if(enabled){connectGitHubSync().then(()=>toast("Connexion GitHub active : les modifications seront synchronisées automatiquement.")).catch(error=>{setGitHubSyncStatus("error",error.message);toast(error.message,"error")})}else{setGitHubSyncStatus("local");toast("Clés enregistrées localement. Synchronisation GitHub désactivée.")}}
- if(f.id==="import-form"){e.preventDefault();importBackup(f)}
- if(f.id==="trip-form"){e.preventDefault();saveTripForm(f)}
- if(f.id==="stay-form"){e.preventDefault();saveStay(f)}
- if(f.id==="transport-form"){e.preventDefault();saveLeg(f)}
- if(f.id==="activity-form"){e.preventDefault();addActivity(f)}
- if(f.id==="expense-form"){e.preventDefault();addExpense(f)}
- if(f.id==="idea-form")sendJalapMessage(e);
+ const f=e.target,fid=f.getAttribute?f.getAttribute("id"):"";
+ if(fid==="settings-form"){e.preventDefault();const data=new FormData(f),key=String(data.get("geminiApiKey")||"").trim(),github=String(data.get("githubToken")||"").trim(),enabled=data.get("githubSyncEnabled")==="on";if(key)localStorage.setItem(GEMINI_API_KEY_KEY,key);else localStorage.removeItem(GEMINI_API_KEY_KEY);if(github)localStorage.setItem(GITHUB_TOKEN_KEY,github);else localStorage.removeItem(GITHUB_TOKEN_KEY);localStorage.setItem(GITHUB_SYNC_ENABLED_KEY,enabled?"true":"false");localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);closeModal();if(enabled){connectGitHubSync().then(()=>toast("Connexion GitHub active : les modifications seront synchronisées automatiquement.")).catch(error=>{setGitHubSyncStatus("error",error.message);toast(error.message,"error")})}else{setGitHubSyncStatus("local");toast("Clés enregistrées localement. Synchronisation GitHub désactivée.")}}
+ if(fid==="import-form"){e.preventDefault();importBackup(f)}
+ if(fid==="trip-form"){e.preventDefault();saveTripForm(f)}
+ if(fid==="stay-form"){e.preventDefault();saveStay(f)}
+ if(fid==="transport-form"){e.preventDefault();saveLeg(f)}
+ if(fid==="activity-form"){e.preventDefault();addActivity(f)}
+ if(fid==="expense-form"){e.preventDefault();addExpense(f)}
+ if(fid==="idea-form")sendJalapMessage(e);
 });
-document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(modalRoot.innerHTML)closeModal();else closeSheet();closeMenus()}});
+document.addEventListener("keydown",e=>{if(e.key==="Tab"&&sheetState&&!modalRoot.innerHTML){const f=$$("button:not([disabled]),a[href],input:not([disabled]),textarea,select",sheetState.root).filter(x=>x.offsetParent!==null);if(f.length){const first=f[0],last=f[f.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}}if(e.key==="Escape"){if(modalRoot.innerHTML)closeModal();else closeSheet();closeMenus()}});
 $$("[data-scroll]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.scroll,node=id==="assistant-panel"?$(".assistant-panel"):$("#"+id);if(node&&node.closest("#panel-vault")){openSheet(node.id||"assistant-panel");return}if(node)node.scrollIntoView({behavior:"smooth",block:"start"})}));
 async function initialise(){localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);localStorage.removeItem("pepper-anthropic-api-key-v1");localStorage.removeItem(LEGACY_GROQ_API_KEY_KEY);await restoreStateFromIndexedDB();if(githubSyncEnabled()){if(githubAccessToken())await syncGitHubState({pull:true});else setGitHubSyncStatus("error","Jeton GitHub manquant")}else setGitHubSyncStatus("local");if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;setJalapMode(jalapMode);save({skipTouch:true,skipRemote:true});render();updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();if(githubSyncEnabled())scheduleGitHubSync(200);const t=activeTrip();if(t){renderMap(t);fetchWeather(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}
 /* ================= PEPPER UI : accueil, cartes flottantes, panneau « Voir plus » ================= */
@@ -1529,14 +1541,15 @@ function openSheet(id){
  root.innerHTML='<div class="sheet-overlay" data-action="close-sheet"><section class="sheet" role="dialog" aria-modal="true" aria-label="'+esc(meta[1])+'"><div class="sheet-grip" aria-hidden="true"></div><header class="sheet-head"><h2><span>'+meta[0]+'</span>'+esc(meta[1])+'</h2><button type="button" class="sheet-close" data-action="close-sheet" aria-label="Fermer">×</button></header><div class="sheet-body"></div></section></div>';
  $(".sheet-body",root).appendChild(panel);
  document.body.classList.add("sheet-open");
- sheetState={panel,ph,root};
+ sheetState={panel,ph,root,opener:document.activeElement};
  requestAnimationFrame(()=>requestAnimationFrame(()=>$(".sheet-overlay",root)?.classList.add("is-open")));
  bindSheetDrag();
+ $(".sheet-close",root)?.focus({preventScroll:true});
  if(id==="assistant-panel")setTimeout(()=>$("#idea-input")?.focus({preventScroll:true}),320);
 }
 function closeSheet(immediate){
- if(!sheetState)return;const {panel,ph,root}=sheetState;sheetState=null;
- const finish=()=>{if(ph.parentNode)ph.replaceWith(panel);root.innerHTML="";document.body.classList.remove("sheet-open")};
+ if(!sheetState)return;const {panel,ph,root,opener}=sheetState;sheetState=null;
+ const finish=()=>{if(ph.parentNode)ph.replaceWith(panel);root.innerHTML="";document.body.classList.remove("sheet-open");if(opener&&opener.isConnected&&!immediate)opener.focus({preventScroll:true})};
  const overlay=$(".sheet-overlay",root);
  if(immediate||!overlay){finish();return}
  overlay.classList.remove("is-open");overlay.classList.add("is-closing");setTimeout(finish,260);
@@ -1574,7 +1587,7 @@ function renderHub(t){
  let trans;
  if(leg){const dep=dateTime(leg.departureDate,leg.departureTime),arr=dateTime(leg.arrivalDate,leg.arrivalTime);
   trans=hubCard("trans","PROCHAIN TRAJET",icons[leg.mode]+" Trajet",'<span class="hub-pill">'+esc((directionName[leg.direction]||"Trajet").toUpperCase())+'</span>',
-  '<p class="hub-meta">'+esc(modeName[leg.mode]||"Transport")+' <i>•</i> '+esc(leg.operator||"Transporteur")+(leg.number?' <i>•</i> '+esc(leg.number):"")+'</p><div class="hub-route"><div><strong>'+esc((leg.origin||"Départ").split(",")[0])+'</strong><small>'+esc(dep?dateTimeLabel(dep):"Date à préciser")+'</small></div><span aria-hidden="true">→</span><div><strong>'+esc((leg.destination||"Arrivée").split(",")[0])+'</strong><small>'+esc(arr?dateTimeLabel(arr):"Date à préciser")+'</small></div></div>',"trip-transport");
+  '<p class="hub-meta">'+esc(modeName[leg.mode]||"Transport")+' <i>•</i> '+esc(leg.operator||"Transporteur")+(leg.number?' <i>•</i> '+esc(leg.number):"")+'</p><div class="hub-route"><div><strong>'+esc((leg.origin||"Départ").split(",")[0])+'</strong><small>'+esc(leg.departureDate?(leg.departureTime?dateTimeLabel(dep):dateLabel(leg.departureDate)):"Date à préciser")+'</small></div><span aria-hidden="true">→</span><div><strong>'+esc((leg.destination||"Arrivée").split(",")[0])+'</strong><small>'+esc(leg.arrivalDate?(leg.arrivalTime?dateTimeLabel(arr):dateLabel(leg.arrivalDate)):"Date à préciser")+'</small></div></div>',"trip-transport");
  }else trans=hubCard("trans","","🚆 Trajet","🎫",'<p class="hub-empty">Aucun trajet renseigné pour l’instant.</p>',"trip-transport","Ajouter");
  /* météo */
  let weather;
