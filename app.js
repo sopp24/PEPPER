@@ -929,7 +929,7 @@ async function copyRequest(event){
 
 function settingsModal(){
  const t=activeTrip(),gemini=geminiApiKey(),github=githubAccessToken(),enabled=githubSyncEnabled();
- const body='<div class="detail-section"><h4>Enregistrement et synchronisation</h4><p>Chaque modification est d’abord enregistrée immédiatement sur cet appareil (IndexedDB). Si la synchronisation GitHub est activée, PEPPER écrit ensuite le carnet dans <strong>sopp24/PEPPER/data/trips.json</strong>, directement via l’API GitHub, sans Cloudflare, Netlify, Vercel ou base de données intermédiaire.</p><p><strong>Attention :</strong> le dépôt est public. Le fichier de voyage synchronisé sera donc visible de tous. Les QR codes, mots de passe et codes d’accès explicites sont exclus de la copie GitHub.</p></div><form id="settings-form" class="settings-stack"><div class="field full"><label>CLÉ API GOOGLE GEMINI (OFFRE GRATUITE)</label><input type="password" name="geminiApiKey" value="'+esc(gemini)+'" autocomplete="off" placeholder="Clé API Google AI Studio"><span class="field-help">Une seule clé Gemini alimente JALAP Voyage et JALAP Développement avec le modèle Gemini 3.8 Flash. Elle reste dans le stockage local de ce navigateur et n’est jamais publiée sur GitHub. Les demandes et le contexte transmis sont envoyés directement à Google. Sur le niveau sans frais, les données peuvent être utilisées pour améliorer les produits Google : ne transmets pas de données sensibles.</span><div class="github-sync-links"><a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer">Créer une clé API Gemini ↗</a><a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener noreferrer">Consulter les tarifs et quotas ↗</a></div></div><div class="field full"><label>JETON GITHUB FINE-GRAINED</label><input type="password" name="githubToken" value="'+esc(github)+'" autocomplete="off" placeholder="github_pat_…"><span class="field-help">Crée un jeton limité au seul dépôt sopp24/PEPPER, avec Contents : Read and write. Le jeton reste dans le stockage local de ce navigateur et est envoyé directement à api.github.com. Ne l’ajoute jamais au code.</span></div><label class="github-sync-toggle"><input type="checkbox" name="githubSyncEnabled" '+(enabled?"checked":"")+'> <span><strong>Synchroniser automatiquement le carnet avec GitHub</strong><small>Les cases cochées, activités, transports, dépenses et changements validés par JALAP seront sauvegardés dans data/trips.json après environ 2 secondes.</small></span></label><div class="github-sync-links"><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Créer un jeton GitHub ↗</a></div><div class="detail-section github-local-note"><h4>Ce qui reste local</h4><p>Les clés API, le jeton GitHub, les brouillons JALAP et les préférences ne sont jamais ajoutés au dépôt. La copie du carnet dans GitHub est publique et synchronisée séparément.</p></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Fermer</button><button class="primary-button" type="submit">Enregistrer les réglages</button></div></form><div class="detail-grid"><div class="detail-item"><small>Voyages sur cet appareil</small><strong>'+state.trips.length+'</strong></div><div class="detail-item"><small>Voyage actif</small><strong>'+esc(t?.destination||"Aucun")+'</strong></div><div class="detail-item"><small>Synchronisation GitHub</small><strong>'+esc(enabled?"Activée":"Désactivée")+'</strong></div></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="export-json">Exporter tous les voyages</button><button class="secondary-button" type="button" data-action="import-json">Importer une sauvegarde</button></div>';
+ const body='<div class="detail-section"><h4>Enregistrement et synchronisation</h4><p>Chaque modification est d’abord enregistrée immédiatement sur cet appareil (IndexedDB). Si la synchronisation GitHub est activée, PEPPER écrit ensuite le carnet dans <strong>sopp24/PEPPER/data/trips.json</strong>, directement via l’API GitHub, sans Cloudflare, Netlify, Vercel ou base de données intermédiaire.</p><p><strong>Attention :</strong> le dépôt est public. Le fichier de voyage synchronisé sera donc visible de tous. Les QR codes, mots de passe et codes d’accès explicites sont exclus de la copie GitHub.</p></div><form id="settings-form" class="settings-stack"><div class="field full"><label>CLÉ API GOOGLE GEMINI (OFFRE GRATUITE)</label><input type="password" name="geminiApiKey" value="'+esc(gemini)+'" autocomplete="off" placeholder="Clé API Google AI Studio"><span class="field-help">Une seule clé Gemini alimente JALAP Voyage et JALAP Développement avec le modèle Gemini 3.8 Flash. Elle reste dans le stockage local de ce navigateur et n’est jamais publiée sur GitHub. Les demandes et le contexte transmis sont envoyés directement à Google. Sur le niveau sans frais, les données peuvent être utilisées pour améliorer les produits Google : ne transmets pas de données sensibles.</span><div class="github-sync-links"><button type="button" class="small-button" data-action="ai-setup">✦ Assistant de configuration de l’IA</button><a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer">Créer une clé API Gemini ↗</a><a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener noreferrer">Consulter les tarifs et quotas ↗</a></div></div><div class="field full"><label>JETON GITHUB FINE-GRAINED</label><input type="password" name="githubToken" value="'+esc(github)+'" autocomplete="off" placeholder="github_pat_…"><span class="field-help">Crée un jeton limité au seul dépôt sopp24/PEPPER, avec Contents : Read and write. Le jeton reste dans le stockage local de ce navigateur et est envoyé directement à api.github.com. Ne l’ajoute jamais au code.</span></div><label class="github-sync-toggle"><input type="checkbox" name="githubSyncEnabled" '+(enabled?"checked":"")+'> <span><strong>Synchroniser automatiquement le carnet avec GitHub</strong><small>Les cases cochées, activités, transports, dépenses et changements validés par JALAP seront sauvegardés dans data/trips.json après environ 2 secondes.</small></span></label><div class="github-sync-links"><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Créer un jeton GitHub ↗</a></div><div class="detail-section github-local-note"><h4>Ce qui reste local</h4><p>Les clés API, le jeton GitHub, les brouillons JALAP et les préférences ne sont jamais ajoutés au dépôt. La copie du carnet dans GitHub est publique et synchronisée séparément.</p></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Fermer</button><button class="primary-button" type="submit">Enregistrer les réglages</button></div></form><div class="detail-grid"><div class="detail-item"><small>Voyages sur cet appareil</small><strong>'+state.trips.length+'</strong></div><div class="detail-item"><small>Voyage actif</small><strong>'+esc(t?.destination||"Aucun")+'</strong></div><div class="detail-item"><small>Synchronisation GitHub</small><strong>'+esc(enabled?"Activée":"Désactivée")+'</strong></div></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="export-json">Exporter tous les voyages</button><button class="secondary-button" type="button" data-action="import-json">Importer une sauvegarde</button></div>';
  openModal("Réglages de PEPPER","Gemini 3.8 Flash pour les deux modes JALAP ; jeton GitHub séparé pour la synchronisation et les commits.",body);
 }
 
@@ -1090,8 +1090,8 @@ const JALAP_DEV_SCHEMA = {
   }
  }
 };
-async function callGeminiStructured(system,prompt,schema,maxTokens=2200){
- const key=geminiApiKey();
+async function callGeminiStructured(system,prompt,schema,maxTokens=2200,keyOverride){
+ const key=keyOverride||geminiApiKey();
  if(!key)throw new Error("Ajoute ta clé API Gemini dans Réglages de PEPPER.");
  const response=await fetch("https://generativelanguage.googleapis.com/v1beta/interactions",{
   method:"POST",
@@ -1275,7 +1275,7 @@ function renderJalapMode(){
  if(input)input.placeholder=dev
   ?"Ex. : Sur mobile, transforme la carte et la checklist en deux onglets…"
   :"Ex. : Ajoute les Catacombes samedi vers 10 h…";
- const stateNode=$("#ai-connection-state");if(stateNode)stateNode.textContent=dev?"Gemini 3.8 Flash · mode développement":"Gemini 3.8 Flash · mode voyage";
+ const stateNode=$("#ai-connection-state");if(stateNode)stateNode.textContent=!geminiApiKey()?"Clé Gemini à configurer":dev?"Gemini 3.8 Flash · mode développement":"Gemini 3.8 Flash · mode voyage";
  const travelPanel=$("#jalap-proposal"),devPanel=$("#jalap-dev-proposal");
  if(travelPanel&&dev)travelPanel.hidden=true;
  if(devPanel&&!dev)devPanel.hidden=true;
@@ -1315,7 +1315,7 @@ async function sendJalapMessage(event){
  const input=$("#idea-input"),message=input?.value.trim(),trip=activeTrip(),dev=jalapMode==="development";
  if(!dev&&!trip){toast("Crée ou importe d’abord un voyage pour discuter avec JALAP.","error");return}
  if(!message){input?.focus();return}
- if(!geminiApiKey()){toast("Ajoute ta clé API Gemini gratuite dans Réglages de PEPPER.","error");return}
+ if(!geminiApiKey()){aiSetupModal();return}
  if(dev&&!githubAccessToken()){toast("Ajoute ton jeton GitHub fine-grained dans Réglages.","error");return}
  jalapMessages.push({role:"user",content:message});appendJalapMessage("user",message);
  if(dev){jalapDevChanges=null;jalapDevOriginalRequest="";jalapDevBaseSha=null;jalapDevBaseFiles=[];renderJalapDevProposal()}
@@ -1419,6 +1419,7 @@ function onAction(event){
  if(n==="go-home"){event.preventDefault();showHome=true;closeSheet();render();window.scrollTo({top:0});return}
  if(n==="toggle-lang"){toggleLang(el);return}if(n==="toggle-picker"){togglePicker(el);return}if(n==="pick-trip"){state.activeTripId=id;showHome=false;weatherData=null;save({skipRemote:true,skipTouch:true});render();window.scrollTo({top:0});return}
  if(n==="open-sheet"){openSheet(el.dataset.panel);return}if(n==="close-sheet"){closeSheet();return}
+ if(n==="ai-setup"){aiSetupModal();return}if(n==="ai-test"){aiSetupTest();return}if(n==="ai-remove-key"){aiSetupRemove();return}if(n==="ai-toggle-key"){const i=$("#ai-key-input");if(i){i.type=i.type==="password"?"text":"password";el.textContent=i.type==="password"?"Afficher":"Masquer"}return}
  if(n==="settings"){settingsModal();return}if(n==="import-json"){importModal();return}
  if(n==="create-trip"){tripForm(null);return}if(n==="edit-trip"){tripForm(activeTrip());return}
  if(n==="edit-accommodation"){stayForm();return}if(n==="add-transport"){transportForm(null);return}
@@ -1597,8 +1598,39 @@ function renderHub(t){
 }
 document.addEventListener("submit",e=>{
  if(e.target.id!=="hub-idea-form")return;e.preventDefault();
- const v=$("#hub-idea-input").value.trim();openSheet("assistant-panel");
+ const v=$("#hub-idea-input").value.trim();if(!geminiApiKey()){aiSetupModal();return}openSheet("assistant-panel");
  if(v){setTimeout(()=>{const ta=$("#idea-input");if(ta){ta.value=v;$("#hub-idea-input")&&($("#hub-idea-input").value="");$("#idea-form").requestSubmit()}},340)}
 });
+
+
+/* --- assistant de configuration de l'IA (saisie guidée de la clé Gemini) --- */
+const AI_VERIFIED_KEY="pepper-gemini-verified-at-v1";
+function aiKeyLooksValid(v){return /^AIza[0-9A-Za-z_-]{30,50}$/.test(v)}
+function aiSetupModal(){
+ const has=!!geminiApiKey(),verified=localStorage.getItem(AI_VERIFIED_KEY);
+ const body='<ol class="ai-steps"><li><span class="ai-step-n">1</span><div><strong>Crée ta clé gratuite</strong><p>Connecte-toi avec ton compte Google puis clique sur « Create API Key ». Aucune carte bancaire n’est demandée.</p><a class="small-button" href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer">Ouvrir Google AI Studio ↗</a></div></li><li><span class="ai-step-n">2</span><div><strong>Colle-la ici</strong><p>Elle commence par <code>AIza</code>. Elle reste uniquement dans ce navigateur et n’est jamais envoyée sur GitHub.</p><div class="ai-key-row"><input id="ai-key-input" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…" value="'+esc(geminiApiKey())+'"><button type="button" class="small-button" data-action="ai-toggle-key">Afficher</button></div><p id="ai-key-hint" class="ai-hint"></p></div></li><li><span class="ai-step-n">3</span><div><strong>Teste la connexion</strong><p>PEPPER envoie une toute petite demande à Gemini 3.8 Flash pour vérifier que la clé fonctionne. La clé n’est enregistrée que si le test réussit.</p><div class="ai-actions"><button type="button" class="primary-button" data-action="ai-test">Tester et enregistrer</button>'+(has?'<button type="button" class="secondary-button" data-action="ai-remove-key">Supprimer la clé</button>':"")+'</div><div id="ai-result" class="ai-result" role="status" aria-live="polite">'+(has&&verified?'<span class="ok">✓ Clé enregistrée · dernier test réussi le '+esc(new Intl.DateTimeFormat("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(verified)))+'</span>':"")+'</div></div></li></ol><p class="ai-privacy">Niveau gratuit : Google peut utiliser les données envoyées pour améliorer ses produits. Ne transmets jamais de mot de passe, QR code, référence de réservation ou pièce d’identité à JALAP.</p>';
+ openModal("Configurer JALAP","Une clé Gemini gratuite, trois étapes.",body);
+ const input=$("#ai-key-input");
+ const hint=()=>{const v=input.value.trim(),h=$("#ai-key-hint");if(!h)return;h.textContent=!v?"":aiKeyLooksValid(v)?"Le format de la clé semble correct.":"Ce format ne ressemble pas à une clé Google (AIza… sans espaces). Tu peux quand même tester.";h.dataset.state=!v?"":aiKeyLooksValid(v)?"ok":"warn"};
+ input.addEventListener("input",hint);input.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();aiSetupTest()}});hint();
+}
+async function aiSetupTest(){
+ const input=$("#ai-key-input"),out=$("#ai-result"),btn=$('[data-action="ai-test"]');if(!input||!out)return;
+ const key=input.value.trim().replace(/\s+/g,"");
+ if(!key){out.innerHTML='<span class="bad">Colle d’abord ta clé à l’étape 2.</span>';input.focus();return}
+ btn.disabled=true;btn.textContent="Test en cours…";out.innerHTML='<span class="loading-spinner"></span> Connexion à Gemini…';
+ try{
+  const r=await callGeminiStructured("Tu es un test de connexion. Réponds uniquement avec le JSON demandé.","Réponds avec {\"ok\":true}.",{type:"object",properties:{ok:{type:"boolean"}},required:["ok"]},200,key);
+  if(!r||r.ok!==true)throw new Error("Réponse inattendue de Gemini.");
+  localStorage.setItem(GEMINI_API_KEY_KEY,key);localStorage.setItem(AI_VERIFIED_KEY,new Date().toISOString());
+  out.innerHTML='<span class="ok">✓ Connexion réussie. JALAP est prêt.</span>';btn.textContent="Terminer";btn.disabled=false;btn.dataset.action="close-modal";
+  const st=$("#ai-connection-state");if(st)renderJalapMode();toast("JALAP est connecté à Gemini 3.8 Flash.");
+ }catch(e){
+  const offline=e instanceof TypeError||!navigator.onLine;
+  out.innerHTML='<span class="bad">✕ '+esc(offline?"Impossible de joindre Google. Vérifie ta connexion Internet puis réessaie.":e.name==="TimeoutError"?"Google met trop de temps à répondre. Réessaie dans un instant.":e.message)+'</span>';
+  btn.disabled=false;btn.textContent="Réessayer";
+ }
+}
+function aiSetupRemove(){localStorage.removeItem(GEMINI_API_KEY_KEY);localStorage.removeItem(AI_VERIFIED_KEY);closeModal();renderJalapMode();toast("Clé Gemini supprimée de ce navigateur.")}
 
 initialise();

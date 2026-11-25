@@ -11,6 +11,10 @@ JALAP utilise **Google Gemini 3.8 Flash** (`gemini-3.8-flash`) via l'API Interac
 - **Cases cochées et formulaires :** chaque appel à `save()` sauvegarde immédiatement sur l'appareil. Si la synchronisation GitHub est activée, un commit du carnet est envoyé après environ 1,8 seconde sans nouvelle modification.
 - **GitHub Pages :** le workflow ignore les commits qui ne changent que `data/trips.json`, afin de ne pas reconstruire l'application pour chaque coche.
 
+### Assistant de configuration de l’IA
+
+Au premier message à JALAP (ou via Réglages → « Assistant de configuration de l’IA »), PEPPER ouvre un guide en trois étapes : créer la clé, la coller, tester la connexion. La clé n’est enregistrée dans le navigateur que si le test auprès de Gemini réussit ; les erreurs (clé refusée, quota, hors ligne) sont expliquées en clair.
+
 ### Obtenir une clé Gemini gratuite
 
 1. Ouvre [Google AI Studio – API Keys](https://aistudio.google.com/api-keys).
