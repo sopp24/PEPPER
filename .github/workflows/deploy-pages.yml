@@ -58,6 +58,9 @@ jobs:
         with:
           path: .
 
+      - name: Wait for the artifact to be indexed
+        run: sleep 20
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
