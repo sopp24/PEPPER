@@ -305,6 +305,8 @@ function render(){
  const phase=getTripPhase(t);$("#trip-workspace").dataset.phase=phase;renderJourneyOverview(t);
  $("#trip-switcher").innerHTML=state.trips.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===t.id?"selected":"")+'>'+esc(x.destination)+'</option>').join("");
  const q=encodeURIComponent(t.destination||"");$("#link-google-maps").href="https://www.google.com/maps/search/?api=1&query="+q;$("#link-apple-maps").href="https://maps.apple.com/?q="+q;$("#link-waze").href="https://www.waze.com/ul?q="+q+"&navigate=yes";$("#link-fuel").href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent("station-service carburant "+t.destination);
+ const tt=$("#topbar-trip");if(tt)tt.textContent=t.destination||"";
+ $$("[data-ql]").forEach(a=>{const k=a.dataset.ql;a.href=k==="google"?"https://www.google.com/maps/search/?api=1&query="+q:k==="apple"?"https://maps.apple.com/?q="+q:k==="waze"?"https://www.waze.com/ul?q="+q+"&navigate=yes":"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent("station-service carburant "+t.destination)});
  renderStay(t);renderTransport(t);renderActivities(t);renderChecklist(t);renderHub(t);
  if(!t.geo&&t.destination){$("#trip-map")?.classList.add("is-locating");fetchDestination(t)}else{renderMap(t);if(!weatherData||weatherData.tripId!==t.id)fetchWeather(t)}
 }
@@ -700,7 +702,7 @@ function setMapStyle(name){
  updateMapStyleButtons();if(map)loadMapStyle(name);
 }
 function addMapOverlays(){
- if(!map||!mapStyleReady)return;
+ if(!map||!mapStyleReady||mapRouteCoords.length<2)return;
  const feature={type:"Feature",geometry:{type:"LineString",coordinates:mapRouteCoords},properties:{}};
  try{
   const src=map.getSource("pepper-route");
@@ -717,7 +719,7 @@ function addMapOverlays(){
 function createMap(t,center,style){
  const node=$("#map");node.innerHTML="";
  const coarse=matchMedia("(pointer:coarse)").matches;
- map=new maplibregl.Map({container:"map",style,center,zoom:t.geo?12:2,attributionControl:false,cooperativeGestures:coarse,maxPitch:75,fadeDuration:120,
+ map=new maplibregl.Map({container:"map",style,center,zoom:t.geo?12:2,attributionControl:false,cooperativeGestures:false,maxPitch:75,fadeDuration:120,
   locale:{"CooperativeGesturesHandler.MobileHelpText":"Utilise deux doigts pour déplacer la carte","CooperativeGesturesHandler.WindowsHelpText":"Ctrl + molette pour zoomer","CooperativeGesturesHandler.MacHelpText":"⌘ + molette pour zoomer"}});
  map.addControl(new maplibregl.AttributionControl(),"bottom-left");
  map.on("zoom",updateZoomPct);map.on("styleimagemissing",e=>addDarkMatterIcon(e.id));
@@ -728,8 +730,8 @@ function createMap(t,center,style){
  if(window.ResizeObserver){mapResizeObserver&&mapResizeObserver.disconnect();mapResizeObserver=new ResizeObserver(()=>{if(map){map.resize();applyMapPadding();tryAutoFit()}});mapResizeObserver.observe(node)}
  updateMapStyleButtons();updateZoomPct();applyMapPadding();
 }
-function mapPin(kind,emoji,label){
- const el=document.createElement("button");el.type="button";el.className="jalap-map-pin "+kind;el.setAttribute("aria-label",label);el.innerHTML="<span>"+emoji+"</span>";return el;
+function mapPin(kind,glyph,label){
+ const el=document.createElement("button");el.type="button";el.className="jalap-map-pin "+kind;el.setAttribute("aria-label",label);el.innerHTML="<span>"+glyph+"</span>";return el;
 }
 function addMapMarker(lngLat,el,popupHtml){
  const marker=new maplibregl.Marker({element:el,anchor:"center"}).setLngLat(lngLat);
@@ -751,19 +753,19 @@ function renderMap(t){
   return;
  }
  const tripChanged=mapTripId!==t.id;
- if(tripChanged){mapTripId=t.id;map.jumpTo({center,zoom:t.geo?13:2,pitch:0,bearing:0});mapPitch3D=false;$('[data-action="map-3d"]')?.setAttribute("aria-pressed","false")}
+ if(tripChanged){mapTripId=t.id;map.jumpTo({center,zoom:t.geo?12.4:2,pitch:0,bearing:0});mapPitch3D=false;$('[data-action="map-3d"]')?.setAttribute("aria-pressed","false")}
  (markers||[]).forEach(m=>m.remove());markers=[];activityMarkerIndex={};mapRouteCoords=[];
  if(t.geo)addMapMarker(center,mapPin("destination","✦",t.destination||"Destination"),"<strong>"+esc(t.destination)+"</strong><br>Destination");
- if(t.accommodation&&t.accommodation.geo){const g=t.accommodation.geo;addMapMarker([g.lon,g.lat],mapPin("stay","🛏","Hébergement"),"<strong>"+esc(t.accommodation.name)+"</strong><br>Hébergement")}
+ if(t.accommodation&&t.accommodation.geo){const g=t.accommodation.geo;addMapMarker([g.lon,g.lat],mapPin("stay",KIND_SVG.stay,"Hébergement"),"<strong>"+esc(t.accommodation.name)+"</strong><br>Hébergement")}
  const dated=[];
  (t.activities||[]).forEach(a=>{
   if(!a.geo)return;
-  const m=addMapMarker([a.geo.lon,a.geo.lat],mapPin("cat-"+categoryKind(a.category)+(a.done?" is-done":""),categoryEmoji(a.category),a.name),"<strong>"+esc(a.name)+"</strong><br>"+esc(a.date?dateLabel(a.date):"À planifier"));
+  const m=addMapMarker([a.geo.lon,a.geo.lat],mapPin("cat-"+categoryKind(a.category)+(a.done?" is-done":""),KIND_SVG[categoryKind(a.category)]||KIND_SVG.other,a.name),"<strong>"+esc(a.name)+"</strong><br>"+esc(a.date?dateLabel(a.date):"À planifier"));
   activityMarkerIndex[a.id]=m;
   if(a.date)dated.push({a,lngLat:[a.geo.lon,a.geo.lat]});
  });
  dated.sort((x,y)=>((x.a.date||"")+(x.a.startTime||"")).localeCompare((y.a.date||"")+(y.a.startTime||"")));
- mapRouteCoords=dated.map(x=>x.lngLat);addMapOverlays();
+ addMapOverlays();
  const count=$("#map-activity-count");if(count){const n=(t.activities||[]).filter(a=>a.geo).length;count.textContent=n?"· "+n+" lieu(x) repéré(s)":""}
  const label=$("#map-location-label");if(label)label.textContent=t.destination||"Destination";
  applyMapPadding();
@@ -792,8 +794,8 @@ function focusActivityOnMap(id){
 function fitMap(instant){
  if(!map)return;map.resize();
  const t=activeTrip(),pts=(markers||[]).map(m=>m.getLngLat());
- if(pts.length>1){const b=new maplibregl.LngLatBounds(pts[0],pts[0]);pts.forEach(p=>b.extend(p));map.fitBounds(b,{padding:mapPadding(),maxZoom:15,duration:instant===true?0:900})}
- else if(t&&t.geo){const c=[t.geo.lon,t.geo.lat];if(instant===true)map.jumpTo({center:c,zoom:13});else map.flyTo({center:c,zoom:13,duration:900})}
+ if(pts.length>1){const b=new maplibregl.LngLatBounds(pts[0],pts[0]);pts.forEach(p=>b.extend(p));const sw=b.getSouthWest(),ne=b.getNorthEast(),dx=Math.max(ne.lng-sw.lng,.012)*.35,dy=Math.max(ne.lat-sw.lat,.008)*.35;b.extend([sw.lng-dx,sw.lat-dy]);b.extend([ne.lng+dx,ne.lat+dy]);map.fitBounds(b,{padding:mapPadding(),maxZoom:12.6,duration:instant===true?0:900})}
+ else if(t&&t.geo){const c=[t.geo.lon,t.geo.lat];if(instant===true)map.jumpTo({center:c,zoom:12.4});else map.flyTo({center:c,zoom:12.4,duration:900})}
 }
 function toggle3D(){
  if(!map)return;mapPitch3D=!mapPitch3D;
@@ -1561,6 +1563,8 @@ function markActivityBooked(id){
  save();render();detailModal(id);toast("Réservation marquée comme confirmée dans PEPPER.");
 }
 function onAction(event){
+ const card=event.target.closest(".hub-card");
+ if(card&&matchMedia("(max-width:760px)").matches&&!event.target.closest("button,a,input,label,form,select,textarea")){const more=card.querySelector(".hub-more");if(more&&more.dataset.panel){openSheet(more.dataset.panel);return}}
  const el=event.target.closest("[data-action]");if(!el)return;const n=el.dataset.action,id=el.dataset.id;
  if(n==="jalap-apply"){applyJalapProposal();return}if(n==="jalap-cancel"){cancelJalapProposal();return}
  if(n==="jalap-set-mode"){setJalapMode(el.dataset.mode);return}
@@ -1569,6 +1573,8 @@ function onAction(event){
  if(n==="close-modal"){if(event.target===el||el.matches("button"))closeModal();return}
  if(n==="delete-trip"){deleteTrip(id);return}
  if(n==="set-lang"){setLang(el.dataset.lang);return}
+ if(n==="open-summary"){if(matchMedia("(max-width:760px)").matches)openSheet("trip-summary");else window.scrollTo({top:0,behavior:"smooth"});return}
+ if(n==="phone-map"){closeSheet();toggleMapFullscreen(false);return}
  if(n==="map-zoom-in"){map&&map.zoomIn();return}if(n==="map-zoom-out"){map&&map.zoomOut();return}if(n==="map-3d"){toggle3D();return}if(n==="map-locate"){locateMe();return}
  if(n==="map-style"){setMapStyle(el.dataset.style);return}if(n==="toggle-hub"){toggleHub();return}if(n==="map-fullscreen"){toggleMapFullscreen();return}
  if(n==="go-home"){event.preventDefault();showHome=true;closeSheet();render();window.scrollTo({top:0});return}
@@ -1606,6 +1612,17 @@ async function initialise(){if(lang==="en"){try{await ensureI18n()}catch(e){lang
 /* ================= PEPPER UI : accueil, cartes flottantes, panneau « Voir plus » ================= */
 const CATEGORY_KIND={Culture:"culture",Architecture:"culture",Nature:"nature",Restaurant:"food",Sortie:"fun",Shopping:"shop",Transport:"move"};
 const CATEGORY_EMOJI={culture:"🏛",nature:"🌳",food:"🍴",fun:"🎭",shop:"🛍",move:"🚆",other:"📍"};
+const KIND_SVG={
+ culture:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9.5 9-5.5 9 5.5"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20.5h18"/></svg>',
+ nature:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8.6" r="5.6"/><circle cx="7.6" cy="12.4" r="3.4"/><circle cx="16.4" cy="12.4" r="3.4"/><rect x="11" y="13" width="2.2" height="8.5" rx="1"/></svg>',
+ food:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3l16 18M20 3 4 21"/><path d="M4 3v5a2 2 0 0 0 2 2M8 3v5a2 2 0 0 1-2 2"/><path d="M20 3c-2 1.5-3 4-3 6l3 1.5"/></svg>',
+ fun:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9.5" cy="4.8" r="2.3"/><path d="M8 8.5h3l.8 4.5h4.6a1.6 1.6 0 0 1 1.5 2.2l-1.8 4.6a1.6 1.6 0 0 1-3-.1L12.2 16H8.4A2 2 0 0 1 6.5 14L7 9.9A1.5 1.5 0 0 1 8 8.5Z"/></svg>',
+ shop:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l1 12.5H4L5 8Z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>',
+ move:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2M13 17v2M13 11v2"/></svg>',
+ stay:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V5.5"/><path d="M3 16h18v4"/><path d="M21 16v-3.5A3.5 3.5 0 0 0 17.5 9H11v7"/><circle cx="7" cy="11.6" r="1.7" fill="currentColor"/></svg>',
+ other:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>'
+};
+function kindIcon(kind){return '<span class="kind-ico kind-'+kind+'" aria-hidden="true">'+(KIND_SVG[kind]||KIND_SVG.other)+'</span>'}
 function categoryKind(c){return CATEGORY_KIND[c]||"other"}
 function categoryEmoji(c){return CATEGORY_EMOJI[categoryKind(c)]}
 
@@ -1673,7 +1690,7 @@ function stopEarth(){if(earthRaf){cancelAnimationFrame(earthRaf);earthRaf=0}}
 window.addEventListener("resize",()=>{earth=null});
 
 /* --- panneau « Voir plus » (monte depuis le bas) --- */
-const SHEET_META={"trip-accommodation":["🏨","Hébergement"],"trip-checklist":["💡","Les essentiels"],"trip-transport":["🚆","Trajets & billets"],"assistant-panel":["🌶","JALAP · Assistant IA"],"trip-weather":["⛅","Météo à destination"],"trip-itinerary":["📍","Activités & programme"]};
+const SHEET_META={"trip-summary":["🧭","Mon voyage"],"trip-accommodation":["🏨","Hébergement"],"trip-checklist":["💡","Les essentiels"],"trip-transport":["🚆","Trajets & billets"],"assistant-panel":["🌶","JALAP · Assistant IA"],"trip-weather":["⛅","Météo à destination"],"trip-itinerary":["📍","Activités & programme"]};
 let sheetState=null;
 function openSheet(id){
  const panel=document.getElementById(id);if(!panel)return;
@@ -1718,9 +1735,9 @@ function renderHub(t){
  const savedIdea=$("#hub-idea-input")?.value||"",focused=document.activeElement?.id==="hub-idea-input";
  const s=t.accommodation,leg=nextLeg(t);
  /* hébergement */
- const stay=s&&s.name?hubCard("stay","PROCHAIN HÉBERGEMENT","🏨 Hébergement","🛏",
+ const stay=s&&s.name?hubCard("stay","PROCHAIN HÉBERGEMENT","🏨 Hébergement",kindIcon("stay"),
   '<p class="hub-meta">'+esc(s.type||"Hébergement")+' <i>•</i> '+esc(s.name)+'</p><div class="hub-split"><div><small>Adresse</small><strong>'+esc(s.address||"À préciser")+'</strong></div><div class="hub-aside"><small>CHECK-IN</small><strong>'+esc(s.checkInDate?dateLabel(s.checkInDate):"À confirmer")+'</strong><strong>'+esc(s.checkInTime||"")+'</strong></div></div>',"trip-accommodation")
-  :hubCard("stay","","🏨 Hébergement","🛏",'<p class="hub-empty">Ajoute ton logement pour retrouver l’adresse et les horaires d’arrivée.</p>',"trip-accommodation","Ajouter");
+  :hubCard("stay","","🏨 Hébergement",kindIcon("stay"),'<p class="hub-empty">Ajoute ton logement pour retrouver l’adresse et les horaires d’arrivée.</p>',"trip-accommodation","Ajouter");
  /* essentiels */
  const list=t.checklist||[],doneN=list.filter(x=>x.done).length;
  const ess=hubCard("ess","","💡 Les essentiels",'<span class="hub-count">'+doneN+'/'+list.length+'</span>',
@@ -1728,9 +1745,9 @@ function renderHub(t){
  /* trajet */
  let trans;
  if(leg){const dep=dateTime(leg.departureDate,leg.departureTime),arr=dateTime(leg.arrivalDate,leg.arrivalTime);
-  trans=hubCard("trans","PROCHAIN TRAJET",icons[leg.mode]+" Trajet",'<span class="hub-pill">'+esc((directionName[leg.direction]||"Trajet").toUpperCase())+'</span>',
+  trans=hubCard("trans","PROCHAIN TRAJET",icons[leg.mode]+" Trajet",'<span class="hub-pill">'+esc((directionName[leg.direction]||"Trajet").toUpperCase())+'</span>'+kindIcon("move"),
   '<p class="hub-meta">'+esc(modeName[leg.mode]||"Transport")+' <i>•</i> '+esc(leg.operator||"Transporteur")+(leg.number?' <i>•</i> '+esc(leg.number):"")+'</p><div class="hub-route"><div><strong>'+esc((leg.origin||"Départ").split(",")[0])+'</strong><small>'+esc(leg.departureDate?(leg.departureTime?dateTimeLabel(dep):dateLabel(leg.departureDate)):"Date à préciser")+'</small></div><span aria-hidden="true">→</span><div><strong>'+esc((leg.destination||"Arrivée").split(",")[0])+'</strong><small>'+esc(leg.arrivalDate?(leg.arrivalTime?dateTimeLabel(arr):dateLabel(leg.arrivalDate)):"Date à préciser")+'</small></div></div>',"trip-transport");
- }else trans=hubCard("trans","","🚆 Trajet","🎫",'<p class="hub-empty">Aucun trajet renseigné pour l’instant.</p>',"trip-transport","Ajouter");
+ }else trans=hubCard("trans","","🚆 Trajet",kindIcon("move"),'<p class="hub-empty">Aucun trajet renseigné pour l’instant.</p>',"trip-transport","Ajouter");
  /* météo */
  let weather;
  if(weatherData&&weatherData.data){
@@ -1744,7 +1761,7 @@ function renderHub(t){
  const planned=acts.filter(a=>a.date).length,doneA=acts.filter(a=>a.done).length;
 const focusAct=acts.find(a=>!a.done&&a.date);
  const rows=acts.slice(0,5).map(a=>{const bs=activityBookingState(a),tag=bs==="booked"?'<em class="tag-ok">Réservé</em>':bs==="to_book"?'<em class="tag-warn">À réserver</em>':"",when=a.date?dateLabel(a.date)+(a.startTime?" "+a.startTime.replace(":","h"):""):"Date libre";
-  const row='<div class="hub-act '+(a.done?"is-complete":"")+(a===focusAct?" is-next":"")+'"><input type="checkbox" data-action="toggle-activity" data-id="'+esc(a.id)+'" '+(a.done?"checked":"")+' aria-label="Activité faite : '+esc(a.name)+'"><button type="button" class="hub-act-main" data-action="activity-detail" data-id="'+esc(a.id)+'"><strong>'+esc(a.name)+'</strong><small>'+esc(a.category||"Visite")+' <i>•</i> '+esc(when)+'</small></button>'+tag+'<span class="hub-act-ico cat-'+categoryKind(a.category)+'" aria-hidden="true">'+categoryEmoji(a.category)+'</span></div>';
+  const row='<div class="hub-act '+(a.done?"is-complete":"")+(a===focusAct?" is-next":"")+'"><input type="checkbox" data-action="toggle-activity" data-id="'+esc(a.id)+'" '+(a.done?"checked":"")+' aria-label="Activité faite : '+esc(a.name)+'"><button type="button" class="hub-act-main" data-action="activity-detail" data-id="'+esc(a.id)+'"><strong>'+esc(a.name)+'</strong><small>'+esc(a.category||"Visite")+' <i>•</i> '+esc(when)+'</small></button>'+tag+''+kindIcon(categoryKind(a.category))+'</div>';
   if(a!==focusAct)return row;
   const off=activityOfficialUrl(a),dest=a.address||a.name+" "+(t.destination||"");
   return row+'<div class="hub-act-detail">'+(a.address?'<p><b>Adresse :</b> '+esc(a.address)+'</p>':"")+(a.description?'<p>'+esc(String(a.description).slice(0,120))+(String(a.description).length>120?"…":"")+'</p>':"")+'<div class="hub-act-links"><a href="https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(dest)+'" target="_blank" rel="noopener noreferrer">Itinéraire</a>'+(off?'<a href="'+esc(off.url)+'" target="_blank" rel="noopener noreferrer" class="dark">'+(bs==="to_book"?"Billets":"Infos")+'</a>':"")+'</div></div>'}).join("");

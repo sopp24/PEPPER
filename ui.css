@@ -486,3 +486,72 @@ body{background:radial-gradient(ellipse 60% 35% at 92% -8%,rgba(237,120,197,.07)
 /* localisation en cours : on masque l'ancienne carte au lieu d'afficher un autre lieu */
 .map-locating{display:none;position:absolute;inset:0;z-index:510;align-items:center;justify-content:center;gap:12px;background:#0b0d10;color:#d8d3cf;font-size:14px}
 .map-hub.is-locating .map-locating{display:flex}
+
+/* =====================================================================
+   v4 — icônes de la maquette (pastilles blanches, glyphes colorés) + téléphone
+   ===================================================================== */
+.kind-ico{display:inline-grid;place-items:center;width:20px;height:20px;flex:none}
+.kind-ico svg{width:100%;height:100%;display:block}
+.kind-culture,.kind-nature{color:#1faa59}.kind-food{color:#e5352b}.kind-fun{color:#2f7df0}.kind-shop{color:#9b5cf0}.kind-move{color:#f08a2f}.kind-stay{color:#f4c430}.kind-other{color:#8a8f98}
+.hub-glyph{display:inline-flex;align-items:center;gap:8px}
+.hub-glyph .kind-ico{width:26px;height:26px}
+.hub-act .kind-ico{width:24px;height:24px}
+.jalap-map-pin{width:38px;height:38px;background:#fff;border:2.5px solid var(--pin,#1faa59);color:var(--pin,#1faa59);box-shadow:0 3px 12px rgba(0,0,0,.6)}
+.jalap-map-pin span{display:grid;place-items:center;width:21px;height:21px}
+.jalap-map-pin span svg{width:100%;height:100%;display:block}
+.jalap-map-pin.stay{border-radius:11px;background:#fff;--pin:#f4c430}
+.jalap-map-pin.destination{background:var(--grad);border-color:#fff;color:#1c1210}
+.jalap-map-pin.destination span{width:auto;height:auto;font-size:17px}
+.jalap-map-pin.is-done{opacity:.55;filter:grayscale(.4)}
+
+.topbar-back,.topbar-trip{display:none}
+.summary-links,.summary-credits{display:none}
+.map-place[role="button"]{cursor:pointer}
+
+@media(max-width:760px){
+ :root{--topbar-h:54px}
+ body[data-view="trip"]{overflow:hidden}
+ .topbar{height:var(--topbar-h);padding:0 8px;grid-template-columns:auto minmax(0,1fr) auto;gap:6px}
+ .brand{display:none}
+ .topbar-back{display:inline-flex;align-items:center;gap:1px;min-height:42px;padding:0 10px 0 4px;border:0;background:none;color:var(--ink);font-size:15px;font-weight:600}
+ .topbar-center{display:flex;justify-content:center;min-width:0}
+ .topbar-center .live-dot,.topbar-center>span{display:none}
+ .topbar-trip{display:block;max-width:100%;padding:8px 14px;border:0;border-radius:12px;background:rgba(255,255,255,.06);color:var(--ink);font-size:16px;font-weight:700;letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .topbar-actions .primary-button{display:none}
+ .topbar .lang-button{min-height:40px}
+ .trip-workspace>.trip-summary,.trip-workspace>.trip-toolbar{display:none!important}
+ .map-hub{width:100%;margin:0;height:calc(100dvh - var(--topbar-h));min-height:0;max-height:none;border:0}
+ .privacy-footnote,.app-footer{display:none}
+ .page{padding-bottom:0}
+ /* panneau « Mon voyage » */
+ .sheet-body .trip-summary{display:block}
+ .sheet-body .trip-summary .trip-heading{margin:0 0 12px;flex-direction:column;align-items:stretch}
+ .sheet-body .trip-summary .trip-sync-line{display:flex}
+ .sheet-body .journey-overview{display:block;padding:14px}
+ .sheet-body .journey-overview h3,.sheet-body .journey-overview .eyebrow,.sheet-body .journey-overview-copy>p:not(.eyebrow){display:block}
+ .sheet-body .journey-metrics{margin-top:12px}
+ .sheet-body .summary-links{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 6px}
+ .sheet-body .summary-links a{display:inline-flex;align-items:center;gap:5px;min-height:38px;padding:0 14px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.04);text-decoration:none;color:#e0dcd8;font-size:13px}
+ .sheet-body .summary-credits{display:block;margin:14px 0 0;color:#8d8a87;font-size:11px;line-height:1.6}
+ .sheet-body .summary-credits a{color:#c9c4bf}
+ /* barre d'onglets */
+ .mobile-dock{grid-template-columns:repeat(5,1fr);left:10px;right:10px;bottom:calc(8px + env(safe-area-inset-bottom));padding:6px;border-radius:22px;background:rgba(14,15,18,.96)}
+ .mobile-dock button{min-height:50px;gap:3px;color:#a9a5a1;font-size:10px;font-weight:600}
+ .mobile-dock button svg{width:22px;height:22px}
+ .mobile-dock button.is-current{color:#fff}
+ .mobile-dock .dock-add{justify-self:center;width:56px;height:56px;min-height:56px;margin-top:-24px;border-radius:50%;background:var(--grad);color:#1c1210;box-shadow:0 8px 22px rgba(242,145,127,.35),0 0 0 5px #090a0c}
+ .mobile-dock .dock-add svg{width:26px;height:26px}
+ /* cartes en carrousel : un tap ouvre le détail */
+ .hub-cards{bottom:calc(88px + env(safe-area-inset-bottom))}
+ .hub-card{cursor:pointer;-webkit-tap-highlight-color:transparent}
+ .hub-card:active{transform:scale(.985)}
+ .map-hub .maplibregl-ctrl-bottom-left{bottom:calc(88px + 214px + env(safe-area-inset-bottom))}
+ .map-tools{top:10px}
+ .sheet{max-height:92dvh}
+}
+/* les pastilles ne sont plus en goutte inclinée (ancien style) : cercle droit, glyphe droit */
+.jalap-map-pin{transform:none;border-radius:50%}
+.jalap-map-pin:hover{transform:scale(1.12)}
+.jalap-map-pin span{transform:none}
+.jalap-map-pin.stay{border-radius:11px}
+.journey-metric strong{flex:none;white-space:nowrap}
