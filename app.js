@@ -719,8 +719,8 @@ function addMapOverlays(){
 function createMap(t,center,style){
  const node=$("#map");node.innerHTML="";
  const coarse=matchMedia("(pointer:coarse)").matches;
- map=new maplibregl.Map({container:"map",style,center,zoom:t.geo?12:2,attributionControl:false,cooperativeGestures:false,maxPitch:75,fadeDuration:120,
-  locale:{"CooperativeGesturesHandler.MobileHelpText":"Utilise deux doigts pour déplacer la carte","CooperativeGesturesHandler.WindowsHelpText":"Ctrl + molette pour zoomer","CooperativeGesturesHandler.MacHelpText":"⌘ + molette pour zoomer"}});
+ map=new maplibregl.Map({container:"map",style,center,zoom:t.geo?12:2,attributionControl:false,cooperativeGestures:!matchMedia("(max-width:760px)").matches,maxPitch:75,fadeDuration:120,
+  locale:lang==="en"?{"CooperativeGesturesHandler.WindowsHelpText":"Ctrl + scroll to zoom the map","CooperativeGesturesHandler.MacHelpText":"⌘ + scroll to zoom the map","CooperativeGesturesHandler.MobileHelpText":"Use two fingers to move the map"}:{"CooperativeGesturesHandler.WindowsHelpText":"Ctrl + molette pour zoomer la carte","CooperativeGesturesHandler.MacHelpText":"⌘ + molette pour zoomer la carte","CooperativeGesturesHandler.MobileHelpText":"Utilise deux doigts pour déplacer la carte"});
  map.addControl(new maplibregl.AttributionControl(),"bottom-left");
  map.on("zoom",updateZoomPct);map.on("styleimagemissing",e=>addDarkMatterIcon(e.id));
  map.on("style.load",()=>{mapStyleReady=true;clearTimeout(mapStyleTimer);addMapOverlays()});
@@ -1576,7 +1576,7 @@ function onAction(event){
  if(n==="open-summary"){if(matchMedia("(max-width:760px)").matches)openSheet("trip-summary");else window.scrollTo({top:0,behavior:"smooth"});return}
  if(n==="phone-map"){closeSheet();toggleMapFullscreen(false);return}
  if(n==="map-zoom-in"){map&&map.zoomIn();return}if(n==="map-zoom-out"){map&&map.zoomOut();return}if(n==="map-3d"){toggle3D();return}if(n==="map-locate"){locateMe();return}
- if(n==="map-style"){setMapStyle(el.dataset.style);return}if(n==="toggle-hub"){toggleHub();return}if(n==="map-fullscreen"){toggleMapFullscreen();return}
+ if(n==="map-style"){let next=el.dataset.style;if(matchMedia("(max-width:760px)").matches&&el.getAttribute("aria-pressed")==="true"){const order=["dark","satellite","plan"];next=order[(order.indexOf(next)+1)%order.length]}setMapStyle(next);return}if(n==="toggle-hub"){toggleHub();return}if(n==="map-fullscreen"){toggleMapFullscreen();return}
  if(n==="go-home"){event.preventDefault();showHome=true;closeSheet();render();window.scrollTo({top:0});return}
  if(n==="toggle-lang"){toggleLang(el);return}if(n==="toggle-picker"){togglePicker(el);return}if(n==="pick-trip"){state.activeTripId=id;showHome=false;weatherData=null;save({skipRemote:true,skipTouch:true});render();window.scrollTo({top:0});return}
  if(n==="open-sheet"){openSheet(el.dataset.panel);return}if(n==="close-sheet"){closeSheet();return}

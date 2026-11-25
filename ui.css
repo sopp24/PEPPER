@@ -555,3 +555,47 @@ body{background:radial-gradient(ellipse 60% 35% at 92% -8%,rgba(237,120,197,.07)
 .jalap-map-pin span{transform:none}
 .jalap-map-pin.stay{border-radius:11px}
 .journey-metric strong{flex:none;white-space:nowrap}
+
+/* =====================================================================
+   v5 — audit défilement / superpositions
+   ===================================================================== */
+html{scrollbar-gutter:stable}
+/* la carte et ses calques forment leur propre pile : ils ne passent plus au-dessus de la barre haute au défilement */
+.map-hub{isolation:isolate;z-index:0}
+.map-hub.is-fullscreen{z-index:800}
+/* la fiche d'une étape sélectionnée ne recouvre plus la carte JALAP */
+.map-selection-card{top:72px;bottom:auto}
+/* accueil en paysage / écrans bas : le logo ne passe plus sous la barre */
+@media(max-height:560px){
+ .landing-center{justify-content:flex-start;padding-top:max(96px,18vh);gap:18px}
+ .landing-logo h1{font-size:min(11.4vw,17vh)}
+ .landing-mark{width:min(8.4vw,13vh);font-size:min(4.8vw,7vh)}
+ .landing-logo p{font-size:min(2.3vw,3.6vh);margin-top:4px}
+ .landing-actions{flex-direction:row;gap:12px}
+ .landing-actions .primary-button.large,.landing-actions .picker-button{min-height:44px;font-size:15px;padding:0 18px}
+}
+/* tablette / téléphone en paysage : la carte tient dans l'écran */
+@media(min-width:761px) and (max-width:1099px){.map-hub .map-stage{height:clamp(360px,calc(100dvh - var(--topbar-h) - 16px),680px)}}
+@media(max-width:1099px) and (max-height:520px){.map-hub .map-stage{height:calc(100dvh - var(--topbar-h) - 8px)}}
+
+/* téléphone : outils plus compacts, cartes qui s'adaptent à la hauteur — rien ne se chevauche */
+@media(max-width:760px){
+ .map-hub{--card-h:clamp(128px,26dvh,212px)}
+ .hub-cards{pointer-events:none}
+ .hub-card{pointer-events:auto;max-height:var(--card-h)}
+ .hub-card .hub-body{overflow:hidden}
+ .map-hub .maplibregl-ctrl-bottom-left{bottom:calc(88px + var(--card-h) + 6px + env(safe-area-inset-bottom))}
+ /* un seul bouton de style (touche pour passer au suivant) ; le plein écran est inutile sur téléphone */
+ .map-tools .style-group button:not([aria-pressed="true"]){display:none}
+ .map-tools .style-group button{min-width:48px;height:40px;font-size:10px}
+ [data-action="map-fullscreen"]{display:none}
+ .map-tools .glass-group:nth-of-type(5){padding:3px}
+ .map-tools .glass-group button{height:38px;min-width:40px}
+}
+@media(max-width:760px) and (max-height:600px){
+ .hub-trans .hub-route small,.hub-stay .hub-split small{display:none}
+ .map-tools .map-place .map-live-count{display:none}
+}
+@media(max-width:760px) and (max-height:600px){[data-action="map-3d"]{display:none}}
+@media(max-width:760px){.map-tools .glass-group [data-action="map-fullscreen"]{display:none}}
+@media(max-width:760px) and (max-height:600px){.map-tools .glass-group [data-action="map-3d"]{display:none}}
