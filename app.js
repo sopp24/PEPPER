@@ -32,6 +32,7 @@ let jalapMessages=[],jalapPendingProposal=null,jalapPendingTripId=null,jalapBusy
 let githubSyncTimer=null,githubSyncRunning=false,githubSyncAgain=false,githubSyncStatus="local",githubLastContent="",githubSyncError="";
 const JALAP_DEV_PATHS=["index.html","app.js","styles.css","manifest.webmanifest","service-worker.js","README.md","lib/gemini-api.mjs","tests/gemini-api.test.mjs","assets/jalap.svg","assets/pepper-favicon.svg","tests/jalap.test.mjs","tests/jalap-dev.test.mjs"];
 const modalRoot=$("#modal-root");
+let showHome=true;
 
 function openPepperDatabase(){
  if(!("indexedDB" in window))return Promise.resolve(null);
@@ -236,7 +237,7 @@ async function connectGitHubSync(){
  if(githubSyncStatus==="error")throw new Error(githubSyncError||"La synchronisation GitHub a échoué.");
 }
 
-function save(options={}){const now=new Date().toISOString();if(!options.skipTouch){state.updatedAt=now;const trip=activeTrip();if(trip)trip.updatedAt=now}const snapshot=JSON.stringify(state);try{const previous=localStorage.getItem(STORAGE_KEY);if(previous)localStorage.setItem(RECOVERY_KEY,previous);localStorage.setItem(STORAGE_KEY,snapshot)}catch(e){toast("Le stockage classique est saturé. La sauvegarde locale étendue est tentée ; exporte aussi un fichier JSON privé.","error")}persistStateToIndexedDB(snapshot);if(!options.skipRemote)scheduleGitHubSync()}
+function save(options={}){const now=new Date().toISOString();if(!options.skipTouch){state.updatedAt=now;const trip=activeTrip();if(trip)trip.updatedAt=now}const snapshot=JSON.stringify(state);try{const previous=localStorage.getItem(STORAGE_KEY);if(previous)localStorage.setItem(RECOVERY_KEY,previous);localStorage.setItem(STORAGE_KEY,snapshot)}catch(e){toast("Le stockage classique est saturé. La sauvegarde locale étendue est tentée ; exporte aussi un fichier JSON privé.","error")}persistStateToIndexedDB(snapshot);if(!options.skipRemote)scheduleGitHubSync();queueMicrotask(()=>{const t=activeTrip();if(t&&!showHome&&typeof renderHub==="function")renderHub(t)})}
 function toast(message,type){const n=document.createElement("div");n.className="toast "+(type||"");n.textContent=message;$("#toast-root").appendChild(n);setTimeout(()=>n.remove(),4200)}
 function dateTime(date,time){if(!date)return null;const d=new Date(date+"T"+(time||"00:00")+":00");return Number.isNaN(d.getTime())?null:d}
 function dateTimeLabel(d){return new Intl.DateTimeFormat("fr-FR",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(d)}
@@ -290,7 +291,7 @@ function getWarnings(trip){
  return Array.from(new Set(warnings));
 }
 function render(){
- const t=activeTrip();$("#empty-state").hidden=!!t;$("#trip-workspace").hidden=!t;$(".hero").hidden=!!t;$(".mobile-dock").hidden=!t;if(!t)return;
+ const t=activeTrip();if(!t)showHome=true;document.body.dataset.view=showHome?"home":"trip";renderLanding();$("#trip-workspace").hidden=!t||showHome;$(".mobile-dock").hidden=!t||showHome;if(!t)return;
  $("#trip-destination").textContent=t.destination||"Destination";
  $("#trip-dates").textContent=t.startDate?dateLabel(t.startDate)+(t.endDate?" — "+dateLabel(t.endDate):""):"Dates à définir";
  $("#trip-travellers").textContent=(t.people||1)+((t.people||1)===1?" voyageur":" voyageurs");
@@ -300,7 +301,7 @@ function render(){
  const phase=getTripPhase(t);$("#trip-workspace").dataset.phase=phase;renderJourneyOverview(t);
  $("#trip-switcher").innerHTML=state.trips.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===t.id?"selected":"")+'>'+esc(x.destination)+'</option>').join("");
  const q=encodeURIComponent(t.destination||"");$("#link-google-maps").href="https://www.google.com/maps/search/?api=1&query="+q;$("#link-apple-maps").href="https://maps.apple.com/?q="+q;$("#link-waze").href="https://www.waze.com/ul?q="+q+"&navigate=yes";$("#link-fuel").href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent("station-service carburant "+t.destination);
- renderStay(t);renderTransport(t);renderActivities(t);renderBudget(t);renderChecklist(t);
+ renderStay(t);renderTransport(t);renderActivities(t);renderBudget(t);renderChecklist(t);renderHub(t);
  if(!t.geo&&t.destination)fetchDestination(t);else{renderMap(t);if(!weatherData||weatherData.tripId!==t.id)fetchWeather(t)}
 }
 function renderStay(t){
@@ -635,8 +636,8 @@ function renderMap(t){
  mapLibraryRetryCount=0;
  const center=t.geo?[t.geo.lat,t.geo.lon]:[20,0];
  if(!map){
-  map=L.map("map",{scrollWheelZoom:false}).setView(center,t.geo?12:2);
-  const osm=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'});
+  map=L.map("map",{scrollWheelZoom:false,zoomControl:false}).setView(center,t.geo?12:2);L.control.zoom({position:"topleft",zoomInTitle:"Zoom +",zoomOutTitle:"Zoom −"}).addTo(map);
+  const osm=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Imagery &copy; Esri, Maxar, Earthstar Geographics"});L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,pane:"shadowPane"}).addTo(map);
   let fallbackAdded=false;
   osm.on("tileerror",()=>{
    if(fallbackAdded||!map)return;fallbackAdded=true;
@@ -648,9 +649,9 @@ function renderMap(t){
   osm.addTo(map);markers=L.layerGroup().addTo(map);
  }
  if(mapTripId!==t.id){mapTripId=t.id;map.setView(center,t.geo?12:2)}markers.clearLayers();activityMarkerIndex={};
- if(t.geo){const icon=L.divIcon({className:"",html:'<div class="jalap-map-pin destination"><span>✦</span></div>',iconSize:[28,28],iconAnchor:[13,26]});L.marker(center,{icon}).addTo(markers).bindPopup("<strong>"+esc(t.destination)+"</strong><br>Destination")}
- if(t.accommodation&&t.accommodation.geo){const g=t.accommodation.geo,icon=L.divIcon({className:"",html:'<div class="jalap-map-pin" style="background:#b4d58a"><span>⌂</span></div>',iconSize:[28,28],iconAnchor:[13,26]});L.marker([g.lat,g.lon],{icon}).addTo(markers).bindPopup("<strong>"+esc(t.accommodation.name)+"</strong><br>Hébergement")}
- (t.activities||[]).forEach((a,i)=>{if(!a.geo)return;const p=[a.geo.lat,a.geo.lon];const icon=L.divIcon({className:"",html:'<div class="jalap-map-pin"><span>'+(i+1)+'</span></div>',iconSize:[28,28],iconAnchor:[13,26]});const marker=L.marker(p,{icon}).addTo(markers).bindPopup("<strong>"+esc(a.name)+"</strong><br>"+esc(a.date?dateLabel(a.date):"À planifier"));activityMarkerIndex[a.id]=marker});
+ if(t.geo){const icon=L.divIcon({className:"",html:'<div class="jalap-map-pin destination"><span>✦</span></div>',iconSize:[34,34],iconAnchor:[17,17]});L.marker(center,{icon}).addTo(markers).bindPopup("<strong>"+esc(t.destination)+"</strong><br>Destination")}
+ if(t.accommodation&&t.accommodation.geo){const g=t.accommodation.geo,icon=L.divIcon({className:"",html:'<div class="jalap-map-pin stay"><span>🛏</span></div>',iconSize:[34,34],iconAnchor:[17,17]});L.marker([g.lat,g.lon],{icon}).addTo(markers).bindPopup("<strong>"+esc(t.accommodation.name)+"</strong><br>Hébergement")}
+ (t.activities||[]).forEach((a,i)=>{if(!a.geo)return;const p=[a.geo.lat,a.geo.lon];const icon=L.divIcon({className:"",html:'<div class="jalap-map-pin cat-'+categoryKind(a.category)+(a.done?" is-done":"")+'"><span>'+categoryEmoji(a.category)+'</span></div>',iconSize:[34,34],iconAnchor:[17,17]});const marker=L.marker(p,{icon}).addTo(markers).bindPopup("<strong>"+esc(a.name)+"</strong><br>"+esc(a.date?dateLabel(a.date):"À planifier"));activityMarkerIndex[a.id]=marker});
  const count=$("#map-activity-count");if(count)count.textContent=(t.activities||[]).filter(a=>a.geo).length+" lieu(x) repéré(s)";
  setTimeout(()=>{if(map)map.invalidateSize()},160);
 }
@@ -761,7 +762,7 @@ async function fetchWeather(t){
  }
 }
 function renderWeather(){
- const n=$("#weather-content");if(!n)return;
+ const n=$("#weather-content");if(!n)return;queueMicrotask(()=>{const t=activeTrip();if(t)renderHub(t)});
  if(!weatherData){
   n.innerHTML='<div class="weather-unavailable">'+esc(weatherError||"Recherche de la météo…")+'</div><button class="text-button weather-refresh" type="button" data-action="refresh-weather">Actualiser ↻</button>';
   return;
@@ -822,7 +823,7 @@ function saveTripForm(form){
  const d=Object.fromEntries(new FormData(form).entries());if(d.startDate&&d.endDate&&d.endDate<d.startDate){toast("La date de retour doit suivre celle de départ.","error");return}
  let t=state.trips.find(x=>x.id===d.id);if(!t){t={id:uid(),activities:[],transport:[],expenses:[],checklist:DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false})),accommodation:null,createdAt:new Date().toISOString()};state.trips.push(t)}
  Object.assign(t,{destination:d.destination.trim(),startDate:d.startDate,endDate:d.endDate,people:Number(d.people||1),budget:Number(d.budget||0),currency:d.currency||"EUR",localTransitName:d.localTransitName||"",localTransitUrl:d.localTransitUrl||"",localTrafficUrl:d.localTrafficUrl||"",localTransitRef:d.localTransitRef||"",notes:d.notes||""});
- state.activeTripId=t.id;weatherData=null;save();closeModal();render();toast("Voyage enregistré. Synchronisation GitHub en cours si elle est activée.");
+ state.activeTripId=t.id;showHome=false;weatherData=null;save();closeModal();render();toast("Voyage enregistré. Synchronisation GitHub en cours si elle est activée.");
 }
 function saveStay(form){
  const d=Object.fromEntries(new FormData(form).entries()),t=activeTrip(),old=t.accommodation||{};
@@ -1415,6 +1416,9 @@ function onAction(event){
  if(n==="jalap-dev-commit"){commitJalapDevChanges();return}
  if(n==="jalap-dev-cancel"){cancelJalapDevProposal();return}
  if(n==="close-modal"){if(event.target===el||el.matches("button"))closeModal();return}
+ if(n==="go-home"){event.preventDefault();showHome=true;closeSheet();render();window.scrollTo({top:0});return}
+ if(n==="toggle-lang"){toggleLang(el);return}if(n==="toggle-picker"){togglePicker(el);return}if(n==="pick-trip"){state.activeTripId=id;showHome=false;weatherData=null;save({skipRemote:true,skipTouch:true});render();window.scrollTo({top:0});return}
+ if(n==="open-sheet"){openSheet(el.dataset.panel);return}if(n==="close-sheet"){closeSheet();return}
  if(n==="settings"){settingsModal();return}if(n==="import-json"){importModal();return}
  if(n==="create-trip"){tripForm(null);return}if(n==="edit-trip"){tripForm(activeTrip());return}
  if(n==="edit-accommodation"){stayForm();return}if(n==="add-transport"){transportForm(null);return}
@@ -1441,7 +1445,160 @@ document.addEventListener("submit",e=>{
  if(f.id==="expense-form"){e.preventDefault();addExpense(f)}
  if(f.id==="idea-form")sendJalapMessage(e);
 });
-document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
-$$("[data-scroll]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.scroll,node=id==="assistant-panel"?$(".assistant-panel"):$("#"+id);if(node)node.scrollIntoView({behavior:"smooth",block:"start"})}));
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(modalRoot.innerHTML)closeModal();else closeSheet();closeMenus()}});
+$$("[data-scroll]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.scroll,node=id==="assistant-panel"?$(".assistant-panel"):$("#"+id);if(node&&node.closest("#panel-vault")){openSheet(node.id||"assistant-panel");return}if(node)node.scrollIntoView({behavior:"smooth",block:"start"})}));
 async function initialise(){localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);localStorage.removeItem("pepper-anthropic-api-key-v1");localStorage.removeItem(LEGACY_GROQ_API_KEY_KEY);await restoreStateFromIndexedDB();if(githubSyncEnabled()){if(githubAccessToken())await syncGitHubState({pull:true});else setGitHubSyncStatus("error","Jeton GitHub manquant")}else setGitHubSyncStatus("local");if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;setJalapMode(jalapMode);save({skipTouch:true,skipRemote:true});render();updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();if(githubSyncEnabled())scheduleGitHubSync(200);const t=activeTrip();if(t){renderMap(t);fetchWeather(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}
+/* ================= PEPPER UI : accueil, cartes flottantes, panneau « Voir plus » ================= */
+const CATEGORY_KIND={Culture:"culture",Architecture:"culture",Nature:"nature",Restaurant:"food",Sortie:"fun",Shopping:"shop",Transport:"move"};
+const CATEGORY_EMOJI={culture:"🏛",nature:"🌳",food:"🍴",fun:"🎭",shop:"🛍",move:"🚆",other:"📍"};
+function categoryKind(c){return CATEGORY_KIND[c]||"other"}
+function categoryEmoji(c){return CATEGORY_EMOJI[categoryKind(c)]}
+
+/* --- menus (langue, sélecteur de voyage) --- */
+function closeMenus(except){$$(".lang-list, .picker-list").forEach(l=>{if(l!==except){l.hidden=true;const b=l.previousElementSibling;if(b)b.setAttribute("aria-expanded","false")}})}
+function toggleMenu(button){const list=button.nextElementSibling;if(!list)return;const open=list.hidden;closeMenus(list);list.hidden=!open;button.setAttribute("aria-expanded",String(open))}
+function toggleLang(el){toggleMenu(el)}
+function togglePicker(el){toggleMenu(el)}
+document.addEventListener("click",e=>{if(!e.target.closest(".lang-menu, .trip-picker"))closeMenus()});
+
+/* --- accueil --- */
+function renderLanding(){
+ const list=$("#picker-list"),label=$("#picker-label");if(!list)return;
+ const trips=state.trips;
+ label.textContent=trips.length?"Sélectionne ton voyage":"Aucun voyage pour l’instant";
+ $(".picker-button").disabled=!trips.length;
+ list.innerHTML=trips.map(t=>{const d=t.startDate?dateLabel(t.startDate)+(t.endDate?" → "+dateLabel(t.endDate):""):"Dates à définir";return '<button type="button" role="option" class="picker-item '+(t.id===state.activeTripId?"is-current":"")+'" data-action="pick-trip" data-id="'+esc(t.id)+'"><strong>'+esc(t.destination||"Voyage")+'</strong><small>'+esc(d)+' · '+(t.activities||[]).length+' activité(s)</small></button>'}).join("");
+ if(showHome)startEarth();else stopEarth();
+}
+
+/* --- globe nocturne (canvas, sans dépendance) --- */
+const EARTH_TEXTURE_URLS=["./assets/earth-night.jpg","https://cdn.jsdelivr.net/npm/three-globe@2.31.0/example/img/earth-night.jpg","https://unpkg.com/three-globe@2.31.0/example/img/earth-night.jpg"];
+let earth=null,earthRaf=0,earthTexture=null,earthTextureTried=false;
+function loadEarthTexture(){
+ if(earthTextureTried)return;earthTextureTried=true;
+ const tryUrl=i=>{if(i>=EARTH_TEXTURE_URLS.length)return;const img=new Image();img.crossOrigin="anonymous";img.onload=()=>{try{const c=document.createElement("canvas");c.width=1024;c.height=512;const x=c.getContext("2d");x.drawImage(img,0,0,1024,512);earthTexture=x.getImageData(0,0,1024,512);earth=null}catch(e){tryUrl(i+1)}};img.onerror=()=>tryUrl(i+1);img.src=EARTH_TEXTURE_URLS[i]};
+ tryUrl(0);
+}
+function buildEarth(canvas){
+ const dpr=1,W=Math.max(320,Math.round(canvas.clientWidth*.7)),H=Math.max(200,Math.round(canvas.clientHeight*.7));
+ canvas.width=W;canvas.height=H;
+ const R=W*.7,cx=W/2,cy=H*.23+R,tilt=-0.42,ct=Math.cos(tilt),st=Math.sin(tilt);
+ const n=W*H,lonPx=new Float32Array(n).fill(-1),rowPx=new Int16Array(n),shade=new Uint8ClampedArray(n);
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+  const nx=(x-cx)/R,ny=(y-cy)/R,d=nx*nx+ny*ny;if(d>=1)continue;
+  const nz=Math.sqrt(1-d),y1=ny*ct-nz*st,z1=ny*st+nz*ct;
+  const lat=Math.asin(-y1),lon=Math.atan2(nx,z1),i=y*W+x;
+  lonPx[i]=(lon/(2*Math.PI)+.5)*1024;rowPx[i]=Math.min(511,Math.max(0,Math.round((.5-lat/Math.PI)*512)));shade[i]=Math.round(255*Math.pow(nz,.55));
+ }
+ earth={W,H,R,cx,cy,lonPx,rowPx,shade,img:canvas.getContext("2d").createImageData(W,H),angle:0};
+}
+function drawEarth(canvas){
+ if(!earth||earth.W!==Math.max(320,Math.round(canvas.clientWidth*.7)))buildEarth(canvas);
+ const {W,H,R,cx,cy,lonPx,rowPx,shade,img}=earth,ctx=canvas.getContext("2d"),data=img.data,tex=earthTexture?earthTexture.data:null,off=earth.angle;
+ for(let i=0;i<W*H;i++){
+  const o=i*4,l=lonPx[i];
+  if(l<0){data[o+3]=0;continue}
+  const s=shade[i]/255;
+  if(tex){let tx=Math.floor(l+off)%1024;if(tx<0)tx+=1024;const t=(rowPx[i]*1024+tx)*4;data[o]=tex[t]*s*1.15+4;data[o+1]=tex[t+1]*s*1.05+6;data[o+2]=tex[t+2]*s*.9+12}
+  else{data[o]=8*s;data[o+1]=12*s;data[o+2]=22*s}
+  data[o+3]=255;
+ }
+ ctx.clearRect(0,0,W,H);ctx.putImageData(img,0,0);
+ const g=ctx.createRadialGradient(cx,cy,R*.985,cx,cy,R*1.045);g.addColorStop(0,"rgba(110,170,255,.55)");g.addColorStop(.35,"rgba(70,120,230,.18)");g.addColorStop(1,"rgba(40,80,200,0)");
+ ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,R*1.045,0,7);ctx.arc(cx,cy,R*.985,0,7,true);ctx.fill("evenodd");
+}
+function startEarth(){
+ const canvas=$("#earth-lights");if(!canvas||earthRaf)return;
+ loadEarthTexture();
+ const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;let last=0;
+ const frame=t=>{earthRaf=requestAnimationFrame(frame);if(t-last<90)return;last=t;if(!reduce&&earth)earth.angle=(earth.angle+.9)%1024;drawEarth(canvas)};
+ drawEarth(canvas);if(reduce){earthRaf=0;return}earthRaf=requestAnimationFrame(frame);
+}
+function stopEarth(){if(earthRaf){cancelAnimationFrame(earthRaf);earthRaf=0}}
+window.addEventListener("resize",()=>{earth=null});
+
+/* --- panneau « Voir plus » (monte depuis le bas) --- */
+const SHEET_META={"trip-accommodation":["🏨","Hébergement"],"trip-checklist":["💡","Les essentiels"],"trip-transport":["🚆","Trajets & billets"],"assistant-panel":["🌶","JALAP · Assistant IA"],"trip-weather":["⛅","Météo à destination"],"trip-itinerary":["📍","Activités & programme"],"trip-budget":["💶","Budget & dépenses"]};
+let sheetState=null;
+function openSheet(id){
+ const panel=document.getElementById(id);if(!panel)return;
+ if(sheetState)closeSheet(true);
+ const meta=SHEET_META[id]||["✦",""],root=$("#sheet-root"),ph=document.createComment("sheet-placeholder");
+ panel.parentNode.insertBefore(ph,panel);
+ root.innerHTML='<div class="sheet-overlay" data-action="close-sheet"><section class="sheet" role="dialog" aria-modal="true" aria-label="'+esc(meta[1])+'"><div class="sheet-grip" aria-hidden="true"></div><header class="sheet-head"><h2><span>'+meta[0]+'</span>'+esc(meta[1])+'</h2><button type="button" class="sheet-close" data-action="close-sheet" aria-label="Fermer">×</button></header><div class="sheet-body"></div></section></div>';
+ $(".sheet-body",root).appendChild(panel);
+ document.body.classList.add("sheet-open");
+ sheetState={panel,ph,root};
+ requestAnimationFrame(()=>requestAnimationFrame(()=>$(".sheet-overlay",root)?.classList.add("is-open")));
+ bindSheetDrag();
+ if(id==="assistant-panel")setTimeout(()=>$("#idea-input")?.focus({preventScroll:true}),320);
+}
+function closeSheet(immediate){
+ if(!sheetState)return;const {panel,ph,root}=sheetState;sheetState=null;
+ const finish=()=>{if(ph.parentNode)ph.replaceWith(panel);root.innerHTML="";document.body.classList.remove("sheet-open")};
+ const overlay=$(".sheet-overlay",root);
+ if(immediate||!overlay){finish();return}
+ overlay.classList.remove("is-open");overlay.classList.add("is-closing");setTimeout(finish,260);
+}
+function bindSheetDrag(){
+ const sheet=$("#sheet-root .sheet"),zone=$("#sheet-root .sheet-grip"),head=$("#sheet-root .sheet-head");if(!sheet)return;
+ let startY=0,dy=0,dragging=false,t0=0;
+ const down=e=>{if(e.target.closest("button"))return;dragging=true;startY=e.clientY;dy=0;t0=Date.now();sheet.style.transition="none";(e.currentTarget).setPointerCapture?.(e.pointerId)};
+ const move=e=>{if(!dragging)return;dy=Math.max(0,e.clientY-startY);sheet.style.transform="translateY("+dy+"px)"};
+ const up=()=>{if(!dragging)return;dragging=false;sheet.style.transition="";const fast=dy/Math.max(1,Date.now()-t0)>.6;if(dy>110||fast){sheet.style.transform="";closeSheet()}else sheet.style.transform=""};
+ [zone,head].forEach(z=>{z.addEventListener("pointerdown",down);z.addEventListener("pointermove",move);z.addEventListener("pointerup",up);z.addEventListener("pointercancel",up)});
+}
+
+/* --- cartes flottantes sur la carte --- */
+function hubCard(cls,tag,title,icon,body,panel,label){
+ return '<article class="hub-card hub-'+cls+'">'+(tag?'<span class="hub-tag">'+tag+'</span>':"")+'<header class="hub-head"><h4>'+title+'</h4><span class="hub-glyph" aria-hidden="true">'+icon+'</span></header><div class="hub-body">'+body+'</div><button type="button" class="hub-more" data-action="open-sheet" data-panel="'+panel+'">'+(label||"Voir plus")+'</button></article>';
+}
+function nextLeg(t){
+ const legs=(t.transport||[]).slice().sort((a,b)=>((a.departureDate||"9999")+(a.departureTime||"")).localeCompare((b.departureDate||"9999")+(b.departureTime||"")));
+ const now=today();return legs.find(l=>(l.departureDate||"9999")>=now)||legs[0]||null;
+}
+function renderHub(t){
+ const node=$("#hub-cards");if(!node||!t)return;
+ const savedIdea=$("#hub-idea-input")?.value||"",focused=document.activeElement?.id==="hub-idea-input";
+ const s=t.accommodation,leg=nextLeg(t);
+ /* hébergement */
+ const stay=s&&s.name?hubCard("stay","PROCHAIN HÉBERGEMENT","🏨 Hébergement","🛏",
+  '<p class="hub-meta">'+esc(s.type||"Hébergement")+' <i>•</i> '+esc(s.name)+'</p><div class="hub-split"><div><small>Adresse</small><strong>'+esc(s.address||"À préciser")+'</strong></div><div class="hub-aside"><small>CHECK-IN</small><strong>'+esc(s.checkInDate?dateLabel(s.checkInDate):"À confirmer")+'</strong><strong>'+esc(s.checkInTime||"")+'</strong></div></div>',"trip-accommodation")
+  :hubCard("stay","","🏨 Hébergement","🛏",'<p class="hub-empty">Ajoute ton logement pour retrouver l’adresse et les horaires d’arrivée.</p>',"trip-accommodation","Ajouter");
+ /* essentiels */
+ const list=t.checklist||[],doneN=list.filter(x=>x.done).length;
+ const ess=hubCard("ess","","💡 Les essentiels",'<span class="hub-count">'+doneN+'/'+list.length+'</span>',
+  '<div class="hub-checks">'+(list.slice(0,4).map(x=>'<label class="check-row '+(x.done?"done":"")+'"><input type="checkbox" data-action="toggle-check" data-id="'+esc(x.id)+'" '+(x.done?"checked":"")+'><span>'+esc(x.label)+'</span></label>').join("")||'<p class="hub-empty">Aucune tâche.</p>')+'</div>',"trip-checklist");
+ /* trajet */
+ let trans;
+ if(leg){const dep=dateTime(leg.departureDate,leg.departureTime),arr=dateTime(leg.arrivalDate,leg.arrivalTime);
+  trans=hubCard("trans","PROCHAIN TRAJET",icons[leg.mode]+" Trajet",'<span class="hub-pill">'+esc((directionName[leg.direction]||"Trajet").toUpperCase())+'</span>',
+  '<p class="hub-meta">'+esc(modeName[leg.mode]||"Transport")+' <i>•</i> '+esc(leg.operator||"Transporteur")+(leg.number?' <i>•</i> '+esc(leg.number):"")+'</p><div class="hub-route"><div><strong>'+esc((leg.origin||"Départ").split(",")[0])+'</strong><small>'+esc(dep?dateTimeLabel(dep):"Date à préciser")+'</small></div><span aria-hidden="true">→</span><div><strong>'+esc((leg.destination||"Arrivée").split(",")[0])+'</strong><small>'+esc(arr?dateTimeLabel(arr):"Date à préciser")+'</small></div></div>',"trip-transport");
+ }else trans=hubCard("trans","","🚆 Trajet","🎫",'<p class="hub-empty">Aucun trajet renseigné pour l’instant.</p>',"trip-transport","Ajouter");
+ /* météo */
+ let weather;
+ if(weatherData&&weatherData.data){
+  const c=weatherData.data.current,d=weatherData.data.daily;let first=0;if(t.startDate){const m=d.time.indexOf(t.startDate);if(m>=0)first=m}
+  const stamp=weatherData.fetchedAt?new Intl.DateTimeFormat("fr-FR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(weatherData.fetchedAt)):"—";
+  const days=d.time.slice(first,first+5).map((date,i)=>{const k=first+i,label=date===today()?"Auj.":new Intl.DateTimeFormat("fr-FR",{weekday:"short",day:"numeric"}).format(new Date(date+"T12:00:00"));return '<div><span>'+esc(label)+'</span><b>'+weatherIcon(d.weather_code[k])+'</b><span>'+Math.round(d.temperature_2m_min[k])+'° / '+Math.round(d.temperature_2m_max[k])+'°</span></div>'}).join("");
+  weather=hubCard("weather","","💡 Météo à destination",'<button type="button" class="hub-refresh" data-action="refresh-weather" aria-label="Actualiser la météo">↻</button>','<div class="hub-weather-now"><strong class="hub-temp">'+Math.round(c.temperature_2m)+'°</strong><div><b>'+weatherIcon(c.weather_code)+' '+esc(weatherText(c.weather_code))+'</b><small>Ressenti '+Math.round(c.apparent_temperature)+'° <i>•</i> Vent '+Math.round(c.wind_speed_10m)+' km/h</small><small>Humidité '+c.relative_humidity_2m+' %</small><small>Actualisée : '+esc(stamp)+'</small></div></div><div class="hub-days">'+days+'</div>',"trip-weather");
+ }else weather=hubCard("weather","","💡 Météo à destination","⛅",'<p class="hub-empty">'+esc(weatherError||"Recherche de la météo…")+'</p>',"trip-weather");
+ /* activités */
+ const acts=(t.activities||[]).slice().sort((a,b)=>((a.date||"9999-99-99")+" "+(a.startTime||"99:99")).localeCompare((b.date||"9999-99-99")+" "+(b.startTime||"99:99")));
+ const planned=acts.filter(a=>a.date).length,doneA=acts.filter(a=>a.done).length;
+ const rows=acts.slice(0,5).map(a=>{const bs=activityBookingState(a),tag=bs==="booked"?'<em class="tag-ok">Réservé</em>':bs==="to_book"?'<em class="tag-warn">À réserver</em>':"",when=a.date?dateLabel(a.date)+(a.startTime?" "+a.startTime.replace(":","h"):""):"Date libre";
+  return '<div class="hub-act '+(a.done?"is-complete":"")+'"><input type="checkbox" data-action="toggle-activity" data-id="'+esc(a.id)+'" '+(a.done?"checked":"")+' aria-label="Activité faite : '+esc(a.name)+'"><button type="button" class="hub-act-main" data-action="activity-detail" data-id="'+esc(a.id)+'"><strong>'+esc(a.name)+'</strong><small>'+esc(a.category||"Visite")+' <i>•</i> '+esc(when)+'</small></button>'+tag+'<span class="hub-act-ico cat-'+categoryKind(a.category)+'" aria-hidden="true">'+categoryEmoji(a.category)+'</span></div>'}).join("");
+ const act=hubCard("acts","",'📍 Activités','',
+  '<div class="hub-chips"><span>'+acts.length+' activités</span><span>'+planned+' programmées</span><span class="warn">'+(acts.length-planned)+' à planifier</span><span class="ok">'+doneA+' faites</span></div>'+(rows||'<p class="hub-empty">Ton programme est encore vierge.</p>'),"trip-itinerary",acts.length>5?"Voir les "+acts.length:"Voir plus");
+ /* JALAP */
+ const jalap='<article class="hub-card hub-jalap"><span class="hub-tag hub-tag-ai">ASSISTANT IA</span><header class="hub-head"><h4><img src="./assets/jalap.svg" alt="" width="22" height="22"> JALAP</h4><span class="hub-modes" aria-hidden="true"><i>✈</i><i class="on">⌘</i></span></header><div class="hub-body"><p class="hub-meta">Ton compagnon de voyage et de développement, propulsé par Gemini 3.8 Flash.</p><form id="hub-idea-form" class="hub-ask"><input id="hub-idea-input" type="text" autocomplete="off" placeholder="Ex. : ajoute les Catacombes samedi…" aria-label="Écrire à JALAP"><button type="submit" aria-label="Envoyer à JALAP">↗</button></form></div><button type="button" class="hub-more" data-action="open-sheet" data-panel="assistant-panel">Voir plus</button></article>';
+ node.innerHTML='<div class="hub-col hub-col-left">'+stay+ess+trans+'</div><div class="hub-col hub-col-mid">'+jalap+'</div><div class="hub-col hub-col-right">'+weather+act+'</div>';
+ const inp=$("#hub-idea-input");if(inp&&savedIdea){inp.value=savedIdea;if(focused)inp.focus({preventScroll:true})}
+}
+document.addEventListener("submit",e=>{
+ if(e.target.id!=="hub-idea-form")return;e.preventDefault();
+ const v=$("#hub-idea-input").value.trim();openSheet("assistant-panel");
+ if(v){setTimeout(()=>{const ta=$("#idea-input");if(ta){ta.value=v;$("#hub-idea-input")&&($("#hub-idea-input").value="");$("#idea-form").requestSubmit()}},340)}
+});
+
 initialise();
