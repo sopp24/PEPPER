@@ -630,9 +630,23 @@ function addDarkMatterIcon(id){
  const file=DARK_MATTER_ICONS[id];if(!file||!map||map.hasImage(id))return;
  const img=new Image();img.onload=()=>{try{if(map&&!map.hasImage(id))map.addImage(id,img)}catch(e){}};img.src=DARK_MATTER_BASE+file;
 }
-async function resolveMapStyle(name){
- if(name==="dark"){try{return await loadDarkMatterStyle()}catch(e){console.error("PEPPER Dark Matter:",e);return rasterFallbackStyle("dark")}}
+/* Clé MapTiler « navigateur » : elle est publique par nature. Restreins-la à ton domaine dans le tableau de bord MapTiler (Allowed HTTP origins). */
+const MAPTILER_KEY="e93CAeqKjL5iGUGW9N4i";
+const MAPTILER_MAPS={dark:"darkmatter",satellite:"hybrid",plan:"streets-v2"};
+function maptilerStyleUrl(name){return "https://api.maptiler.com/maps/"+(MAPTILER_MAPS[name]||MAPTILER_MAPS.dark)+"/style.json?key="+MAPTILER_KEY}
+async function resolveMapStyle(name){return maptilerStyleUrl(name)}
+/* Repli si MapTiler est injoignable ou refuse la clé : Dark Matter local + OpenFreeMap, Esri, puis tuiles raster. */
+async function fallbackMapStyle(name){
+ if(name==="dark"){try{return await loadDarkMatterStyle()}catch(e){return rasterFallbackStyle("dark")}}
  return mapStyleFor(name);
+}
+let mapStyleTried={};
+function armMapStyleTimer(name){clearTimeout(mapStyleTimer);mapStyleTimer=setTimeout(()=>{if(!mapStyleReady)escalateMapStyle(name)},9000)}
+function escalateMapStyle(name){
+ if(!map||name!==mapStyleName||mapStyleReady)return;
+ const level=(mapStyleTried[name]||0)+1;mapStyleTried[name]=level;
+ if(level===1)fallbackMapStyle(name).then(style=>{if(map&&mapStyleName===name&&!mapStyleReady){map.setStyle(style);armMapStyleTimer(name)}});
+ else if(level===2){map.setStyle(rasterFallbackStyle(name))}
 }
 function mapStyleFor(name){
  if(name==="satellite")return {version:8,sources:{sat:{type:"raster",tiles:[ESRI_IMAGERY],tileSize:256,maxzoom:19,attribution:"Imagerie © Esri, Maxar, Earthstar Geographics"},places:{type:"raster",tiles:[ESRI_PLACES],tileSize:256,maxzoom:19}},layers:[{id:"sat",type:"raster",source:"sat"},{id:"places",type:"raster",source:"places"}]};
@@ -677,10 +691,8 @@ function applyMapPadding(animate){if(!map)return;try{map.setPadding(mapPadding()
 function updateZoomPct(){const out=$("#zoom-pct");if(out&&map)out.textContent=Math.round(100*Math.pow(2,map.getZoom()-12))+"%"}
 function updateMapStyleButtons(){$$('[data-action="map-style"]').forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.style===mapStyleName)));$("#trip-map")?.setAttribute("data-basemap",mapStyleName)}
 function loadMapStyle(name){
- mapStyleReady=false;clearTimeout(mapStyleTimer);
- resolveMapStyle(name).then(style=>{if(map&&mapStyleName===name)map.setStyle(style)});
- /* si le style vectoriel n'arrive pas, bascule sur des tuiles raster */
- if(name!=="satellite")mapStyleTimer=setTimeout(()=>{if(!mapStyleReady&&map){mapStyleReady=false;map.setStyle(rasterFallbackStyle(name))}},9000);
+ mapStyleReady=false;mapStyleTried[name]=0;
+ resolveMapStyle(name).then(style=>{if(map&&mapStyleName===name){map.setStyle(style);armMapStyleTimer(name)}});
 }
 function setMapStyle(name){
  if(!["satellite","dark","plan"].includes(name))return;
@@ -695,8 +707,8 @@ function addMapOverlays(){
   if(src){src.setData(feature)}
   else{
    map.addSource("pepper-route",{type:"geojson",data:feature});
-   map.addLayer({id:"pepper-route-glow",type:"line",source:"pepper-route",layout:{"line-cap":"round","line-join":"round"},paint:{"line-color":"#f2a66f","line-width":9,"line-opacity":.22,"line-blur":6}});
-   map.addLayer({id:"pepper-route-line",type:"line",source:"pepper-route",layout:{"line-cap":"round","line-join":"round"},paint:{"line-color":"#ffd2a8","line-width":2.5,"line-dasharray":[1.6,1.6],"line-opacity":.95}});
+   map.addLayer({id:"pepper-route-glow",type:"line",source:"pepper-route",layout:{"line-cap":"round","line-join":"round"},paint:{"line-color":"#ffffff","line-width":6,"line-opacity":.08,"line-blur":4}});
+   map.addLayer({id:"pepper-route-line",type:"line",source:"pepper-route",layout:{"line-cap":"round","line-join":"round"},paint:{"line-color":"#e9e5e0","line-width":2,"line-dasharray":[1.6,1.8],"line-opacity":.6}});
   }
   map.setLayoutProperty("pepper-route-glow","visibility",mapRouteCoords.length>1?"visible":"none");
   map.setLayoutProperty("pepper-route-line","visibility",mapRouteCoords.length>1?"visible":"none");
@@ -710,7 +722,8 @@ function createMap(t,center,style){
  map.addControl(new maplibregl.AttributionControl(),"bottom-left");
  map.on("zoom",updateZoomPct);map.on("styleimagemissing",e=>addDarkMatterIcon(e.id));
  map.on("style.load",()=>{mapStyleReady=true;clearTimeout(mapStyleTimer);addMapOverlays()});
- map.on("error",e=>{if(!mapStyleReady&&mapStyleName!=="satellite"&&e&&e.error&&!e.sourceId&&!e.tile){clearTimeout(mapStyleTimer);mapStyleTimer=setTimeout(()=>{if(!mapStyleReady&&map)map.setStyle(rasterFallbackStyle(mapStyleName))},300)}});
+ map.on("error",e=>{if(!mapStyleReady&&e&&e.error&&!e.sourceId&&!e.tile){clearTimeout(mapStyleTimer);mapStyleTimer=setTimeout(()=>escalateMapStyle(mapStyleName),300)}});
+ mapStyleTried[mapStyleName]=0;armMapStyleTimer(mapStyleName);
  map.on("idle",tryAutoFit);
  if(window.ResizeObserver){mapResizeObserver&&mapResizeObserver.disconnect();mapResizeObserver=new ResizeObserver(()=>{if(map){map.resize();applyMapPadding();tryAutoFit()}});mapResizeObserver.observe(node)}
  updateMapStyleButtons();updateZoomPct();applyMapPadding();
