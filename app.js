@@ -720,7 +720,7 @@ function createMap(t,center,style){
  const node=$("#map");node.innerHTML="";
  const coarse=matchMedia("(pointer:coarse)").matches;
  map=new maplibregl.Map({container:"map",style,center,zoom:t.geo?12:2,attributionControl:false,cooperativeGestures:!matchMedia("(max-width:760px)").matches,maxPitch:75,fadeDuration:120,
-  locale:lang==="en"?{"CooperativeGesturesHandler.WindowsHelpText":"Ctrl + scroll to zoom the map","CooperativeGesturesHandler.MacHelpText":"⌘ + scroll to zoom the map","CooperativeGesturesHandler.MobileHelpText":"Use two fingers to move the map"}:{"CooperativeGesturesHandler.WindowsHelpText":"Ctrl + molette pour zoomer la carte","CooperativeGesturesHandler.MacHelpText":"⌘ + molette pour zoomer la carte","CooperativeGesturesHandler.MobileHelpText":"Utilise deux doigts pour déplacer la carte"});
+  locale:lang==="en"?{"CooperativeGesturesHandler.WindowsHelpText":"Ctrl + scroll to zoom the map","CooperativeGesturesHandler.MacHelpText":"⌘ + scroll to zoom the map","CooperativeGesturesHandler.MobileHelpText":"Use two fingers to move the map"}:{"CooperativeGesturesHandler.WindowsHelpText":"Ctrl + molette pour zoomer la carte","CooperativeGesturesHandler.MacHelpText":"⌘ + molette pour zoomer la carte","CooperativeGesturesHandler.MobileHelpText":"Utilise deux doigts pour déplacer la carte"}});
  map.addControl(new maplibregl.AttributionControl(),"bottom-left");
  map.on("zoom",updateZoomPct);map.on("styleimagemissing",e=>addDarkMatterIcon(e.id));
  map.on("style.load",()=>{mapStyleReady=true;clearTimeout(mapStyleTimer);addMapOverlays()});
