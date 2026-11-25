@@ -1,9 +1,10 @@
-const CACHE = "pepper-static-v28";
+const CACHE = "pepper-static-v29";
 const CORE = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./sopp-gate.js",
   "./ui.css",
   "./assets/apple-touch-icon.png",
   "./lib/gemini-api.mjs",
@@ -13,7 +14,7 @@ const CORE = [
   "./assets/jalap.svg",
   "./assets/pepper-favicon.svg"
 ];
-const STATIC_PATHS = ["/PEPPER/", "/PEPPER/index.html", "/PEPPER/styles.css", "/PEPPER/ui.css", "/PEPPER/app.js", "/PEPPER/assets/apple-touch-icon.png", "/PEPPER/lib/gemini-api.mjs", "/PEPPER/lib/i18n-en.mjs", "/PEPPER/manifest.webmanifest", "/PEPPER/assets/chili.svg", "/PEPPER/assets/jalap.svg", "/PEPPER/assets/pepper-favicon.svg"];
+const STATIC_PATHS = ["/PEPPER/", "/PEPPER/index.html", "/PEPPER/styles.css", "/PEPPER/ui.css", "/PEPPER/app.js", "/PEPPER/sopp-gate.js", "/PEPPER/assets/apple-touch-icon.png", "/PEPPER/lib/gemini-api.mjs", "/PEPPER/lib/i18n-en.mjs", "/PEPPER/manifest.webmanifest", "/PEPPER/assets/chili.svg", "/PEPPER/assets/jalap.svg", "/PEPPER/assets/pepper-favicon.svg"];
 
 self.addEventListener("install", event => {
   event.waitUntil(

@@ -74,3 +74,10 @@ Les voyages sont stockés localement dans IndexedDB, avec une copie de récupér
 ## Publication GitHub Pages
 
 Le workflow `.github/workflows/deploy-pages.yml` vérifie la syntaxe JavaScript, exécute les tests puis publie automatiquement la racine du dépôt sur `main`. Les commits qui ne changent que `data/trips.json` sont ignorés par le déploiement Pages.
+
+## Verrouillage d’accès
+
+PEPPER est destinée à être ouverte depuis [SOPP Agents](https://sopp24.github.io/SOPP-agents/), qui se déverrouille par Face ID / Touch ID puis ouvre l’application avec un jeton dans le fragment d’URL (`#sopp-access=…`). Un accès direct affiche un écran de verrouillage (module `sopp-gate.js`, chargé en premier dans `index.html`). Le fragment est retiré de l’adresse avant le démarrage de l’application ; le paramètre `?from=sopp-agents` du manifeste est conservé.
+
+- En développement, `localhost`, `127.0.0.1` et `file:` contournent le verrou ; `?soppgate=force` force son activation.
+- Un dépôt statique public ne peut pas réellement cacher son code : une vraie protection nécessite un dépôt privé derrière le Worker authentifié (voir `SOPP-agents/cloudflare-auth`).

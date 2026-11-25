@@ -45,6 +45,7 @@ jobs:
 
       - name: Validate service worker
         run: node --check service-worker.js
+          node --check sopp-gate.js
 
       - name: Run transport connector tests
         run: node --test tests/*.test.mjs
