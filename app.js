@@ -597,15 +597,42 @@ function renderChecklist(t){
  $("#checklist-content").innerHTML=list.map(x=>'<label class="check-row '+(x.done?"done":"")+'"><input type="checkbox" data-action="toggle-check" data-id="'+esc(x.id)+'" '+(x.done?"checked":"")+'><span>'+esc(x.label)+'</span></label>').join("")||'<div class="empty-inline">Aucune tâche.</div>';
 }
 /* ===================== Carte (MapLibre GL : vectorielle, fluide, 3D) ===================== */
-const MAP_STYLE_KEY="pepper-map-style-v1";
-let mapStyleName=(()=>{try{const v=localStorage.getItem(MAP_STYLE_KEY);return ["satellite","dark","plan"].includes(v)?v:"satellite"}catch(e){return "satellite"}})();
-let mapNeedsFit=false,mapStyleReady=false,mapStyleTimer=0,mapPitch3D=false,mapRouteCoords=[],mapUserMarker=null,mapResizeObserver=null;
+const MAP_STYLE_KEY="pepper-map-style-v2";
+let mapStyleName=(()=>{try{const v=localStorage.getItem(MAP_STYLE_KEY);return ["satellite","dark","plan"].includes(v)?v:"dark"}catch(e){return "dark"}})();
+let mapCreating=false,mapNeedsFit=false,mapStyleReady=false,mapStyleTimer=0,mapPitch3D=false,mapRouteCoords=[],mapUserMarker=null,mapResizeObserver=null;
 const ESRI_IMAGERY="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const ESRI_PLACES="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}";
 const MAP_STYLE_URLS={dark:"https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",plan:"https://tiles.openfreemap.org/styles/liberty"};
 function rasterFallbackStyle(name){
  const tiles=name==="plan"?["https://tile.openstreetmap.org/{z}/{x}/{y}.png"]:["https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png","https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"];
  return {version:8,sources:{base:{type:"raster",tiles,tileSize:256,maxzoom:19,attribution:"© OpenStreetMap contributors"+(name==="plan"?"":" © CARTO")}},layers:[{id:"base",type:"raster",source:"base"}]};
+}
+const DARK_MATTER_BASE="./assets/vendor/dark-matter/";
+const OPENMAPTILES_TILEJSON="https://tiles.openfreemap.org/planet";
+const OPENMAPTILES_GLYPHS="https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
+const OPENMAPTILES_ATTRIBUTION='<a href="https://openmaptiles.org/" target="_blank" rel="noopener noreferrer">© OpenMapTiles</a> <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>';
+let darkMatterStyleCache=null;
+/* La clé MapTiler du style d'origine n'est pas fournie : mêmes couches OpenMapTiles, tuiles et polices libres d'OpenFreeMap. */
+async function loadDarkMatterStyle(){
+ if(darkMatterStyleCache)return darkMatterStyleCache;
+ const response=await fetch(DARK_MATTER_BASE+"style.json");if(!response.ok)throw new Error("style Dark Matter introuvable");
+ const style=await response.json();
+ style.sources={openmaptiles:{type:"vector",url:OPENMAPTILES_TILEJSON,attribution:OPENMAPTILES_ATTRIBUTION}};
+ style.glyphs=OPENMAPTILES_GLYPHS;delete style.sprite;
+ for(const layer of style.layers){
+  if(layer.layout&&layer.layout["text-font"])layer.layout["text-font"]=JSON.stringify(layer.layout["text-font"]).includes("Italic")?["Noto Sans Italic"]:["Noto Sans Regular"];
+  if(layer.paint&&layer.paint["fill-pattern"])delete layer.paint["fill-pattern"];
+ }
+ darkMatterStyleCache=style;return style;
+}
+const DARK_MATTER_ICONS={"circle-11":"circle-11.svg","oneway":"oneway.svg"};
+function addDarkMatterIcon(id){
+ const file=DARK_MATTER_ICONS[id];if(!file||!map||map.hasImage(id))return;
+ const img=new Image();img.onload=()=>{try{if(map&&!map.hasImage(id))map.addImage(id,img)}catch(e){}};img.src=DARK_MATTER_BASE+file;
+}
+async function resolveMapStyle(name){
+ if(name==="dark"){try{return await loadDarkMatterStyle()}catch(e){console.error("PEPPER Dark Matter:",e);return rasterFallbackStyle("dark")}}
+ return mapStyleFor(name);
 }
 function mapStyleFor(name){
  if(name==="satellite")return {version:8,sources:{sat:{type:"raster",tiles:[ESRI_IMAGERY],tileSize:256,maxzoom:19,attribution:"Imagerie © Esri, Maxar, Earthstar Geographics"},places:{type:"raster",tiles:[ESRI_PLACES],tileSize:256,maxzoom:19}},layers:[{id:"sat",type:"raster",source:"sat"},{id:"places",type:"raster",source:"places"}]};
@@ -625,7 +652,7 @@ function ensureMapLib(){
 }
 function showFallbackMap(trip){
  const node=$("#map");if(!node)return;
- if(map){try{map.remove()}catch(e){}map=null;markers=null;mapTripId=null;mapStyleReady=false}
+ if(map){try{map.remove()}catch(e){}map=null;markers=null;mapTripId=null;mapStyleReady=false;mapCreating=false}
  if(!trip.geo){
   node.innerHTML='<div class="offline-map-note">Localisation de '+esc(trip.destination||"la destination")+' indisponible. Vérifie le nom de la ville ou réessaie la géolocalisation.<br><button type="button" class="small-button" data-action="refresh-map">Réessayer</button></div>';
   return;
@@ -651,7 +678,7 @@ function updateZoomPct(){const out=$("#zoom-pct");if(out&&map)out.textContent=Ma
 function updateMapStyleButtons(){$$('[data-action="map-style"]').forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.style===mapStyleName)));$("#trip-map")?.setAttribute("data-basemap",mapStyleName)}
 function loadMapStyle(name){
  mapStyleReady=false;clearTimeout(mapStyleTimer);
- map.setStyle(mapStyleFor(name));
+ resolveMapStyle(name).then(style=>{if(map&&mapStyleName===name)map.setStyle(style)});
  /* si le style vectoriel n'arrive pas, bascule sur des tuiles raster */
  if(name!=="satellite")mapStyleTimer=setTimeout(()=>{if(!mapStyleReady&&map){mapStyleReady=false;map.setStyle(rasterFallbackStyle(name))}},9000);
 }
@@ -675,13 +702,13 @@ function addMapOverlays(){
   map.setLayoutProperty("pepper-route-line","visibility",mapRouteCoords.length>1?"visible":"none");
  }catch(e){}
 }
-function createMap(t,center){
+function createMap(t,center,style){
  const node=$("#map");node.innerHTML="";
  const coarse=matchMedia("(pointer:coarse)").matches;
- map=new maplibregl.Map({container:"map",style:mapStyleFor(mapStyleName),center,zoom:t.geo?12:2,attributionControl:false,cooperativeGestures:coarse,maxPitch:75,fadeDuration:120,
+ map=new maplibregl.Map({container:"map",style,center,zoom:t.geo?12:2,attributionControl:false,cooperativeGestures:coarse,maxPitch:75,fadeDuration:120,
   locale:{"CooperativeGesturesHandler.MobileHelpText":"Utilise deux doigts pour déplacer la carte","CooperativeGesturesHandler.WindowsHelpText":"Ctrl + molette pour zoomer","CooperativeGesturesHandler.MacHelpText":"⌘ + molette pour zoomer"}});
- map.addControl(new maplibregl.AttributionControl({compact:true}),"bottom-right");
- map.on("zoom",updateZoomPct);
+ map.addControl(new maplibregl.AttributionControl(),"bottom-left");
+ map.on("zoom",updateZoomPct);map.on("styleimagemissing",e=>addDarkMatterIcon(e.id));
  map.on("style.load",()=>{mapStyleReady=true;clearTimeout(mapStyleTimer);addMapOverlays()});
  map.on("error",e=>{if(!mapStyleReady&&mapStyleName!=="satellite"&&e&&e.error&&!e.sourceId&&!e.tile){clearTimeout(mapStyleTimer);mapStyleTimer=setTimeout(()=>{if(!mapStyleReady&&map)map.setStyle(rasterFallbackStyle(mapStyleName))},300)}});
  map.on("idle",tryAutoFit);
@@ -705,7 +732,11 @@ function renderMap(t){
  }
  mapLibraryRetryCount=0;
  const center=t.geo?[t.geo.lon,t.geo.lat]:[0,20];
- if(!map){try{markers=[];createMap(t,center)}catch(e){console.error("PEPPER map:",e);showFallbackMap(t);return}}
+ if(!map){
+  if(mapCreating)return;mapCreating=true;
+  resolveMapStyle(mapStyleName).then(style=>{try{markers=[];createMap(t,center,style)}catch(e){console.error("PEPPER map:",e);mapCreating=false;showFallbackMap(t);return}mapCreating=false;const cur=activeTrip();if(cur)renderMap(cur)});
+  return;
+ }
  const tripChanged=mapTripId!==t.id;
  if(tripChanged){mapTripId=t.id;map.jumpTo({center,zoom:t.geo?12:2,pitch:0,bearing:0});mapPitch3D=false;$('[data-action="map-3d"]')?.setAttribute("aria-pressed","false")}
  (markers||[]).forEach(m=>m.remove());markers=[];activityMarkerIndex={};mapRouteCoords=[];
