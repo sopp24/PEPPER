@@ -1,4 +1,4 @@
-const CACHE = "pepper-static-v28";
+const CACHE = "pepper-static-v29";
 const CORE = [
   "./",
   "./index.html",
@@ -62,6 +62,11 @@ self.addEventListener("fetch", event => {
   if (url.origin !== self.location.origin) return;
 
   if (request.mode === "navigate") {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+  // Le code (JS/CSS/modules) passe d'abord par le réseau : une mise en ligne est visible dès le rechargement.
+  if (/\.(?:m?js|css)$/.test(url.pathname)) {
     event.respondWith(networkFirst(request));
     return;
   }
