@@ -242,7 +242,7 @@ async function connectGitHubSync(){
 }
 
 function save(options={}){const now=new Date().toISOString();if(state.deletedTrips)for(const t of state.trips)delete state.deletedTrips[t.id];if(!options.skipTouch){state.updatedAt=now;const trip=activeTrip();if(trip)trip.updatedAt=now}const snapshot=JSON.stringify(state);try{const previous=localStorage.getItem(STORAGE_KEY);if(previous)localStorage.setItem(RECOVERY_KEY,previous);localStorage.setItem(STORAGE_KEY,snapshot)}catch(e){toast("Le stockage classique est saturé. La sauvegarde locale étendue est tentée ; exporte aussi un fichier JSON privé.","error")}persistStateToIndexedDB(snapshot);if(!options.skipRemote)scheduleGitHubSync();queueMicrotask(()=>{const t=activeTrip();if(t&&!showHome&&typeof renderHub==="function")renderHub(t)})}
-function toast(message,type){const n=document.createElement("div");n.className="toast "+(type||"");n.textContent=message;$("#toast-root").appendChild(n);setTimeout(()=>n.remove(),4200)}
+function toast(message,type){const n=document.createElement("div");n.className="toast "+(type||"");n.textContent=trs(message);$("#toast-root").appendChild(n);setTimeout(()=>n.remove(),4200)}
 function dateTime(date,time){if(!date)return null;const d=new Date(date+"T"+(time||"00:00")+":00");return Number.isNaN(d.getTime())?null:d}
 function dateTimeLabel(d){return new Intl.DateTimeFormat(LOCALE(),{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(d)}
 function getAdvice(leg){
@@ -853,7 +853,7 @@ function deleteActivity(id){const t=activeTrip();t.activities=t.activities.filte
 function deleteTransport(id){const t=activeTrip();t.transport=t.transport.filter(a=>a.id!==id);save();render();toast("Trajet supprimé.")}
 function deleteTrip(id){
  const t=state.trips.find(x=>x.id===id);if(!t)return;
- if(!confirm("Supprimer définitivement le voyage « "+(t.destination||"sans nom")+" » ? Cette action est irréversible. Pense à exporter une sauvegarde avant."))return;
+ if(!confirmT("Supprimer définitivement le voyage « "+(t.destination||"sans nom")+" » ? Cette action est irréversible. Pense à exporter une sauvegarde avant."))return;
  state.trips=state.trips.filter(x=>x.id!==id);state.deletedTrips=state.deletedTrips||{};state.deletedTrips[id]=new Date().toISOString();
  if(state.activeTripId===id)state.activeTripId=state.trips[0]?.id||null;
  showHome=true;weatherData=null;closeModal();save();render();toast("Voyage supprimé.");
@@ -862,7 +862,7 @@ function markActivity(event){
  const t=activeTrip(),a=t&&t.activities.find(x=>x.id===event.target.dataset.id);if(!a)return;a.done=event.target.checked;a.completedAt=a.done?new Date().toISOString():null;save();renderActivities(t);toast(a.done?"Activité cochée et enregistrée.":"Activité remise dans les étapes à faire.");
 }
 function markChecklist(event){const t=activeTrip(),item=t&&t.checklist.find(x=>x.id===event.target.dataset.id);if(!item)return;item.done=event.target.checked;save();renderChecklist(t)}
-function addChecklist(){const label=prompt("Quelle tâche veux-tu ajouter à ta checklist ?");if(!label||!label.trim())return;const t=activeTrip();t.checklist.push({id:uid(),label:label.trim(),done:false});save();renderChecklist(t)}
+function addChecklist(){const label=promptT("Quelle tâche veux-tu ajouter à ta checklist ?");if(!label||!label.trim())return;const t=activeTrip();t.checklist.push({id:uid(),label:label.trim(),done:false});save();renderChecklist(t)}
 function slug(v){return String(v||"voyage").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"voyage"}
 function download(content,name,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url)}
 function exportJSON(){const t=activeTrip();if(!t)return;const backup={format:"pepper-backup",version:1,exportedAt:new Date().toISOString(),activeTripId:state.activeTripId,trips:state.trips};download(JSON.stringify(backup,null,2),"pepper-sauvegarde-"+today()+".json","application/json")}
@@ -1110,7 +1110,7 @@ async function callGeminiStructured(system,prompt,schema,maxTokens=2200,keyOverr
   body:JSON.stringify({
    model:GEMINI_MODEL,
    store:false,
-   system_instruction:String(system||""),
+   system_instruction:String(system||"")+(lang==="en"?"\n\nIMPORTANT: write every user-facing text (messages, summaries, labels, reasons) in English.":""),
    input:typeof prompt==="string"?prompt:JSON.stringify(prompt),
    generation_config:{
     thinking_level:"low",
@@ -1354,7 +1354,7 @@ async function sendJalapMessage(event){
 async function commitJalapDevChanges(){
  if(jalapDevBusy||!jalapDevChanges?.length)return;
  if(!githubAccessToken()){toast("Ajoute ton jeton GitHub dans les réglages.","error");return}
- if(!confirm("Valider ces modifications et les publier dans le dépôt public sopp24/PEPPER ?"))return;
+ if(!confirmT("Valider ces modifications et les publier dans le dépôt public sopp24/PEPPER ?"))return;
  jalapDevBusy=true;
  const button=$("[data-action='jalap-dev-commit']");if(button){button.disabled=true;button.textContent="Commit direct en cours…"}
  const pending=document.createElement("div");pending.id="jalap-dev-commit-pending";pending.className="chat-message assistant-message";pending.textContent="JALAP crée le commit directement sur GitHub…";$("#jalap-thread")?.appendChild(pending);
@@ -1461,7 +1461,7 @@ document.addEventListener("submit",e=>{
 });
 document.addEventListener("keydown",e=>{if(e.key==="Tab"&&sheetState&&!modalRoot.innerHTML){const f=$$("button:not([disabled]),a[href],input:not([disabled]),textarea,select",sheetState.root).filter(x=>x.offsetParent!==null);if(f.length){const first=f[0],last=f[f.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}}if(e.key==="Escape"){if(modalRoot.innerHTML)closeModal();else closeSheet();closeMenus()}});
 $$("[data-scroll]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.scroll,node=id==="assistant-panel"?$(".assistant-panel"):$("#"+id);if(node&&node.closest("#panel-vault")){openSheet(node.id||"assistant-panel");return}if(node)node.scrollIntoView({behavior:"smooth",block:"start"})}));
-async function initialise(){localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);localStorage.removeItem("pepper-anthropic-api-key-v1");localStorage.removeItem(LEGACY_GROQ_API_KEY_KEY);await restoreStateFromIndexedDB();if(githubSyncEnabled()){if(githubAccessToken())await syncGitHubState({pull:true});else setGitHubSyncStatus("error","Jeton GitHub manquant")}else setGitHubSyncStatus("local");if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;setJalapMode(jalapMode);save({skipTouch:true,skipRemote:true});render();updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();if(githubSyncEnabled())scheduleGitHubSync(200);const t=activeTrip();if(t){renderMap(t);fetchWeather(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}
+async function initialise(){if(lang==="en"){try{await ensureI18n()}catch(e){lang="fr"}}localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);localStorage.removeItem("pepper-anthropic-api-key-v1");localStorage.removeItem(LEGACY_GROQ_API_KEY_KEY);await restoreStateFromIndexedDB();if(githubSyncEnabled()){if(githubAccessToken())await syncGitHubState({pull:true});else setGitHubSyncStatus("error","Jeton GitHub manquant")}else setGitHubSyncStatus("local");if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;setJalapMode(jalapMode);save({skipTouch:true,skipRemote:true});render();applyLang(document.body);watchLang();updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();if(githubSyncEnabled())scheduleGitHubSync(200);const t=activeTrip();if(t){renderMap(t);fetchWeather(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}
 /* ================= PEPPER UI : accueil, cartes flottantes, panneau « Voir plus » ================= */
 const CATEGORY_KIND={Culture:"culture",Architecture:"culture",Nature:"nature",Restaurant:"food",Sortie:"fun",Shopping:"shop",Transport:"move"};
 const CATEGORY_EMOJI={culture:"🏛",nature:"🌳",food:"🍴",fun:"🎭",shop:"🛍",move:"🚆",other:"📍"};
@@ -1613,7 +1613,11 @@ const focusAct=acts.find(a=>!a.done&&a.date);
  const jalap='<article class="hub-card hub-jalap"><span class="hub-tag hub-tag-ai">ASSISTANT IA</span><header class="hub-head"><h4><img src="./assets/jalap.svg" alt="" width="22" height="22"> JALAP</h4><span class="hub-modes" aria-hidden="true"><i>✈</i><i class="on">⌘</i></span></header><div class="hub-body"><p class="hub-meta">Ton compagnon de voyage et de développement, propulsé par Gemini 3.8 Flash.</p><form id="hub-idea-form" class="hub-ask"><input id="hub-idea-input" type="text" autocomplete="off" placeholder="Ex. : ajoute les Catacombes samedi…" aria-label="Écrire à JALAP"><button type="submit" aria-label="Envoyer à JALAP">↗</button></form></div><button type="button" class="hub-more" data-action="open-sheet" data-panel="assistant-panel">Voir plus</button></article>';
  const spent=(t.expenses||[]).reduce((a,x)=>a+Number(x.amount||0),0),cap=Number(t.budget||0),pct=cap>0?Math.min(100,Math.round(spent/cap*100)):0,lastEx=(t.expenses||[]).slice(-2).reverse();
  const budget=hubCard("budget","","💶 Budget",'<span class="hub-count">'+(cap>0?pct+" %":"")+'</span>','<div class="hub-budget-top"><strong>'+money(spent,t.currency)+'</strong><small>'+(cap>0?"sur "+money(cap,t.currency):"Budget non défini")+'</small></div><div class="budget-track"><div class="budget-fill" style="width:'+pct+'%"></div></div>'+(lastEx.length?'<div class="hub-expenses">'+lastEx.map(x=>'<span>'+esc(x.label)+'</span><b>'+money(x.amount,t.currency)+'</b>').join("")+'</div>':'<p class="hub-empty">Aucune dépense enregistrée.</p>'),"trip-budget");
- node.innerHTML='<div class="hub-col hub-col-left">'+stay+ess+trans+'</div><div class="hub-col hub-col-mid">'+budget+jalap+'</div><div class="hub-col hub-col-right">'+weather+act+'</div>';
+ const html='<div class="hub-col hub-col-left">'+stay+ess+trans+'</div><div class="hub-col hub-col-mid">'+budget+jalap+'</div><div class="hub-col hub-col-right">'+weather+act+'</div>';
+ if(node.dataset.html===html&&node.dataset.lang===lang)return;
+ const scrollers=$$(".hub-body",node).map(x=>x.scrollTop);
+ node.innerHTML=html;node.dataset.html=html;node.dataset.lang=lang;if(!node.dataset.ready&&!node._readyTimer)node._readyTimer=setTimeout(()=>{node.dataset.ready="1"},900);
+ $$(".hub-body",node).forEach((x,i)=>{if(scrollers[i])x.scrollTop=scrollers[i]});
  applyLang(node);
  const inp=$("#hub-idea-input");if(inp&&savedIdea){inp.value=savedIdea;if(focused)inp.focus({preventScroll:true})}
 }
@@ -1654,46 +1658,59 @@ async function aiSetupTest(){
 }
 function aiSetupRemove(){localStorage.removeItem(GEMINI_API_KEY_KEY);localStorage.removeItem(AI_VERIFIED_KEY);closeModal();renderJalapMode();toast("Clé Gemini supprimée de ce navigateur.")}
 
-/* --- langue : français (complet) / English (interface) --- */
+/* --- langue : français / English (dictionnaire chargé à la demande) --- */
 let lang=(()=>{try{return localStorage.getItem("pepper-lang-v1")==="en"?"en":"fr"}catch(e){return "fr"}})();
 function LOCALE(){return lang==="en"?"en-GB":"fr-FR"}
-const EN={
-"Ton voyage, bien organisé":"Your trip, well organised","Réglages":"Settings","＋ Nouveau voyage":"＋ New trip","Pour un voyage bien piquant !":"For a trip with some spice!","Sélectionne ton voyage":"Select your trip","Aucun voyage pour l’instant":"No trips yet",
-"TON CARNET DE VOYAGE":"YOUR TRAVEL NOTEBOOK","À venir":"Upcoming","Terminé":"Finished","En cours":"In progress","À organiser":"To organise","Dates à définir":"Dates to set","Préparation en cours":"Getting ready","Enregistré sur cet appareil":"Saved on this device","Carte · programme · carnet":"Map · plan · notebook",
-"Vue d’ensemble":"Overview","Transports":"Transport","Activités":"Activities","Hébergement":"Accommodation","Carte":"Map","Stations-service":"Fuel stations","Vols":"Flights","Tout voir":"Fit all","Actualiser ↻":"Refresh ↻",
-"ALLER · RETOUR · CORRESPONDANCES":"OUTBOUND · RETURN · CONNECTIONS","Les trajets & billets":"Journeys & tickets","＋ Ajouter un trajet":"＋ Add a journey","LE PROGRAMME":"THE PLAN","Les étapes à ne pas manquer":"Stops not to miss","＋ Ajouter une activité":"＋ Add an activity","TON CAMP DE BASE":"YOUR BASE CAMP","＋ Ajouter / modifier":"＋ Add / edit","GARDER LE CAP":"STAY ON TRACK","Budget & dépenses":"Budget & expenses","＋ Ajouter une dépense":"＋ Add an expense",
-"EN CE MOMENT":"RIGHT NOW","Météo à destination":"Weather at destination","Recherche de la météo…":"Looking up the weather…","AVANT DE PARTIR":"BEFORE YOU GO","Les essentiels":"The essentials","＋ Ajouter une tâche":"＋ Add a task","TON COMPAGNON DE VOYAGE":"YOUR TRAVEL COMPANION","✈ Voyage":"✈ Travel","⌘ Développement":"⌘ Development",
-"Ton compagnon de voyage et de développement, propulsé par Gemini 3.8 Flash.":"Your travel and development companion, powered by Gemini 3.8 Flash.","Appliquer les changements":"Apply changes","Refuser":"Decline","Copier le contexte du voyage":"Copy trip context","Préparer ma demande":"Prepare my request","Auditer mon voyage avec JALAP":"Audit my trip with JALAP","Propulsé par Gemini 3.8 Flash":"Powered by Gemini 3.8 Flash",
-"À EMPORTER":"TO TAKE WITH YOU","Ton voyage en poche":"Your trip in your pocket","Exporter le programme (.ics)":"Export the plan (.ics)","Sauvegarder tous les voyages (.json)":"Back up all trips (.json)","Restaurer une sauvegarde (.json)":"Restore a backup (.json)","Le goût de partir.":"The taste of leaving.","Voyage":"Trip","Étape":"Stop","Clé Gemini à configurer":"Gemini key to set up",
-"PROCHAIN HÉBERGEMENT":"NEXT STAY","PROCHAIN TRAJET":"NEXT JOURNEY","ASSISTANT IA":"AI ASSISTANT","Voir plus":"See more","Ajouter":"Add","Adresse":"Address","Trajet":"Journey","Budget non défini":"No budget set","Aucune dépense enregistrée.":"No expenses recorded.","Aucune tâche.":"No tasks.","Aucun trajet renseigné pour l’instant.":"No journey added yet.","Ton programme est encore vierge.":"Your plan is still empty.","Date libre":"Flexible date","Réservé":"Booked","À réserver":"To book","ALLER":"OUTBOUND","RETOUR":"RETURN","CORRESPONDANCE":"CONNECTION","À préciser":"To be confirmed","Date à préciser":"Date to confirm","Itinéraire":"Directions","Billets":"Tickets","Infos":"Info","Transporteur":"Carrier","Départ":"Departure","Arrivée":"Arrival","À confirmer":"To be confirmed","Hôtel":"Hotel",
-"Ajoute ton logement pour retrouver l’adresse et les horaires d’arrivée.":"Add your accommodation to see its address and check-in time."};
-const EN_RULES=[[/^(\d+) activités$/,"$1 activities"],[/^(\d+) programmées$/,"$1 scheduled"],[/^(\d+) à planifier$/,"$1 to plan"],[/^(\d+) faites$/,"$1 done"],[/^J - (\d+)$/,"D - $1"],[/^(\d+) voyageurs?$/,(m,n)=>n+(n==="1"?" traveller":" travellers")],[/^sur (.+)$/,"of $1"],[/^Actualisée : (.+)$/,"Updated: $1"],[/^Humidité (\d+) %$/,"Humidity $1 %"],[/^Voir les (\d+)$/,"See all $1"]];
-const WEATHER_EN={"Ciel dégagé":"Clear sky","Plutôt dégagé":"Mostly clear","Partiellement nuageux":"Partly cloudy","Couvert":"Overcast","Brouillard":"Fog"};
-const PLACEHOLDER_EN={"Ex. : ajoute les Catacombes samedi…":"E.g. add the Catacombs on Saturday…","Ex. : Ajoute les Catacombes samedi vers 10 h…":"E.g. Add the Catacombs on Saturday around 10…"};
-function enText(raw){
- const whole=EN[raw.trim()];if(whole!==undefined)return raw.replace(raw.trim(),whole);
- const m=raw.match(/^([^\p{L}\d]*)([\s\S]*?)([^\p{L}\d]*)$/u);if(!m||!m[2])return null;
- const core=m[2];let out=EN[core]??WEATHER_EN[core];
- if(out===undefined)for(const [re,rep] of EN_RULES){if(re.test(core)){out=core.replace(re,rep);break}}
- return out===undefined?null:m[1]+out+m[3];
+let I18N=null,I18N_FRAGMENTS=[],i18nObserver=null,i18nTimer=0;
+async function ensureI18n(){
+ if(I18N)return I18N;
+ const mod=await import("./lib/i18n-en.mjs"),norm=s=>String(s).replace(/'/g,"’");
+ I18N={exact:new Map(Object.entries(mod.EN).map(([k,v])=>[norm(k),v])),rules:mod.EN_RULES};
+ I18N_FRAGMENTS=[...I18N.exact.keys()].filter(k=>k.length>=14).sort((a,b)=>b.length-a.length);
+ return I18N;
 }
+function enText(raw){
+ if(!I18N||!raw)return null;
+ const text=raw.replace(/'/g,"’"),trimmed=text.trim();if(!trimmed)return null;
+ const whole=I18N.exact.get(trimmed);if(whole!==undefined)return text.replace(trimmed,whole);
+ for(const [re,rep] of I18N.rules){if(re.test(trimmed))return text.replace(trimmed,trimmed.replace(re,rep))}
+ const m=text.match(/^([^\p{L}\d]*)([\s\S]*?)([^\p{L}\d]*)$/u);
+ if(m&&m[2]){const e=I18N.exact.get(m[2]);if(e!==undefined)return m[1]+e+m[3];for(const [re,rep] of I18N.rules){if(re.test(m[2]))return m[1]+m[2].replace(re,rep)+m[3]}}
+ let out=text,changed=false;
+ for(const k of I18N_FRAGMENTS){if(out.includes(k)){out=out.split(k).join(I18N.exact.get(k));changed=true}}
+ return changed?out:null;
+}
+function trs(message){if(lang!=="en"||!I18N)return message;return enText(String(message))||message}
+function confirmT(message){return confirm(trs(message))}
+function promptT(message){return prompt(trs(message))}
+const I18N_ATTRS=["placeholder","title","aria-label","alt"];
 function applyLang(root){
  if(!root)return;
- const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement&&!n.parentElement.closest("script,style,textarea,#jalap-thread,.leaflet-container")&&n.nodeValue.trim()?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT});
+ const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement&&!n.parentElement.closest("script,style,textarea,.leaflet-container")&&n.nodeValue.trim()?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT});
  const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
  for(const n of nodes){
   if(n._en!==undefined&&n.nodeValue===n._en){if(lang==="fr"){n.nodeValue=n._fr;n._en=undefined}continue}
   if(lang==="en"){const t=enText(n.nodeValue);if(t!==null&&t!==n.nodeValue){n._fr=n.nodeValue;n._en=t;n.nodeValue=t}}
  }
- $$("[placeholder]",root).forEach(el=>{const ph=el.getAttribute("placeholder");if(lang==="en"&&el.dataset.phFr===undefined&&PLACEHOLDER_EN[ph]){el.dataset.phFr=ph;el.setAttribute("placeholder",PLACEHOLDER_EN[ph])}else if(lang==="fr"&&el.dataset.phFr!==undefined){el.setAttribute("placeholder",el.dataset.phFr);el.removeAttribute("data-ph-fr")}});
+ const scope=root.nodeType===1?[root,...root.querySelectorAll(I18N_ATTRS.map(a=>"["+a+"]").join(","))]:[...root.querySelectorAll(I18N_ATTRS.map(a=>"["+a+"]").join(","))];
+ for(const el of scope){if(!el.getAttribute)continue;for(const a of I18N_ATTRS){const v=el.getAttribute(a);if(v===null)continue;const key="fr"+a.replace(/(^|-)(\w)/g,(x,y,z)=>z.toUpperCase());
+  if(lang==="en"){const t=enText(v);if(t!==null&&t!==v&&el.dataset[key]===undefined){el.dataset[key]=v;el.setAttribute(a,t)}}
+  else if(el.dataset[key]!==undefined){el.setAttribute(a,el.dataset[key]);delete el.dataset[key]}}}
  $$(".lang-button").forEach(b=>{const t=b.lastChild;if(t&&t.nodeType===3)t.nodeValue=lang.toUpperCase()});
  $$('[data-action="set-lang"]').forEach(b=>{const on=b.dataset.lang===lang;b.classList.toggle("is-current",on);let c=b.querySelector("i");if(on&&!c){c=document.createElement("i");c.textContent="✓";b.appendChild(c)}if(!on&&c&&c.textContent==="✓")b.removeChild(c)});
  document.documentElement.lang=lang;
 }
-function setLang(next){
+function watchLang(){
+ if(lang!=="en"){if(i18nObserver){i18nObserver.disconnect();i18nObserver=null}return}
+ if(i18nObserver)return;
+ i18nObserver=new MutationObserver(()=>{if(i18nTimer)return;i18nTimer=setTimeout(()=>{i18nTimer=0;if(!i18nObserver)return;i18nObserver.disconnect();applyLang(document.body);i18nObserver.observe(document.body,{childList:true,subtree:true,characterData:true})},50)});
+ i18nObserver.observe(document.body,{childList:true,subtree:true,characterData:true});
+}
+async function setLang(next){
  lang=next==="en"?"en":"fr";try{localStorage.setItem("pepper-lang-v1",lang)}catch(e){}
- closeMenus();render();applyLang(document.body);
- toast(lang==="en"?"Interface switched to English. Forms and JALAP replies stay in French.":"Interface en français.");
+ if(lang==="en")await ensureI18n();
+ closeMenus();render();applyLang(document.body);watchLang();
+ toast(lang==="en"?"Interface switched to English. JALAP now answers in English.":"Interface en français. JALAP répond en français.");
 }
 
 initialise();

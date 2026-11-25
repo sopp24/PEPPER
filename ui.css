@@ -207,3 +207,7 @@ body[data-view="home"] .topbar,body[data-view="home"] #network-status,body[data-
 .hub-card.hub-budget .budget-track{height:6px;border-radius:9px;background:rgba(255,255,255,.1);overflow:hidden}
 .hub-expenses{display:grid;grid-template-columns:1fr auto;gap:2px 12px;font-size:12px;color:#b9b6b3}.hub-expenses b{color:#fff;font-weight:600}
 @media(min-width:1100px){.hub-col-mid{gap:14px}}
+/* l'animation d'entrée ne se rejoue pas à chaque mise à jour */
+.hub-cards[data-ready] .hub-card{animation:none}
+.hub-cards[data-ready="1"] .hub-card{animation:none}
+@supports(content-visibility:auto){.privacy-footnote,.app-footer{content-visibility:auto}}
