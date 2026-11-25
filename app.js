@@ -305,7 +305,7 @@ function render(){
  const phase=getTripPhase(t);$("#trip-workspace").dataset.phase=phase;renderJourneyOverview(t);
  $("#trip-switcher").innerHTML=state.trips.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===t.id?"selected":"")+'>'+esc(x.destination)+'</option>').join("");
  const q=encodeURIComponent(t.destination||"");$("#link-google-maps").href="https://www.google.com/maps/search/?api=1&query="+q;$("#link-apple-maps").href="https://maps.apple.com/?q="+q;$("#link-waze").href="https://www.waze.com/ul?q="+q+"&navigate=yes";$("#link-fuel").href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent("station-service carburant "+t.destination);
- renderStay(t);renderTransport(t);renderActivities(t);renderBudget(t);renderChecklist(t);renderHub(t);
+ renderStay(t);renderTransport(t);renderActivities(t);renderChecklist(t);renderHub(t);
  if(!t.geo&&t.destination)fetchDestination(t);else{renderMap(t);if(!weatherData||weatherData.tripId!==t.id)fetchWeather(t)}
 }
 function renderStay(t){
@@ -352,7 +352,6 @@ function renderJourneyOverview(trip){
  const phase=getTripPhase(trip),activities=trip.activities||[],checklist=trip.checklist||[],transport=trip.transport||[];
  const pendingBookings=activities.filter(a=>!a.done&&(activityBookingState(a)==="to_book"||a.bookingRequired)&&activityBookingState(a)!=="booked");
  const flexible=activities.filter(a=>!a.done&&!a.date),pendingTasks=checklist.filter(x=>!x.done);
- const totalSpent=(trip.expenses||[]).reduce((sum,item)=>sum+Number(item.amount||0),0);
  const daysBefore=trip.startDate?Math.max(0,Math.ceil((new Date(trip.startDate+"T00:00:00")-new Date(today()+"T00:00:00"))/86400000)):null;
  let kicker="AVANT LE DÉPART",headline="Prépare ton voyage à ton rythme",description="Centralise les essentiels maintenant. Garde les activités flexibles sans date, puis construis ton planning quand tes réservations seront confirmées.",metrics=[
   [String(pendingBookings.length),"réservation(s) à traiter"],
@@ -373,9 +372,9 @@ function renderJourneyOverview(trip){
  }else{
   kicker="APRÈS LE VOYAGE";headline="Le voyage continue dans tes souvenirs";
   const completed=activities.filter(a=>a.done).length;
-  description="Ton séjour est terminé. Fais le bilan des dépenses, retrouve les étapes réalisées et conserve ton carnet pour préparer le prochain départ.";
-  metrics=[[completed+"/"+activities.length,"activité(s) réalisées"],[money(totalSpent,trip.currency),"dépenses enregistrées"],[String(activities.length-completed),"étape(s) non cochée(s)"]];
-  actions=[["Faire le bilan du budget","trip-budget"],["Revoir les activités","trip-itinerary"],["Sauvegarder le carnet","trip-export"]];
+  description="Ton séjour est terminé. Retrouve les étapes réalisées et conserve ton carnet pour préparer le prochain départ.";
+  metrics=[[completed+"/"+activities.length,"activité(s) réalisées"],[String(transport.length),"trajet(s) effectué(s)"],[String(activities.length-completed),"étape(s) non cochée(s)"]];
+  actions=[["Revoir les activités","trip-itinerary"],["Voir les trajets","trip-transport"],["Sauvegarder le carnet","trip-export"]];
  }
  const actionsHtml=actions.map(([label,id])=>id==="trip-export"?'<button type="button" class="phase-action" data-action="export-json">'+esc(label)+'</button>':'<button type="button" class="phase-action" data-scroll="'+esc(id)+'">'+esc(label)+'</button>').join("");
  node.className="journey-overview phase-"+phase;
@@ -593,85 +592,150 @@ function renderActivities(t){
  }).join("");
  $("#activities-list").innerHTML=(planned.length?'<div class="itinerary-group-label">PLANNING PROGRAMMÉ</div>'+renderRows(planned):"")+(flexible.length?'<div class="itinerary-group-label">À PLANIFIER · SANS DATE</div>'+renderRows(flexible):"");
 }
-function renderBudget(t){
- const total=(t.expenses||[]).reduce((s,x)=>s+Number(x.amount||0),0),budget=Number(t.budget||0),pct=budget>0?Math.min(100,Math.round(total/budget*100)):0;
- $("#budget-content").innerHTML='<div class="budget-top"><div><div class="budget-spent">'+money(total,t.currency)+'</div><div class="budget-cap">Dépensé'+(budget>0?" sur "+money(budget,t.currency):"")+'</div></div><div class="budget-cap">'+(budget>0?pct+" % du budget":"Budget non défini")+'</div></div><div class="budget-track"><div class="budget-fill" style="width:'+pct+'%"></div></div><div class="expense-list">'+((t.expenses||[]).slice(-4).reverse().map(x=>'<div class="expense-row"><span>'+esc(x.label)+' <small>'+esc(x.category||"Divers")+'</small></span><strong>'+money(x.amount,t.currency)+'</strong></div>').join("")||'<div class="empty-inline">Aucune dépense enregistrée.</div>')+'</div>';
-}
 function renderChecklist(t){
  const list=t.checklist||[],done=list.filter(x=>x.done).length;$("#check-progress").textContent=done+" / "+list.length;
  $("#checklist-content").innerHTML=list.map(x=>'<label class="check-row '+(x.done?"done":"")+'"><input type="checkbox" data-action="toggle-check" data-id="'+esc(x.id)+'" '+(x.done?"checked":"")+'><span>'+esc(x.label)+'</span></label>').join("")||'<div class="empty-inline">Aucune tâche.</div>';
 }
-function ensureLeaflet(){
- if(window.L)return Promise.resolve(true);
+/* ===================== Carte (MapLibre GL : vectorielle, fluide, 3D) ===================== */
+const MAP_STYLE_KEY="pepper-map-style-v1";
+let mapStyleName=(()=>{try{const v=localStorage.getItem(MAP_STYLE_KEY);return ["satellite","dark","plan"].includes(v)?v:"satellite"}catch(e){return "satellite"}})();
+let mapNeedsFit=false,mapStyleReady=false,mapStyleTimer=0,mapPitch3D=false,mapRouteCoords=[],mapUserMarker=null,mapResizeObserver=null;
+const ESRI_IMAGERY="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const ESRI_PLACES="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}";
+const MAP_STYLE_URLS={dark:"https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",plan:"https://tiles.openfreemap.org/styles/liberty"};
+function rasterFallbackStyle(name){
+ const tiles=name==="plan"?["https://tile.openstreetmap.org/{z}/{x}/{y}.png"]:["https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png","https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"];
+ return {version:8,sources:{base:{type:"raster",tiles,tileSize:256,maxzoom:19,attribution:"© OpenStreetMap contributors"+(name==="plan"?"":" © CARTO")}},layers:[{id:"base",type:"raster",source:"base"}]};
+}
+function mapStyleFor(name){
+ if(name==="satellite")return {version:8,sources:{sat:{type:"raster",tiles:[ESRI_IMAGERY],tileSize:256,maxzoom:19,attribution:"Imagerie © Esri, Maxar, Earthstar Geographics"},places:{type:"raster",tiles:[ESRI_PLACES],tileSize:256,maxzoom:19}},layers:[{id:"sat",type:"raster",source:"sat"},{id:"places",type:"raster",source:"places"}]};
+ return MAP_STYLE_URLS[name]||MAP_STYLE_URLS.plan;
+}
+function ensureMapLib(){
+ if(window.maplibregl)return Promise.resolve(true);
  if(leafletPromise)return leafletPromise;
  leafletPromise=new Promise(resolve=>{
-  const sources=["https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js","https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"];
-  let index=0;
-  const next=()=>{
-   if(window.L){resolve(true);return}
-   if(index>=sources.length){resolve(false);return}
-   const script=document.createElement("script");script.src=sources[index++];script.async=true;script.crossOrigin="anonymous";
-   script.onload=()=>resolve(!!window.L);
-   script.onerror=()=>{script.remove();next()};
-   document.head.appendChild(script);
-  };
-  next();
+  const css=document.createElement("link");css.rel="stylesheet";css.href="./assets/vendor/maplibre-gl.css";document.head.appendChild(css);
+  const script=document.createElement("script");script.src="./assets/vendor/maplibre-gl.js";script.async=true;
+  script.onload=()=>resolve(!!window.maplibregl);script.onerror=()=>{script.remove();resolve(false)};
+  document.head.appendChild(script);
  });
- leafletPromise.then(ready=>{if(!ready)leafletPromise=null});
+ leafletPromise.then(ok=>{if(!ok)leafletPromise=null});
  return leafletPromise;
 }
 function showFallbackMap(trip){
  const node=$("#map");if(!node)return;
- if(map){try{map.remove()}catch(e){}map=null;markers=null;mapTripId=null;}
+ if(map){try{map.remove()}catch(e){}map=null;markers=null;mapTripId=null;mapStyleReady=false}
  if(!trip.geo){
   node.innerHTML='<div class="offline-map-note">Localisation de '+esc(trip.destination||"la destination")+' indisponible. Vérifie le nom de la ville ou réessaie la géolocalisation.<br><button type="button" class="small-button" data-action="refresh-map">Réessayer</button></div>';
   return;
  }
  const lat=Number(trip.geo.lat),lon=Number(trip.geo.lon),delta=.025;
  const bbox=[lon-delta,lat-delta,lon+delta,lat+delta].join("%2C");
- node.innerHTML='<iframe class="map-fallback-frame" title="Carte de '+esc(trip.destination)+'" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.openstreetmap.org/export/embed.html?bbox='+bbox+'&layer=mapnik&marker='+lat+'%2C'+lon+'"></iframe><div class="map-fallback-note">Carte simplifiée · <a href="https://www.openstreetmap.org/?mlat='+lat+'&mlon='+lon+'#map=14/'+lat+'/'+lon+'" target="_blank" rel="noopener noreferrer">Ouvrir OpenStreetMap ↗</a></div>';
+ node.innerHTML='<iframe class="map-fallback-frame" title="Carte de '+esc(trip.destination)+'" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.openstreetmap.org/export/embed.html?bbox='+bbox+'&layer=mapnik&marker='+lat+'%2C'+lon+'"></iframe><div class="map-fallback-note">Carte simplifiée · <a href="https://www.openstreetmap.org/?mlat='+lat+'&mlon='+lon+'#map=15/'+lat+'/'+lon+'" target="_blank" rel="noopener noreferrer">Ouvrir dans OpenStreetMap ↗</a></div>';
+}
+function isDesktopMap(){return matchMedia("(min-width:1100px)").matches}
+/* Décale le centre visuel de la carte pour que les lieux restent visibles entre les cartes flottantes. */
+function mapPadding(){
+ const hub=$("#trip-map");if(!hub||hub.classList.contains("hub-hidden"))return {top:70,bottom:40,left:40,right:40};
+ if(isDesktopMap()){const l=$(".hub-col-left"),r=$(".hub-col-right");return {top:80,bottom:90,left:(l?l.offsetWidth:300)+48,right:(r?r.offsetWidth:340)+48}}
+ if(matchMedia("(max-width:760px)").matches){const c=$("#hub-cards");return {top:70,bottom:(c?Math.min(c.offsetHeight,260):200)+30,left:20,right:20}}
+ return {top:70,bottom:60,left:40,right:40};
+}
+function tryAutoFit(){
+ if(!mapNeedsFit||!map)return;const n=$("#map");if(!n||n.clientWidth<200||n.clientHeight<200)return;
+ mapNeedsFit=false;map.resize();applyMapPadding();fitMap();
+}
+function applyMapPadding(animate){if(!map)return;try{map.setPadding(mapPadding())}catch(e){}}
+function updateZoomPct(){const out=$("#zoom-pct");if(out&&map)out.textContent=Math.round(100*Math.pow(2,map.getZoom()-12))+"%"}
+function updateMapStyleButtons(){$$('[data-action="map-style"]').forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.style===mapStyleName)));$("#trip-map")?.setAttribute("data-basemap",mapStyleName)}
+function loadMapStyle(name){
+ mapStyleReady=false;clearTimeout(mapStyleTimer);
+ map.setStyle(mapStyleFor(name));
+ /* si le style vectoriel n'arrive pas, bascule sur des tuiles raster */
+ if(name!=="satellite")mapStyleTimer=setTimeout(()=>{if(!mapStyleReady&&map){mapStyleReady=false;map.setStyle(rasterFallbackStyle(name))}},9000);
+}
+function setMapStyle(name){
+ if(!["satellite","dark","plan"].includes(name))return;
+ mapStyleName=name;try{localStorage.setItem(MAP_STYLE_KEY,name)}catch(e){}
+ updateMapStyleButtons();if(map)loadMapStyle(name);
+}
+function addMapOverlays(){
+ if(!map||!mapStyleReady)return;
+ const feature={type:"Feature",geometry:{type:"LineString",coordinates:mapRouteCoords},properties:{}};
+ try{
+  const src=map.getSource("pepper-route");
+  if(src){src.setData(feature)}
+  else{
+   map.addSource("pepper-route",{type:"geojson",data:feature});
+   map.addLayer({id:"pepper-route-glow",type:"line",source:"pepper-route",layout:{"line-cap":"round","line-join":"round"},paint:{"line-color":"#f2a66f","line-width":9,"line-opacity":.22,"line-blur":6}});
+   map.addLayer({id:"pepper-route-line",type:"line",source:"pepper-route",layout:{"line-cap":"round","line-join":"round"},paint:{"line-color":"#ffd2a8","line-width":2.5,"line-dasharray":[1.6,1.6],"line-opacity":.95}});
+  }
+  map.setLayoutProperty("pepper-route-glow","visibility",mapRouteCoords.length>1?"visible":"none");
+  map.setLayoutProperty("pepper-route-line","visibility",mapRouteCoords.length>1?"visible":"none");
+ }catch(e){}
+}
+function createMap(t,center){
+ const node=$("#map");node.innerHTML="";
+ const coarse=matchMedia("(pointer:coarse)").matches;
+ map=new maplibregl.Map({container:"map",style:mapStyleFor(mapStyleName),center,zoom:t.geo?12:2,attributionControl:false,cooperativeGestures:coarse,maxPitch:75,fadeDuration:120,
+  locale:{"CooperativeGesturesHandler.MobileHelpText":"Utilise deux doigts pour déplacer la carte","CooperativeGesturesHandler.WindowsHelpText":"Ctrl + molette pour zoomer","CooperativeGesturesHandler.MacHelpText":"⌘ + molette pour zoomer"}});
+ map.addControl(new maplibregl.AttributionControl({compact:true}),"bottom-right");
+ map.on("zoom",updateZoomPct);
+ map.on("style.load",()=>{mapStyleReady=true;clearTimeout(mapStyleTimer);addMapOverlays()});
+ map.on("error",e=>{if(!mapStyleReady&&mapStyleName!=="satellite"&&e&&e.error&&!e.sourceId&&!e.tile){clearTimeout(mapStyleTimer);mapStyleTimer=setTimeout(()=>{if(!mapStyleReady&&map)map.setStyle(rasterFallbackStyle(mapStyleName))},300)}});
+ map.on("idle",tryAutoFit);
+ if(window.ResizeObserver){mapResizeObserver&&mapResizeObserver.disconnect();mapResizeObserver=new ResizeObserver(()=>{if(map){map.resize();applyMapPadding();tryAutoFit()}});mapResizeObserver.observe(node)}
+ updateMapStyleButtons();updateZoomPct();applyMapPadding();
+}
+function mapPin(kind,emoji,label){
+ const el=document.createElement("button");el.type="button";el.className="jalap-map-pin "+kind;el.setAttribute("aria-label",label);el.innerHTML="<span>"+emoji+"</span>";return el;
+}
+function addMapMarker(lngLat,el,popupHtml){
+ const marker=new maplibregl.Marker({element:el,anchor:"center"}).setLngLat(lngLat);
+ if(popupHtml)marker.setPopup(new maplibregl.Popup({offset:24,closeButton:false,maxWidth:"260px",className:"glass-popup"}).setHTML(popupHtml));
+ marker.addTo(map);markers.push(marker);return marker;
 }
 function renderMap(t){
- if(!window.L){
-  const node=$("#map");if(node)node.innerHTML='<div class="offline-map-note"><span class="loading-spinner"></span><span>Chargement de la carte…</span></div>';
-  ensureLeaflet().then(ready=>{if(activeTrip()?.id!==t.id)return;if(ready)renderMap(t);else showFallbackMap(t)});
+ if(!t)return;
+ if(!window.maplibregl){
+  const node=$("#map");if(node&&!node.firstChild)node.innerHTML='<div class="offline-map-note"><span class="loading-spinner"></span><span>Chargement de la carte…</span></div>';
+  ensureMapLib().then(ready=>{if(activeTrip()?.id!==t.id)return;if(ready)renderMap(t);else showFallbackMap(t)});
   return;
  }
  mapLibraryRetryCount=0;
- const center=t.geo?[t.geo.lat,t.geo.lon]:[20,0];
- if(!map){
-  map=L.map("map",{scrollWheelZoom:false,zoomControl:false}).setView(center,t.geo?12:2);L.control.zoom({position:"topleft",zoomInTitle:"Zoom +",zoomOutTitle:"Zoom −"}).addTo(map);const ZoomPct=L.Control.extend({options:{position:"topleft"},onAdd(){const d=L.DomUtil.create("div","zoom-pct");d.setAttribute("aria-label","Niveau de zoom");const u=()=>{d.textContent=Math.round(100*Math.pow(2,map.getZoom()-12))+"%"};map.on("zoomend",u);u();return d}});new ZoomPct().addTo(map);
-  const osm=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Imagery &copy; Esri, Maxar, Earthstar Geographics"});L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,pane:"shadowPane"}).addTo(map);
-  let fallbackAdded=false;
-  osm.on("tileerror",()=>{
-   if(fallbackAdded||!map)return;fallbackAdded=true;
-   try{map.removeLayer(osm)}catch(e){}
-   const carto=L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{maxZoom:19,subdomains:"abcd",attribution:'&copy; OpenStreetMap contributors &copy; CARTO'});
-   carto.on("tileerror",()=>{if(activeTrip()?.id===t.id)showFallbackMap(t)});
-   carto.addTo(map);
-  });
-  osm.addTo(map);markers=L.layerGroup().addTo(map);
- }
- if(mapTripId!==t.id){mapTripId=t.id;map.setView(center,t.geo?12:2)}markers.clearLayers();activityMarkerIndex={};
- if(t.geo){const icon=L.divIcon({className:"",html:'<div class="jalap-map-pin destination"><span>✦</span></div>',iconSize:[34,34],iconAnchor:[17,17]});L.marker(center,{icon}).addTo(markers).bindPopup("<strong>"+esc(t.destination)+"</strong><br>Destination")}
- if(t.accommodation&&t.accommodation.geo){const g=t.accommodation.geo,icon=L.divIcon({className:"",html:'<div class="jalap-map-pin stay"><span>🛏</span></div>',iconSize:[34,34],iconAnchor:[17,17]});L.marker([g.lat,g.lon],{icon}).addTo(markers).bindPopup("<strong>"+esc(t.accommodation.name)+"</strong><br>Hébergement")}
- (t.activities||[]).forEach((a,i)=>{if(!a.geo)return;const p=[a.geo.lat,a.geo.lon];const icon=L.divIcon({className:"",html:'<div class="jalap-map-pin cat-'+categoryKind(a.category)+(a.done?" is-done":"")+'"><span>'+categoryEmoji(a.category)+'</span></div>',iconSize:[34,34],iconAnchor:[17,17]});const marker=L.marker(p,{icon}).addTo(markers).bindPopup("<strong>"+esc(a.name)+"</strong><br>"+esc(a.date?dateLabel(a.date):"À planifier"));activityMarkerIndex[a.id]=marker});
- const count=$("#map-activity-count");if(count)count.textContent=(t.activities||[]).filter(a=>a.geo).length+" lieu(x) repéré(s)";
- setTimeout(()=>{if(map)map.invalidateSize()},160);
+ const center=t.geo?[t.geo.lon,t.geo.lat]:[0,20];
+ if(!map){try{markers=[];createMap(t,center)}catch(e){console.error("PEPPER map:",e);showFallbackMap(t);return}}
+ const tripChanged=mapTripId!==t.id;
+ if(tripChanged){mapTripId=t.id;map.jumpTo({center,zoom:t.geo?12:2,pitch:0,bearing:0});mapPitch3D=false;$('[data-action="map-3d"]')?.setAttribute("aria-pressed","false")}
+ (markers||[]).forEach(m=>m.remove());markers=[];activityMarkerIndex={};mapRouteCoords=[];
+ if(t.geo)addMapMarker(center,mapPin("destination","✦",t.destination||"Destination"),"<strong>"+esc(t.destination)+"</strong><br>Destination");
+ if(t.accommodation&&t.accommodation.geo){const g=t.accommodation.geo;addMapMarker([g.lon,g.lat],mapPin("stay","🛏","Hébergement"),"<strong>"+esc(t.accommodation.name)+"</strong><br>Hébergement")}
+ const dated=[];
+ (t.activities||[]).forEach(a=>{
+  if(!a.geo)return;
+  const m=addMapMarker([a.geo.lon,a.geo.lat],mapPin("cat-"+categoryKind(a.category)+(a.done?" is-done":""),categoryEmoji(a.category),a.name),"<strong>"+esc(a.name)+"</strong><br>"+esc(a.date?dateLabel(a.date):"À planifier"));
+  activityMarkerIndex[a.id]=m;
+  if(a.date)dated.push({a,lngLat:[a.geo.lon,a.geo.lat]});
+ });
+ dated.sort((x,y)=>((x.a.date||"")+(x.a.startTime||"")).localeCompare((y.a.date||"")+(y.a.startTime||"")));
+ mapRouteCoords=dated.map(x=>x.lngLat);addMapOverlays();
+ const count=$("#map-activity-count");if(count){const n=(t.activities||[]).filter(a=>a.geo).length;count.textContent=n?"· "+n+" lieu(x) repéré(s)":""}
+ const label=$("#map-location-label");if(label)label.textContent=t.destination||"Destination";
+ applyMapPadding();
+ if(tripChanged){mapNeedsFit=markers.length>1;setTimeout(tryAutoFit,200)}
 }
-
 function focusActivityOnMap(id){
  const t=activeTrip(),activity=t?.activities.find(item=>item.id===id);if(!t||!activity)return;
  const show=()=>{
   $("#trip-map")?.scrollIntoView({behavior:"smooth",block:"start"});
-  if(!window.L){renderMap(t);return}
-  if(mapTripId!==t.id)renderMap(t);
+  if(!window.maplibregl||!map||mapTripId!==t.id){renderMap(t)}
   setTimeout(()=>{
    if(!map||!activity.geo)return;
-   map.invalidateSize();map.setView([activity.geo.lat,activity.geo.lon],16,{animate:true});
-   const marker=activityMarkerIndex[id];if(marker)marker.openPopup();
+   map.flyTo({center:[activity.geo.lon,activity.geo.lat],zoom:16,duration:1100,essential:true});
+   const marker=activityMarkerIndex[id];if(marker&&!marker.getPopup().isOpen())marker.togglePopup();
    const card=$("#map-selection-card");if(card){card.innerHTML='<strong>'+esc(activity.name)+'</strong><span>'+esc(activity.date?dateLabel(activity.date):"Date libre")+" · "+esc(activity.address||"Adresse à préciser")+'</span><button type="button" data-action="activity-detail" data-id="'+esc(activity.id)+'">Ouvrir la fiche ↗</button>';card.hidden=false}
-  },220);
+  },260);
  };
  if(activity.geo){show();return}
  toast("Localisation de cette étape en cours…");
@@ -680,7 +744,41 @@ function focusActivityOnMap(id){
   activity.geo=point;save();renderMap(t);show();
  }).catch(()=>toast("Impossible de géolocaliser cette étape.","error"));
 }
-function fitMap(){if(!map)return;const layers=markers?markers.getLayers():[];if(layers.length>1)map.fitBounds(L.featureGroup(layers).getBounds().pad(.18),{maxZoom:14});else if(activeTrip()&&activeTrip().geo)map.setView([activeTrip().geo.lat,activeTrip().geo.lon],13)}
+function fitMap(){
+ if(!map)return;map.resize();
+ const t=activeTrip(),pts=(markers||[]).map(m=>m.getLngLat());
+ if(pts.length>1){const b=new maplibregl.LngLatBounds(pts[0],pts[0]);pts.forEach(p=>b.extend(p));map.fitBounds(b,{padding:mapPadding(),maxZoom:15,duration:900})}
+ else if(t&&t.geo)map.flyTo({center:[t.geo.lon,t.geo.lat],zoom:13,duration:900});
+}
+function toggle3D(){
+ if(!map)return;mapPitch3D=!mapPitch3D;
+ map.easeTo({pitch:mapPitch3D?62:0,bearing:mapPitch3D?-17:0,duration:900});
+ $('[data-action="map-3d"]')?.setAttribute("aria-pressed",String(mapPitch3D));
+}
+function locateMe(){
+ if(!navigator.geolocation){toast("Géolocalisation indisponible.","error");return}
+ navigator.geolocation.getCurrentPosition(pos=>{
+  if(!map)return;const p=[pos.coords.longitude,pos.coords.latitude];
+  if(mapUserMarker)mapUserMarker.remove();
+  const el=document.createElement("div");el.className="user-dot";el.setAttribute("aria-label","Ma position");
+  mapUserMarker=new maplibregl.Marker({element:el}).setLngLat(p).addTo(map);
+  map.flyTo({center:p,zoom:Math.max(map.getZoom(),15),duration:1200});
+ },()=>toast("Géolocalisation indisponible. Vérifie l’autorisation du navigateur.","error"),{enableHighAccuracy:true,timeout:10000});
+}
+function toggleHub(){
+ const hub=$("#trip-map");if(!hub)return;const hidden=hub.classList.toggle("hub-hidden");
+ $('[data-action="toggle-hub"]')?.setAttribute("aria-pressed",String(hidden));
+ try{localStorage.setItem("pepper-hub-hidden-v1",hidden?"1":"0")}catch(e){}
+ setTimeout(()=>{applyMapPadding();if(map)map.resize()},60);
+}
+function toggleMapFullscreen(force){
+ const hub=$("#trip-map");if(!hub)return;const on=force===undefined?!hub.classList.contains("is-fullscreen"):force;
+ hub.classList.toggle("is-fullscreen",on);document.body.classList.toggle("map-full",on);
+ $('[data-action="map-fullscreen"]')?.setAttribute("aria-pressed",String(on));
+ setTimeout(()=>{if(map){map.resize();applyMapPadding()}},80);
+}
+window.addEventListener("resize",()=>{if(map)applyMapPadding()});
+
 async function geocode(query){
  if(!query)return null;
  const parts=String(query).split(",").map(x=>x.trim()).filter(Boolean),name=parts[0],expected=normalizedSearchText(parts.slice(1).join(" "));
@@ -791,7 +889,7 @@ function renderWeather(){
 function openModal(title,subtitle,body){modalRoot.innerHTML='<div class="modal-overlay" data-action="close-modal"><section class="modal" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><div class="modal-head"><div><h2>'+esc(title)+'</h2><p>'+esc(subtitle||"")+'</p></div><button class="modal-close" type="button" data-action="close-modal">×</button></div>'+body+'</section></div>';const first=$("input,textarea,select,button",modalRoot);if(first)first.focus({preventScroll:true})}
 function closeModal(){modalRoot.innerHTML=""}
 function tripForm(t){
- const x=t||{},network=suggestedLocalNetwork(x.destination),body='<form id="trip-form"><input type="hidden" name="id" value="'+esc(x.id||"")+'"><div class="form-grid"><div class="field full"><label>DESTINATION</label><input name="destination" required placeholder="Ex. : Athènes, Grèce" value="'+esc(x.destination||"")+'"></div><div class="field"><label>DATE DE DÉPART</label><input type="date" name="startDate" value="'+esc(x.startDate||today())+'"></div><div class="field"><label>DATE DE RETOUR</label><input type="date" name="endDate" value="'+esc(x.endDate||"")+'"></div><div class="field"><label>VOYAGEURS</label><input type="number" min="1" max="30" name="people" value="'+esc(x.people||1)+'"></div><div class="field"><label>BUDGET TOTAL</label><input type="number" min="0" step="10" name="budget" value="'+esc(x.budget||"")+'"></div><div class="field"><label>DEVISE</label><select name="currency">'+["EUR","USD","GBP","JPY","CHF","CAD","MAD","THB"].map(c=>'<option '+((x.currency||"EUR")===c?"selected":"")+'>'+c+'</option>').join("")+'</select></div><div class="field full"><label>RÉSEAU DE TRANSPORT OFFICIEL SUR PLACE</label><input name="localTransitName" value="'+esc(x.localTransitName||"")+'" placeholder="Ex. : OASA, TBM, TCL…"></div><div class="field full"><label>LIEN DU SITE / DE L’APPLICATION OFFICIELLE</label><input type="url" name="localTransitUrl" value="'+esc(x.localTransitUrl||network?.url||"")+'" placeholder="https://…"></div><div class="field full"><label>LIEN INFO TRAFIC OFFICIELLE (FACULTATIF)</label><input type="url" name="localTrafficUrl" value="'+esc(x.localTrafficUrl||"")+'" placeholder="https://…"></div><div class="field full"><label>RÉFÉRENCE D’ARRÊT IDFM (OPTIONNELLE)</label><input name="localTransitRef" value="'+esc(x.localTransitRef||"")+'" placeholder="MonitoringRef SIRI, ex. STIF:StopPoint:..."><span class="field-help">Uniquement pour un arrêt référencé par Île-de-France Mobilités / PRIM. Sa disponibilité temps réel dépend du périmètre publié.</span></div><div class="field full"><label>NOTES GÉNÉRALES</label><textarea name="notes">'+esc(x.notes||"")+'</textarea></div></div><div class="modal-actions">'+(t?'<button class="danger-button" type="button" data-action="delete-trip" data-id="'+esc(t.id)+'">Supprimer ce voyage</button>':"")+'<button class="secondary-button" type="button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit">Enregistrer</button></div></form>';
+ const x=t||{},network=suggestedLocalNetwork(x.destination),body='<form id="trip-form"><input type="hidden" name="id" value="'+esc(x.id||"")+'"><div class="form-grid"><div class="field full"><label>DESTINATION</label><input name="destination" required placeholder="Ex. : Athènes, Grèce" value="'+esc(x.destination||"")+'"></div><div class="field"><label>DATE DE DÉPART</label><input type="date" name="startDate" value="'+esc(x.startDate||today())+'"></div><div class="field"><label>DATE DE RETOUR</label><input type="date" name="endDate" value="'+esc(x.endDate||"")+'"></div><div class="field"><label>VOYAGEURS</label><input type="number" min="1" max="30" name="people" value="'+esc(x.people||1)+'"></div><div class="field full"><label>RÉSEAU DE TRANSPORT OFFICIEL SUR PLACE</label><input name="localTransitName" value="'+esc(x.localTransitName||"")+'" placeholder="Ex. : OASA, TBM, TCL…"></div><div class="field full"><label>LIEN DU SITE / DE L’APPLICATION OFFICIELLE</label><input type="url" name="localTransitUrl" value="'+esc(x.localTransitUrl||network?.url||"")+'" placeholder="https://…"></div><div class="field full"><label>LIEN INFO TRAFIC OFFICIELLE (FACULTATIF)</label><input type="url" name="localTrafficUrl" value="'+esc(x.localTrafficUrl||"")+'" placeholder="https://…"></div><div class="field full"><label>RÉFÉRENCE D’ARRÊT IDFM (OPTIONNELLE)</label><input name="localTransitRef" value="'+esc(x.localTransitRef||"")+'" placeholder="MonitoringRef SIRI, ex. STIF:StopPoint:..."><span class="field-help">Uniquement pour un arrêt référencé par Île-de-France Mobilités / PRIM. Sa disponibilité temps réel dépend du périmètre publié.</span></div><div class="field full"><label>NOTES GÉNÉRALES</label><textarea name="notes">'+esc(x.notes||"")+'</textarea></div></div><div class="modal-actions">'+(t?'<button class="danger-button" type="button" data-action="delete-trip" data-id="'+esc(t.id)+'">Supprimer ce voyage</button>':"")+'<button class="secondary-button" type="button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit">Enregistrer</button></div></form>';
  openModal(t?"Modifier le voyage":"Créer un voyage","Les premières informations de ton carnet.",body);
 }
 function stayForm(){
@@ -811,7 +909,6 @@ function activityForm(existing){
  const body='<form id="activity-form"><input type="hidden" name="id" value="'+esc(x.id||"")+'"><div class="form-grid"><div class="field full"><label>NOM DU LIEU / ACTIVITÉ</label><input name="name" required placeholder="Musée, restaurant, balade…" value="'+esc(x.name||"")+'"></div><div class="field"><label>CATÉGORIE</label><select name="category">'+["Culture","Architecture","Nature","Restaurant","Sortie","Shopping","Transport","Autre"].map(v=>'<option '+((x.category||"Autre")===v?"selected":"")+'>'+v+'</option>').join("")+'</select></div><div class="field"><label>DATE (FACULTATIVE)</label><input type="date" name="date" min="'+esc(t.startDate||"")+'" max="'+esc(t.endDate||"")+'" value="'+esc(x.date||"")+'"><span class="field-help">Laisse vide pour garder cette activité dans « À planifier ». Aucune date ne sera ajoutée automatiquement.</span></div><div class="field"><label>HEURE</label><input type="time" name="startTime" value="'+esc(x.startTime||"")+'"></div><div class="field"><label>DURÉE (MIN)</label><input type="number" name="duration" min="15" step="15" placeholder="90" value="'+esc(x.duration||"")+'"></div><div class="field full"><label>ADRESSE / QUARTIER</label><input name="address" value="'+esc(x.address||"")+'"></div><div class="field"><label>PRIX ESTIMÉ</label><input type="number" name="price" min="0" step="0.5" value="'+esc(x.price==null?"":x.price)+'"></div><div class="field"><label>STATUT DE RÉSERVATION</label><select name="bookingStatus">'+[["unknown","À vérifier / non décidé"],["to_book","À réserver"],["booked","Réservée"],["not_required","Pas de réservation nécessaire"]].map(v=>'<option value="'+v[0]+'" '+(bookingState===v[0]?"selected":"")+'>'+v[1]+'</option>').join("")+'</select><span class="field-help">Le statut de réservation ne fixe pas automatiquement la date.</span></div><div class="field"><label>PRIORITÉ</label><select name="priority">'+[["must","Incontournable"],["medium","Intéressante"],["low","Optionnelle"]].map(v=>'<option value="'+v[0]+'" '+((x.priority||"medium")===v[0]?"selected":"")+'>'+v[1]+'</option>').join("")+'</select></div><div class="field full"><label>LIEN OFFICIEL / RÉSERVATION</label><input type="url" name="bookingUrl" placeholder="https://…" value="'+esc(linkValue)+'">'+linkHelp+'</div><div class="field full"><label>DESCRIPTION / POINTS À RETENIR</label><textarea name="description">'+esc(x.description||"")+'</textarea></div><div class="field full"><label>POINTS CLÉS (UN PAR LIGNE)</label><textarea name="highlights">'+esc((x.highlights||[]).join("\n"))+'</textarea></div></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit">'+(existing?"Enregistrer les modifications":"Ajouter au programme")+'</button></div></form>';
  openModal(existing?"Modifier une activité":"Ajouter une activité",existing?"Modifie les informations ou attribue une date quand tu es prêt.":"Tu peux laisser la date vide : l'activité restera dans la liste à planifier.",body);
 }
-function expenseForm(){openModal("Ajouter une dépense","Garde une vision simple du budget.",'<form id="expense-form"><div class="form-grid"><div class="field full"><label>LIBELLÉ</label><input name="label" required></div><div class="field"><label>MONTANT</label><input type="number" name="amount" min="0" step="0.01" required></div><div class="field"><label>CATÉGORIE</label><select name="category">'+["Repas","Transport","Hébergement","Visite","Shopping","Divers"].map(v=>'<option>'+v+'</option>').join("")+'</select></div></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit">Ajouter la dépense</button></div></form>')}
 function safeBookingUrl(value){
  try{const url=new URL(String(value||""));return ["https:","http:"].includes(url.protocol)?url.href:""}catch(error){return ""}
 }
@@ -821,12 +918,12 @@ function detailModal(id){
  const bookingAction=official?'<a class="booking-open-link" href="'+esc(official.url)+'" target="_blank" rel="noopener noreferrer">'+esc(official.label)+'</a>':'<button class="secondary-button" type="button" data-action="edit-activity" data-id="'+esc(a.id)+'">Ajouter un lien officiel</button>';
  const canConfirm=bookingState==="to_book"||a.bookingRequired||!!a.bookingUrl;
  const reservationConfirm=bookingState==="booked"?'<div class="booking-confirmed"><span>✓</span> Réservation confirmée dans PEPPER</div>':bookingState==="not_required"?'<div class="booking-confirmed">Aucune réservation nécessaire pour cette activité</div>':canConfirm?'<button class="booking-confirm-button" type="button" data-action="mark-activity-booked" data-id="'+esc(a.id)+'">J’ai terminé la réservation</button>':'<div class="booking-note-inline">Confirme auprès de l’établissement si une réservation est utile avant de te déplacer.</div>';
- openModal("Détail de l’étape","Informations pratiques, lien officiel et suivi de réservation.",'<div class="detail-hero"><h3>'+esc(a.name)+'</h3><p>'+esc(a.description||resource?.note||"Aucune description disponible.")+'</p></div><div class="detail-grid"><div class="detail-item"><small>Date / heure</small><strong>'+esc(a.date?dateLabel(a.date):"À planifier")+' · '+esc(a.startTime||"Libre")+'</strong></div><div class="detail-item"><small>Durée</small><strong>'+esc(a.duration?a.duration+" min":"À confirmer")+'</strong></div><div class="detail-item"><small>Budget</small><strong>'+esc(a.price!=null?money(a.price,t.currency):"À confirmer")+'</strong></div><div class="detail-item"><small>Priorité</small><strong>'+esc(a.priority==="must"?"Incontournable":a.priority==="low"?"Optionnel":"À évaluer")+'</strong></div><div class="detail-item"><small>Réservation</small><strong>'+esc(bookingLabel)+'</strong></div><div class="detail-item"><small>Avancement</small><strong>'+(a.done?"Faite ✓":"À faire")+'</strong></div></div><div class="booking-actions">'+bookingAction+reservationConfirm+'</div>'+(official?.note?'<p class="booking-note">'+esc(official.note)+'</p>':"")+'<p class="booking-note">Le paiement et la confirmation se font sur le site ou auprès du prestataire. PEPPER ne réalise pas lui-même la réservation.</p>'+(bullets?'<div class="detail-section"><h4>À retenir</h4><ul>'+bullets+'</ul></div>':"")+(sources?'<div class="detail-section"><h4>Sources consultées</h4><ul>'+sources+'</ul></div>':"")+'<div class="detail-section"><h4>Localisation</h4><p>'+esc(a.address||"Adresse à préciser")+'</p><a class="text-button" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((a.address||a.name)+" "+t.destination)+'" target="_blank" rel="noopener noreferrer">Ouvrir dans Maps ↗</a></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="delete-activity" data-id="'+esc(a.id)+'">Supprimer</button><button class="secondary-button" type="button" data-action="edit-activity" data-id="'+esc(a.id)+'">Modifier</button><button class="primary-button" type="button" data-action="close-modal">Terminé</button></div>');
+ openModal("Détail de l’étape","Informations pratiques, lien officiel et suivi de réservation.",'<div class="detail-hero"><h3>'+esc(a.name)+'</h3><p>'+esc(a.description||resource?.note||"Aucune description disponible.")+'</p></div><div class="detail-grid"><div class="detail-item"><small>Date / heure</small><strong>'+esc(a.date?dateLabel(a.date):"À planifier")+' · '+esc(a.startTime||"Libre")+'</strong></div><div class="detail-item"><small>Durée</small><strong>'+esc(a.duration?a.duration+" min":"À confirmer")+'</strong></div><div class="detail-item"><small>Prix estimé</small><strong>'+esc(a.price!=null?money(a.price,t.currency):"À confirmer")+'</strong></div><div class="detail-item"><small>Priorité</small><strong>'+esc(a.priority==="must"?"Incontournable":a.priority==="low"?"Optionnel":"À évaluer")+'</strong></div><div class="detail-item"><small>Réservation</small><strong>'+esc(bookingLabel)+'</strong></div><div class="detail-item"><small>Avancement</small><strong>'+(a.done?"Faite ✓":"À faire")+'</strong></div></div><div class="booking-actions">'+bookingAction+reservationConfirm+'</div>'+(official?.note?'<p class="booking-note">'+esc(official.note)+'</p>':"")+'<p class="booking-note">Le paiement et la confirmation se font sur le site ou auprès du prestataire. PEPPER ne réalise pas lui-même la réservation.</p>'+(bullets?'<div class="detail-section"><h4>À retenir</h4><ul>'+bullets+'</ul></div>':"")+(sources?'<div class="detail-section"><h4>Sources consultées</h4><ul>'+sources+'</ul></div>':"")+'<div class="detail-section"><h4>Localisation</h4><p>'+esc(a.address||"Adresse à préciser")+'</p><a class="text-button" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((a.address||a.name)+" "+t.destination)+'" target="_blank" rel="noopener noreferrer">Ouvrir dans Maps ↗</a></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="delete-activity" data-id="'+esc(a.id)+'">Supprimer</button><button class="secondary-button" type="button" data-action="edit-activity" data-id="'+esc(a.id)+'">Modifier</button><button class="primary-button" type="button" data-action="close-modal">Terminé</button></div>');
 }
 function saveTripForm(form){
  const d=Object.fromEntries(new FormData(form).entries());if(d.startDate&&d.endDate&&d.endDate<d.startDate){toast("La date de retour doit suivre celle de départ.","error");return}
  let t=state.trips.find(x=>x.id===d.id);if(!t){t={id:uid(),activities:[],transport:[],expenses:[],checklist:DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false})),accommodation:null,createdAt:new Date().toISOString()};state.trips.push(t)}
- Object.assign(t,{destination:d.destination.trim(),startDate:d.startDate,endDate:d.endDate,people:Number(d.people||1),budget:Number(d.budget||0),currency:d.currency||"EUR",localTransitName:d.localTransitName||"",localTransitUrl:d.localTransitUrl||"",localTrafficUrl:d.localTrafficUrl||"",localTransitRef:d.localTransitRef||"",notes:d.notes||""});
+ Object.assign(t,{destination:d.destination.trim(),startDate:d.startDate,endDate:d.endDate,people:Number(d.people||1),localTransitName:d.localTransitName||"",localTransitUrl:d.localTransitUrl||"",localTrafficUrl:d.localTrafficUrl||"",localTransitRef:d.localTransitRef||"",notes:d.notes||""});
  state.activeTripId=t.id;showHome=false;weatherData=null;save();closeModal();render();toast("Voyage enregistré. Synchronisation GitHub en cours si elle est activée.");
 }
 function saveStay(form){
@@ -848,7 +945,6 @@ async function addActivity(form){
  save();closeModal();render();toast(existing?"Activité modifiée.":"Activité ajoutée au programme.");
  if(a.address&&!a.geo)try{const g=await geocode(a.address+", "+t.destination);if(g){a.geo=g;save();renderMap(t);renderActivities(t)}}catch(e){}
 }
-function addExpense(form){const d=Object.fromEntries(new FormData(form).entries()),t=activeTrip();t.expenses.push({id:uid(),label:d.label.trim(),amount:Number(d.amount),category:d.category,date:today()});save();closeModal();renderBudget(t);toast("Dépense ajoutée.")}
 function deleteActivity(id){const t=activeTrip();t.activities=t.activities.filter(a=>a.id!==id);save();closeModal();render();toast("Activité supprimée.")}
 function deleteTransport(id){const t=activeTrip();t.transport=t.transport.filter(a=>a.id!==id);save();render();toast("Trajet supprimé.")}
 function deleteTrip(id){
@@ -914,7 +1010,7 @@ function exportICS(){
 }
 function shareContext(t){
  return{
-  destination:t.destination,dates:{start:t.startDate,end:t.endDate},travellers:t.people,budget:t.budget,currency:t.currency,localTransport:{name:t.localTransitName||"",officialUrl:t.localTransitUrl||"",trafficUrl:t.localTrafficUrl||"",monitoringRef:t.localTransitRef||""},
+  destination:t.destination,dates:{start:t.startDate,end:t.endDate},travellers:t.people,localTransport:{name:t.localTransitName||"",officialUrl:t.localTransitUrl||"",trafficUrl:t.localTrafficUrl||"",monitoringRef:t.localTransitRef||""},
   accommodation:t.accommodation?{name:t.accommodation.name,type:t.accommodation.type,address:t.accommodation.address,checkInDate:t.accommodation.checkInDate,checkInTime:t.accommodation.checkInTime,checkOutDate:t.accommodation.checkOutDate,checkOutTime:t.accommodation.checkOutTime,amenities:t.accommodation.amenities,parking:t.accommodation.parking,breakfast:t.accommodation.breakfast}:null,
   transport:t.transport.map(x=>({id:x.id,direction:x.direction,mode:x.mode,operator:x.operator,service:x.service,number:x.number,origin:x.origin,destination:x.destination,departureDate:x.departureDate,departureTime:x.departureTime,arrivalDate:x.arrivalDate,arrivalTime:x.arrivalTime,platform:x.platform,baggage:x.baggage,routeType:x.routeType,arrivalBufferMinutes:x.arrivalBufferMinutes,drivingDurationMinutes:x.drivingDurationMinutes,plannedStops:x.plannedStops,boardingDeadline:x.boardingDeadline,trafficUrl:x.trafficUrl})),
   activities:t.activities.map(x=>({id:x.id,name:x.name,category:x.category,date:x.date||null,startTime:x.startTime||null,duration:x.duration,address:x.address,description:x.description,priority:x.priority,done:!!x.done,bookingRequired:x.bookingRequired,bookingStatus:x.bookingStatus||"unknown",price:x.price,sources:x.sources||[]})),
@@ -965,7 +1061,7 @@ function appendJalapMessage(role,content){
  thread.scrollTop=thread.scrollHeight;
 }
 function jalapOperationTitle(op){
- const labels={activity_add:"Ajouter une activité",activity_update:"Modifier une activité",activity_delete:"Supprimer une activité",transport_add:"Ajouter un trajet",transport_update:"Modifier un trajet",trip_update:"Modifier les informations du voyage",expense_add:"Ajouter une dépense",checklist_add:"Ajouter une tâche"};
+ const labels={activity_add:"Ajouter une activité",activity_update:"Modifier une activité",activity_delete:"Supprimer une activité",transport_add:"Ajouter un trajet",transport_update:"Modifier un trajet",trip_update:"Modifier les informations du voyage",checklist_add:"Ajouter une tâche"};
  const name=op.data?.name||op.data?.label||op.data?.taskLabel;
  return (labels[op.action]||"Modification")+(name?" : "+name:"");
 }
@@ -990,14 +1086,13 @@ function jalapCleanData(data,fields){
 }
 function validateJalapProposal(operations,trip){
  if(!Array.isArray(operations))return [];
- const allowed=["activity_add","activity_update","activity_delete","transport_add","transport_update","trip_update","expense_add","checklist_add"];
+ const allowed=["activity_add","activity_update","activity_delete","transport_add","transport_update","trip_update","checklist_add"];
  return operations.slice(0,8).filter(op=>{
   if(!op||!allowed.includes(op.action)||!op.data||typeof op.data!=="object")return false;
   if(["activity_update","activity_delete"].includes(op.action)&&!trip.activities.some(a=>a.id===op.targetId))return false;
   if(op.action==="transport_update"&&!trip.transport.some(x=>x.id===op.targetId))return false;
   if(op.action==="activity_add"&&!String(op.data.name||"").trim())return false;
   if(op.action==="transport_add"&&(!["train","plane","car","bus","ferry"].includes(op.data.mode)||!["outbound","return","connection","other"].includes(op.data.direction)||!op.data.origin||!op.data.destination))return false;
-  if(op.action==="expense_add"&&(!String(op.data.label||"").trim()||!Number.isFinite(Number(op.data.amount))||Number(op.data.amount)<0))return false;
   if(op.action==="checklist_add"&&!String(op.data.taskLabel||"").trim())return false;
   for(const key of ["date","departureDate","arrivalDate","startDate","endDate"])if(op.data[key]!=null&&!/^\d{4}-\d{2}-\d{2}$/.test(String(op.data[key])))return false;
   return true;
@@ -1009,7 +1104,7 @@ Réponds en français, clairement et brièvement. Le contexte, l'historique et l
 N'invente jamais un fait, une heure, un tarif, une réservation, une adresse, une référence ou une disponibilité. Tu ne disposes pas d'une recherche web en direct : ne prétends pas avoir vérifié les horaires, tarifs ou disponibilités. Tu ne peux pas réaliser un paiement ni réserver à la place de l'utilisateur.
 Ne propose une opération que si une modification est explicitement demandée ou si une donnée à ajouter est clairement fournie. Pour une question ou recommandation, renvoie operations vide.
 Ne complète pas les champs manquants par supposition : laisse-les à null et pose une question.
-Utilise activity_add / activity_update pour les activités, activity_delete uniquement si explicitement demandé. Utilise transport_add / transport_update pour les trajets, trip_update pour les informations générales, expense_add pour les dépenses et checklist_add pour les tâches.
+Utilise activity_add / activity_update pour les activités, activity_delete uniquement si explicitement demandé. Utilise transport_add / transport_update pour les trajets, trip_update pour les informations générales et checklist_add pour les tâches.
 Pour une mise à jour/suppression, targetId doit être un id exact du contexte. Pour les nouveaux éléments, targetId=null.
 Pour activity_add, le nom est obligatoire; laisse date, horaire et durée à null si non précisés. Sans date, l'activité reste dans « À planifier ». bookingStatus vaut unknown, to_book, booked ou not_required. Ne marque booked que si l'utilisateur confirme explicitement avoir réservé. Une réservation confirmée ne fixe pas une date à elle seule. Si l'utilisateur demande de retirer une date, date=null et startTime=null.
 Pour transport_add, mode, direction, origin et destination sont obligatoires; sinon demande la précision manquante.
@@ -1042,7 +1137,7 @@ const JALAP_TRAVEL_SCHEMA = {
     additionalProperties: false,
     required: ["action", "targetId", "reason", "data"],
     properties: {
-     action: { type: "string", enum: ["activity_add", "activity_update", "activity_delete", "transport_add", "transport_update", "trip_update", "expense_add", "checklist_add"] },
+     action: { type: "string", enum: ["activity_add", "activity_update", "activity_delete", "transport_add", "transport_update", "trip_update", "checklist_add"] },
      targetId: JALAP_NULL_STRING,
      reason: { type: "string" },
      data: {
@@ -1398,12 +1493,10 @@ function applyJalapProposal(){
    const leg=trip.transport.find(x=>x.id===op.targetId);if(!leg)continue;
    Object.assign(leg,jalapCleanData(data,JALAP_TRANSPORT_FIELDS));applied.push("trajet modifié");
   }else if(op.action==="trip_update"){
-   const fields=jalapCleanData(data,["destination","startDate","endDate","people","budget","currency","notes"]);
+   const fields=jalapCleanData(data,["destination","startDate","endDate","people","notes"]);
    const nextStart=fields.startDate||trip.startDate,nextEnd=fields.endDate||trip.endDate;
    if(nextStart&&nextEnd&&nextEnd<nextStart){appendJalapMessage("assistant","J'ai écarté une modification des dates car la date de retour serait antérieure au départ.");continue;}
    Object.assign(trip,fields);applied.push("voyage mis à jour");
-  }else if(op.action==="expense_add"){
-   trip.expenses.push({id:uid(),label:String(data.label||"Dépense").slice(0,120),amount:Number(data.amount),category:String(data.category||"Divers").slice(0,60),date:today()});applied.push("dépense ajoutée");
   }else if(op.action==="checklist_add"){
    trip.checklist.push({id:uid(),label:String(data.taskLabel||"Tâche").slice(0,180),done:false});applied.push("tâche ajoutée");
   }
@@ -1429,6 +1522,8 @@ function onAction(event){
  if(n==="close-modal"){if(event.target===el||el.matches("button"))closeModal();return}
  if(n==="delete-trip"){deleteTrip(id);return}
  if(n==="set-lang"){setLang(el.dataset.lang);return}
+ if(n==="map-zoom-in"){map&&map.zoomIn();return}if(n==="map-zoom-out"){map&&map.zoomOut();return}if(n==="map-3d"){toggle3D();return}if(n==="map-locate"){locateMe();return}
+ if(n==="map-style"){setMapStyle(el.dataset.style);return}if(n==="toggle-hub"){toggleHub();return}if(n==="map-fullscreen"){toggleMapFullscreen();return}
  if(n==="go-home"){event.preventDefault();showHome=true;closeSheet();render();window.scrollTo({top:0});return}
  if(n==="toggle-lang"){toggleLang(el);return}if(n==="toggle-picker"){togglePicker(el);return}if(n==="pick-trip"){state.activeTripId=id;showHome=false;weatherData=null;save({skipRemote:true,skipTouch:true});render();window.scrollTo({top:0});return}
  if(n==="open-sheet"){openSheet(el.dataset.panel);return}if(n==="close-sheet"){closeSheet();return}
@@ -1437,7 +1532,7 @@ function onAction(event){
  if(n==="create-trip"){tripForm(null);return}if(n==="edit-trip"){tripForm(activeTrip());return}
  if(n==="edit-accommodation"){stayForm();return}if(n==="add-transport"){transportForm(null);return}
  if(n==="edit-transport"){transportForm(activeTrip().transport.find(x=>x.id===id));return}if(n==="delete-transport"){if(confirm("Supprimer ce trajet ?"))deleteTransport(id);return}
- if(n==="add-activity"){activityForm();return}if(n==="edit-activity"){const activity=activeTrip()?.activities.find(x=>x.id===id);if(activity)activityForm(activity);return}if(n==="add-expense"){expenseForm();return}
+ if(n==="add-activity"){activityForm();return}if(n==="edit-activity"){const activity=activeTrip()?.activities.find(x=>x.id===id);if(activity)activityForm(activity);return}
  if(n==="activity-detail"){detailModal(id);return}if(n==="mark-activity-booked"){markActivityBooked(id);return}if(n==="delete-activity"){if(confirm("Supprimer cette activité ?"))deleteActivity(id);return}
  if(n==="focus-activity-map"){focusActivityOnMap(id);return}if(n==="fit-map"){fitMap();return}if(n==="refresh-map"){const t=activeTrip();if(t){if(!t.geo)fetchDestination(t);else{renderMap(t);geocodeMissingActivities(t)}}return}if(n==="refresh-weather"){const t=activeTrip();if(t){if(!t.geo)fetchDestination(t);else fetchWeather(t)}return}if(n==="export-ics"){exportICS();return}if(n==="export-json"){exportJSON();return}
  if(n==="add-check"){addChecklist();return}if(n==="copy-trip-context"){copyContext();return}if(n==="copy-jalap-request"){copyRequest();return}if(n==="copy-jalap-audit"){copyJalapAudit();return}
@@ -1456,10 +1551,9 @@ document.addEventListener("submit",e=>{
  if(fid==="stay-form"){e.preventDefault();saveStay(f)}
  if(fid==="transport-form"){e.preventDefault();saveLeg(f)}
  if(fid==="activity-form"){e.preventDefault();addActivity(f)}
- if(fid==="expense-form"){e.preventDefault();addExpense(f)}
  if(fid==="idea-form")sendJalapMessage(e);
 });
-document.addEventListener("keydown",e=>{if(e.key==="Tab"&&sheetState&&!modalRoot.innerHTML){const f=$$("button:not([disabled]),a[href],input:not([disabled]),textarea,select",sheetState.root).filter(x=>x.offsetParent!==null);if(f.length){const first=f[0],last=f[f.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}}if(e.key==="Escape"){if(modalRoot.innerHTML)closeModal();else closeSheet();closeMenus()}});
+document.addEventListener("keydown",e=>{if(e.key==="Tab"&&sheetState&&!modalRoot.innerHTML){const f=$$("button:not([disabled]),a[href],input:not([disabled]),textarea,select",sheetState.root).filter(x=>x.offsetParent!==null);if(f.length){const first=f[0],last=f[f.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}}if(e.key==="Escape"){if(modalRoot.innerHTML)closeModal();else if(sheetState)closeSheet();else if(document.body.classList.contains("map-full"))toggleMapFullscreen(false);closeMenus()}});
 $$("[data-scroll]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.scroll,node=id==="assistant-panel"?$(".assistant-panel"):$("#"+id);if(node&&node.closest("#panel-vault")){openSheet(node.id||"assistant-panel");return}if(node)node.scrollIntoView({behavior:"smooth",block:"start"})}));
 async function initialise(){if(lang==="en"){try{await ensureI18n()}catch(e){lang="fr"}}localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);localStorage.removeItem("pepper-anthropic-api-key-v1");localStorage.removeItem(LEGACY_GROQ_API_KEY_KEY);await restoreStateFromIndexedDB();if(githubSyncEnabled()){if(githubAccessToken())await syncGitHubState({pull:true});else setGitHubSyncStatus("error","Jeton GitHub manquant")}else setGitHubSyncStatus("local");if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;setJalapMode(jalapMode);save({skipTouch:true,skipRemote:true});render();applyLang(document.body);watchLang();updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();if(githubSyncEnabled())scheduleGitHubSync(200);const t=activeTrip();if(t){renderMap(t);fetchWeather(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator){const hadController=!!navigator.serviceWorker.controller;let reloaded=false;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(hadController&&!reloaded){reloaded=true;location.reload()}});navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}}
 /* ================= PEPPER UI : accueil, cartes flottantes, panneau « Voir plus » ================= */
@@ -1532,7 +1626,7 @@ function stopEarth(){if(earthRaf){cancelAnimationFrame(earthRaf);earthRaf=0}}
 window.addEventListener("resize",()=>{earth=null});
 
 /* --- panneau « Voir plus » (monte depuis le bas) --- */
-const SHEET_META={"trip-accommodation":["🏨","Hébergement"],"trip-checklist":["💡","Les essentiels"],"trip-transport":["🚆","Trajets & billets"],"assistant-panel":["🌶","JALAP · Assistant IA"],"trip-weather":["⛅","Météo à destination"],"trip-itinerary":["📍","Activités & programme"],"trip-budget":["💶","Budget & dépenses"]};
+const SHEET_META={"trip-accommodation":["🏨","Hébergement"],"trip-checklist":["💡","Les essentiels"],"trip-transport":["🚆","Trajets & billets"],"assistant-panel":["🌶","JALAP · Assistant IA"],"trip-weather":["⛅","Météo à destination"],"trip-itinerary":["📍","Activités & programme"]};
 let sheetState=null;
 function openSheet(id){
  const panel=document.getElementById(id);if(!panel)return;
@@ -1611,14 +1705,13 @@ const focusAct=acts.find(a=>!a.done&&a.date);
   '<div class="hub-chips"><span>'+acts.length+' activités</span><span>'+planned+' programmées</span><span class="warn">'+(acts.length-planned)+' à planifier</span><span class="ok">'+doneA+' faites</span></div>'+(rows||'<p class="hub-empty">Ton programme est encore vierge.</p>'),"trip-itinerary",acts.length>5?"Voir les "+acts.length:"Voir plus");
  /* JALAP */
  const jalap='<article class="hub-card hub-jalap"><span class="hub-tag hub-tag-ai">ASSISTANT IA</span><header class="hub-head"><h4><img src="./assets/jalap.svg" alt="" width="22" height="22"> JALAP</h4><span class="hub-modes" aria-hidden="true"><i>✈</i><i class="on">⌘</i></span></header><div class="hub-body"><p class="hub-meta">Ton compagnon de voyage et de développement, propulsé par Gemini 3.8 Flash.</p><form id="hub-idea-form" class="hub-ask"><input id="hub-idea-input" type="text" autocomplete="off" placeholder="Ex. : ajoute les Catacombes samedi…" aria-label="Écrire à JALAP"><button type="submit" aria-label="Envoyer à JALAP">↗</button></form></div><button type="button" class="hub-more" data-action="open-sheet" data-panel="assistant-panel">Voir plus</button></article>';
- const spent=(t.expenses||[]).reduce((a,x)=>a+Number(x.amount||0),0),cap=Number(t.budget||0),pct=cap>0?Math.min(100,Math.round(spent/cap*100)):0,lastEx=(t.expenses||[]).slice(-2).reverse();
- const budget=hubCard("budget","","💶 Budget",'<span class="hub-count">'+(cap>0?pct+" %":"")+'</span>','<div class="hub-budget-top"><strong>'+money(spent,t.currency)+'</strong><small>'+(cap>0?"sur "+money(cap,t.currency):"Budget non défini")+'</small></div><div class="budget-track"><div class="budget-fill" style="width:'+pct+'%"></div></div>'+(lastEx.length?'<div class="hub-expenses">'+lastEx.map(x=>'<span>'+esc(x.label)+'</span><b>'+money(x.amount,t.currency)+'</b>').join("")+'</div>':'<p class="hub-empty">Aucune dépense enregistrée.</p>'),"trip-budget");
- const html='<div class="hub-col hub-col-left">'+stay+ess+trans+'</div><div class="hub-col hub-col-mid">'+budget+jalap+'</div><div class="hub-col hub-col-right">'+weather+act+'</div>';
+ const html='<div class="hub-col hub-col-left">'+stay+ess+trans+'</div><div class="hub-col hub-col-mid">'+jalap+'</div><div class="hub-col hub-col-right">'+weather+act+'</div>';
  if(node.dataset.html===html&&node.dataset.lang===lang)return;
  const scrollers=$$(".hub-body",node).map(x=>x.scrollTop);
  node.innerHTML=html;node.dataset.html=html;node.dataset.lang=lang;if(!node.dataset.ready&&!node._readyTimer)node._readyTimer=setTimeout(()=>{node.dataset.ready="1"},900);
  $$(".hub-body",node).forEach((x,i)=>{if(scrollers[i])x.scrollTop=scrollers[i]});
  applyLang(node);
+ if(!node._prefApplied){node._prefApplied=true;try{if(localStorage.getItem("pepper-hub-hidden-v1")==="1"){$("#trip-map")?.classList.add("hub-hidden");$('[data-action="toggle-hub"]')?.setAttribute("aria-pressed","true")}}catch(e){}}
  const inp=$("#hub-idea-input");if(inp&&savedIdea){inp.value=savedIdea;if(focused)inp.focus({preventScroll:true})}
 }
 document.addEventListener("submit",e=>{

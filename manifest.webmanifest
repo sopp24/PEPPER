@@ -2,7 +2,7 @@
   "id": "/PEPPER/",
   "name": "PEPPER — Travel Companion",
   "short_name": "PEPPER",
-  "description": "Compagnon de voyage avant, pendant et après le séjour : itinéraire, réservations, transports, budget et souvenirs.",
+  "description": "Compagnon de voyage avant, pendant et après le séjour : itinéraire, réservations, transports et carte interactive.",
   "lang": "fr-FR",
   "start_url": "/PEPPER/?from=sopp-agents",
   "scope": "/PEPPER/",
