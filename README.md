@@ -2,6 +2,13 @@
 
 PEPPER est une application de voyage statique publiée par GitHub Pages. La carte est l'élément central, le programme est traité comme une liste de tâches et les autres informations sont organisées en cartes adaptatives. Les données sont d'abord enregistrées dans le navigateur (IndexedDB).
 
+## Interface
+
+- **Accueil :** globe de nuit, « Nouveau voyage » et sélecteur de voyage. Pour une vraie photo, ajoute `assets/earth-night.jpg` (sinon une texture est chargée depuis un CDN).
+- **Carnet :** carte satellite plein cadre avec des cartes flottantes (hébergement, essentiels, trajet, météo, activités, JALAP). « Voir plus » ouvre un panneau qui monte du bas avec le détail complet.
+- **Suppression d’un voyage :** ✎ → « Supprimer ce voyage ». Un marqueur de suppression évite qu’il réapparaisse via la synchronisation GitHub.
+- Les styles de cette interface sont dans `ui.css`.
+
 ## JALAP — Gemini 3.8 Flash et GitHub en connexion directe
 
 JALAP utilise **Google Gemini 3.8 Flash** (`gemini-3.8-flash`) via l'API Interactions de Google. **Les deux modes utilisent exactement le même modèle et la même clé API Gemini** : aucun compte Groq ou Anthropic n'est nécessaire. Le navigateur communique directement avec Google pour l'IA et avec GitHub pour le carnet et le code. Aucun relais Cloudflare, Netlify, Vercel ou base de données intermédiaire n'est nécessaire pour la version GitHub Pages.

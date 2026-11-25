@@ -241,7 +241,7 @@ async function connectGitHubSync(){
  if(githubSyncStatus==="error")throw new Error(githubSyncError||"La synchronisation GitHub a échoué.");
 }
 
-function save(options={}){const now=new Date().toISOString();if(!options.skipTouch){state.updatedAt=now;const trip=activeTrip();if(trip)trip.updatedAt=now}const snapshot=JSON.stringify(state);try{const previous=localStorage.getItem(STORAGE_KEY);if(previous)localStorage.setItem(RECOVERY_KEY,previous);localStorage.setItem(STORAGE_KEY,snapshot)}catch(e){toast("Le stockage classique est saturé. La sauvegarde locale étendue est tentée ; exporte aussi un fichier JSON privé.","error")}persistStateToIndexedDB(snapshot);if(!options.skipRemote)scheduleGitHubSync();queueMicrotask(()=>{const t=activeTrip();if(t&&!showHome&&typeof renderHub==="function")renderHub(t)})}
+function save(options={}){const now=new Date().toISOString();if(state.deletedTrips)for(const t of state.trips)delete state.deletedTrips[t.id];if(!options.skipTouch){state.updatedAt=now;const trip=activeTrip();if(trip)trip.updatedAt=now}const snapshot=JSON.stringify(state);try{const previous=localStorage.getItem(STORAGE_KEY);if(previous)localStorage.setItem(RECOVERY_KEY,previous);localStorage.setItem(STORAGE_KEY,snapshot)}catch(e){toast("Le stockage classique est saturé. La sauvegarde locale étendue est tentée ; exporte aussi un fichier JSON privé.","error")}persistStateToIndexedDB(snapshot);if(!options.skipRemote)scheduleGitHubSync();queueMicrotask(()=>{const t=activeTrip();if(t&&!showHome&&typeof renderHub==="function")renderHub(t)})}
 function toast(message,type){const n=document.createElement("div");n.className="toast "+(type||"");n.textContent=message;$("#toast-root").appendChild(n);setTimeout(()=>n.remove(),4200)}
 function dateTime(date,time){if(!date)return null;const d=new Date(date+"T"+(time||"00:00")+":00");return Number.isNaN(d.getTime())?null:d}
 function dateTimeLabel(d){return new Intl.DateTimeFormat("fr-FR",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(d)}
@@ -640,7 +640,7 @@ function renderMap(t){
  mapLibraryRetryCount=0;
  const center=t.geo?[t.geo.lat,t.geo.lon]:[20,0];
  if(!map){
-  map=L.map("map",{scrollWheelZoom:false,zoomControl:false}).setView(center,t.geo?12:2);L.control.zoom({position:"topleft",zoomInTitle:"Zoom +",zoomOutTitle:"Zoom −"}).addTo(map);
+  map=L.map("map",{scrollWheelZoom:false,zoomControl:false}).setView(center,t.geo?12:2);L.control.zoom({position:"topleft",zoomInTitle:"Zoom +",zoomOutTitle:"Zoom −"}).addTo(map);const ZoomPct=L.Control.extend({options:{position:"topleft"},onAdd(){const d=L.DomUtil.create("div","zoom-pct");d.setAttribute("aria-label","Niveau de zoom");const u=()=>{d.textContent=Math.round(100*Math.pow(2,map.getZoom()-12))+"%"};map.on("zoomend",u);u();return d}});new ZoomPct().addTo(map);
   const osm=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Imagery &copy; Esri, Maxar, Earthstar Geographics"});L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,pane:"shadowPane"}).addTo(map);
   let fallbackAdded=false;
   osm.on("tileerror",()=>{
@@ -1600,8 +1600,12 @@ function renderHub(t){
  /* activités */
  const acts=(t.activities||[]).slice().sort((a,b)=>((a.date||"9999-99-99")+" "+(a.startTime||"99:99")).localeCompare((b.date||"9999-99-99")+" "+(b.startTime||"99:99")));
  const planned=acts.filter(a=>a.date).length,doneA=acts.filter(a=>a.done).length;
+const focusAct=acts.find(a=>!a.done&&a.date);
  const rows=acts.slice(0,5).map(a=>{const bs=activityBookingState(a),tag=bs==="booked"?'<em class="tag-ok">Réservé</em>':bs==="to_book"?'<em class="tag-warn">À réserver</em>':"",when=a.date?dateLabel(a.date)+(a.startTime?" "+a.startTime.replace(":","h"):""):"Date libre";
-  return '<div class="hub-act '+(a.done?"is-complete":"")+'"><input type="checkbox" data-action="toggle-activity" data-id="'+esc(a.id)+'" '+(a.done?"checked":"")+' aria-label="Activité faite : '+esc(a.name)+'"><button type="button" class="hub-act-main" data-action="activity-detail" data-id="'+esc(a.id)+'"><strong>'+esc(a.name)+'</strong><small>'+esc(a.category||"Visite")+' <i>•</i> '+esc(when)+'</small></button>'+tag+'<span class="hub-act-ico cat-'+categoryKind(a.category)+'" aria-hidden="true">'+categoryEmoji(a.category)+'</span></div>'}).join("");
+  const row='<div class="hub-act '+(a.done?"is-complete":"")+(a===focusAct?" is-next":"")+'"><input type="checkbox" data-action="toggle-activity" data-id="'+esc(a.id)+'" '+(a.done?"checked":"")+' aria-label="Activité faite : '+esc(a.name)+'"><button type="button" class="hub-act-main" data-action="activity-detail" data-id="'+esc(a.id)+'"><strong>'+esc(a.name)+'</strong><small>'+esc(a.category||"Visite")+' <i>•</i> '+esc(when)+'</small></button>'+tag+'<span class="hub-act-ico cat-'+categoryKind(a.category)+'" aria-hidden="true">'+categoryEmoji(a.category)+'</span></div>';
+  if(a!==focusAct)return row;
+  const off=activityOfficialUrl(a),dest=a.address||a.name+" "+(t.destination||"");
+  return row+'<div class="hub-act-detail">'+(a.address?'<p><b>Adresse :</b> '+esc(a.address)+'</p>':"")+(a.description?'<p>'+esc(String(a.description).slice(0,120))+(String(a.description).length>120?"…":"")+'</p>':"")+'<div class="hub-act-links"><a href="https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(dest)+'" target="_blank" rel="noopener noreferrer">Itinéraire</a>'+(off?'<a href="'+esc(off.url)+'" target="_blank" rel="noopener noreferrer" class="dark">'+(bs==="to_book"?"Billets":"Infos")+'</a>':"")+'</div></div>'}).join("");
  const act=hubCard("acts","",'📍 Activités','',
   '<div class="hub-chips"><span>'+acts.length+' activités</span><span>'+planned+' programmées</span><span class="warn">'+(acts.length-planned)+' à planifier</span><span class="ok">'+doneA+' faites</span></div>'+(rows||'<p class="hub-empty">Ton programme est encore vierge.</p>'),"trip-itinerary",acts.length>5?"Voir les "+acts.length:"Voir plus");
  /* JALAP */
