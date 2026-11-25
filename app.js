@@ -19,8 +19,8 @@ const parse=(v,f)=>{try{return JSON.parse(v)}catch(e){return f}};
 const uid=()=>"pepper-"+Math.random().toString(36).slice(2,9)+"-"+Date.now().toString(36);
 const esc=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
-const dateLabel=v=>v?new Intl.DateTimeFormat("fr-FR",{day:"numeric",month:"short",year:"numeric"}).format(new Date(v+"T12:00:00")):"À définir";
-const money=(v,c)=>new Intl.NumberFormat("fr-FR",{style:"currency",currency:c||"EUR",maximumFractionDigits:0}).format(Number(v||0));
+const dateLabel=v=>v?new Intl.DateTimeFormat(LOCALE(),{day:"numeric",month:"short",year:"numeric"}).format(new Date(v+"T12:00:00")):"À définir";
+const money=(v,c)=>new Intl.NumberFormat(LOCALE(),{style:"currency",currency:c||"EUR",maximumFractionDigits:0}).format(Number(v||0));
 const icons={train:"🚆",plane:"✈️",car:"🚗",bus:"🚌",ferry:"⛴"};
 const modeName={train:"Train",plane:"Avion",car:"Voiture",bus:"Bus",ferry:"Ferry"};
 const directionName={outbound:"Aller",return:"Retour",connection:"Correspondance",other:"Étape"};
@@ -244,7 +244,7 @@ async function connectGitHubSync(){
 function save(options={}){const now=new Date().toISOString();if(state.deletedTrips)for(const t of state.trips)delete state.deletedTrips[t.id];if(!options.skipTouch){state.updatedAt=now;const trip=activeTrip();if(trip)trip.updatedAt=now}const snapshot=JSON.stringify(state);try{const previous=localStorage.getItem(STORAGE_KEY);if(previous)localStorage.setItem(RECOVERY_KEY,previous);localStorage.setItem(STORAGE_KEY,snapshot)}catch(e){toast("Le stockage classique est saturé. La sauvegarde locale étendue est tentée ; exporte aussi un fichier JSON privé.","error")}persistStateToIndexedDB(snapshot);if(!options.skipRemote)scheduleGitHubSync();queueMicrotask(()=>{const t=activeTrip();if(t&&!showHome&&typeof renderHub==="function")renderHub(t)})}
 function toast(message,type){const n=document.createElement("div");n.className="toast "+(type||"");n.textContent=message;$("#toast-root").appendChild(n);setTimeout(()=>n.remove(),4200)}
 function dateTime(date,time){if(!date)return null;const d=new Date(date+"T"+(time||"00:00")+":00");return Number.isNaN(d.getTime())?null:d}
-function dateTimeLabel(d){return new Intl.DateTimeFormat("fr-FR",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(d)}
+function dateTimeLabel(d){return new Intl.DateTimeFormat(LOCALE(),{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(d)}
 function getAdvice(leg){
  const mode=leg.mode,operator=String(leg.operator||"").toLowerCase();
  if(mode==="train"){
@@ -295,7 +295,7 @@ function getWarnings(trip){
  return Array.from(new Set(warnings));
 }
 function render(){
- const t=activeTrip();if(!t)showHome=true;document.body.dataset.view=showHome?"home":"trip";renderLanding();$("#trip-workspace").hidden=!t||showHome;$(".mobile-dock").hidden=!t||showHome;if(!t)return;
+ const t=activeTrip();if(!t)showHome=true;document.body.dataset.view=showHome?"home":"trip";renderLanding();applyLang(document.body);$("#trip-workspace").hidden=!t||showHome;$(".mobile-dock").hidden=!t||showHome;if(!t)return;
  $("#trip-destination").textContent=t.destination||"Destination";
  $("#trip-dates").textContent=t.startDate?dateLabel(t.startDate)+(t.endDate?" — "+dateLabel(t.endDate):""):"Dates à définir";
  $("#trip-travellers").textContent=(t.people||1)+((t.people||1)===1?" voyageur":" voyageurs");
@@ -448,7 +448,7 @@ function liveStatusSlot(leg){
 }
 function renderLiveStatus(data,stale){
  const checked=data.checkedAt?new Date(data.checkedAt):null;
- const when=checked?new Intl.DateTimeFormat("fr-FR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(checked):"heure inconnue";
+ const when=checked?new Intl.DateTimeFormat(LOCALE(),{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(checked):"heure inconnue";
  if(data.error)return '<strong>Suivi temps réel indisponible</strong><small>'+esc(data.error)+'</small>';
  const alerts=Array.isArray(data.alerts)?data.alerts:[];
  const lead=stale?"Dernières données enregistrées · ":"Actualisé · ";
@@ -460,7 +460,7 @@ function renderIdfmStatus(data){
  if(!data.configured)return '<strong>Connecteur IDFM à configurer</strong><small>'+esc(data.message||"Ajoute le jeton API PRIM dans Netlify.")+'</small><a href="'+esc(data.setupUrl||"https://prim.iledefrance-mobilites.fr/")+'" target="_blank" rel="noopener noreferrer">Créer un jeton PRIM ↗</a>';
  const departures=Array.isArray(data.departures)?data.departures:[];
  if(!departures.length)return '<strong>Aucun passage retourné pour cet arrêt</strong><small>'+esc(data.message||"Vérifie la référence MonitoringRef et la couverture du flux.")+'</small>';
- return '<strong>Prochains passages · IDFM</strong><small>Actualisé : '+esc(new Intl.DateTimeFormat("fr-FR",{hour:"2-digit",minute:"2-digit"}).format(new Date(data.checkedAt)))+'</small>'+departures.slice(0,5).map(item=>'<div class="live-alert"><b>'+esc(item.line||"Ligne")+(item.destination?" · "+esc(item.destination):"")+'</b><p>'+(item.expectedTime?"Prévu : "+esc(item.expectedTime):"Horaire prévu non renseigné")+(item.aimedTime&&item.expectedTime?" · théorique : "+esc(item.aimedTime):"")+'</p></div>').join("");
+ return '<strong>Prochains passages · IDFM</strong><small>Actualisé : '+esc(new Intl.DateTimeFormat(LOCALE(),{hour:"2-digit",minute:"2-digit"}).format(new Date(data.checkedAt)))+'</small>'+departures.slice(0,5).map(item=>'<div class="live-alert"><b>'+esc(item.line||"Ligne")+(item.destination?" · "+esc(item.destination):"")+'</b><p>'+(item.expectedTime?"Prévu : "+esc(item.expectedTime):"Horaire prévu non renseigné")+(item.aimedTime&&item.expectedTime?" · théorique : "+esc(item.aimedTime):"")+'</p></div>').join("");
 }
 async function refreshLocalTransitStatus(trip){
  const target=document.getElementById("destination-live-status");
@@ -585,7 +585,7 @@ function renderActivities(t){
  $("#itinerary-summary").innerHTML='<span class="summary-chip">'+items.length+' activité(s)</span><span class="summary-chip">'+planned.length+' programmée(s)</span><span class="summary-chip">'+flexible.length+' à planifier</span><span class="summary-chip">'+done+' faite(s)</span>';
  if(!items.length){$("#activities-list").innerHTML='<div class="empty-inline">Ton programme est encore vierge.<br>Ajoute des idées sans date, ou construis ton planning quand tu seras prêt.</div>';return}
  const renderRows=list=>list.map(a=>{
-  const d=a.date?new Date(a.date+"T12:00:00"):null,day=d?new Intl.DateTimeFormat("fr-FR",{day:"2-digit"}).format(d):"—",month=d?new Intl.DateTimeFormat("fr-FR",{month:"short"}).format(d).replace(".",""):"à planifier";
+  const d=a.date?new Date(a.date+"T12:00:00"):null,day=d?new Intl.DateTimeFormat(LOCALE(),{day:"2-digit"}).format(d):"—",month=d?new Intl.DateTimeFormat(LOCALE(),{month:"short"}).format(d).replace(".",""):"à planifier";
   const priority=a.priority==="must"?"Prioritaire":a.priority==="low"?"Option":"À voir",cls=a.priority==="must"?"":a.priority==="low"?"low":"medium";
   const bookingState=activityBookingState(a),bookingLabel=bookingState==="booked"?"Réservée":bookingState==="to_book"?"À réserver":bookingState==="not_required"?"Réservation non nécessaire":"";
   const timing=d?(a.startTime||"Horaire à choisir"):"Date libre",official=activityOfficialUrl(a),quickLink=official?'<a class="activity-quick-link" href="'+esc(official.url)+'" target="_blank" rel="noopener noreferrer">'+esc(bookingState==="to_book"?"Réserver ↗":bookingState==="not_required"?"Infos ↗":"Voir ↗")+'</a>':"",mapLink='<button class="activity-map-link" type="button" data-action="focus-activity-map" data-id="'+esc(a.id)+'">Carte ↗</button>';
@@ -772,7 +772,7 @@ function renderWeather(){
   return;
  }
  const c=weatherData.data.current,d=weatherData.data.daily,trip=activeTrip();
- const stamp=weatherData.fetchedAt?new Intl.DateTimeFormat("fr-FR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(weatherData.fetchedAt)):"heure inconnue";
+ const stamp=weatherData.fetchedAt?new Intl.DateTimeFormat(LOCALE(),{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(weatherData.fetchedAt)):"heure inconnue";
  let firstIndex=0;
  if(trip?.startDate){
   const matching=d.time.indexOf(trip.startDate);
@@ -781,7 +781,7 @@ function renderWeather(){
  const shownDates=d.time.slice(firstIndex,firstIndex+5);
  const daysHtml=shownDates.map((date,i)=>{
   const index=firstIndex+i;
-  const label=date===today()?"Auj.":new Intl.DateTimeFormat("fr-FR",{weekday:"short",day:"numeric"}).format(new Date(date+"T12:00:00"));
+  const label=date===today()?"Auj.":new Intl.DateTimeFormat(LOCALE(),{weekday:"short",day:"numeric"}).format(new Date(date+"T12:00:00"));
   return '<div class="weather-day"><span>'+esc(label)+'</span><strong>'+weatherIcon(d.weather_code[index])+'</strong><span>'+Math.round(d.temperature_2m_min[index])+'° / '+Math.round(d.temperature_2m_max[index])+'°</span></div>';
  }).join("");
  const lastForecast=d.time[d.time.length-1]||today();
@@ -1428,6 +1428,7 @@ function onAction(event){
  if(n==="jalap-dev-cancel"){cancelJalapDevProposal();return}
  if(n==="close-modal"){if(event.target===el||el.matches("button"))closeModal();return}
  if(n==="delete-trip"){deleteTrip(id);return}
+ if(n==="set-lang"){setLang(el.dataset.lang);return}
  if(n==="go-home"){event.preventDefault();showHome=true;closeSheet();render();window.scrollTo({top:0});return}
  if(n==="toggle-lang"){toggleLang(el);return}if(n==="toggle-picker"){togglePicker(el);return}if(n==="pick-trip"){state.activeTripId=id;showHome=false;weatherData=null;save({skipRemote:true,skipTouch:true});render();window.scrollTo({top:0});return}
  if(n==="open-sheet"){openSheet(el.dataset.panel);return}if(n==="close-sheet"){closeSheet();return}
@@ -1593,8 +1594,8 @@ function renderHub(t){
  let weather;
  if(weatherData&&weatherData.data){
   const c=weatherData.data.current,d=weatherData.data.daily;let first=0;if(t.startDate){const m=d.time.indexOf(t.startDate);if(m>=0)first=m}
-  const stamp=weatherData.fetchedAt?new Intl.DateTimeFormat("fr-FR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(weatherData.fetchedAt)):"—";
-  const days=d.time.slice(first,first+5).map((date,i)=>{const k=first+i,label=date===today()?"Auj.":new Intl.DateTimeFormat("fr-FR",{weekday:"short",day:"numeric"}).format(new Date(date+"T12:00:00"));return '<div><span>'+esc(label)+'</span><b>'+weatherIcon(d.weather_code[k])+'</b><span>'+Math.round(d.temperature_2m_min[k])+'° / '+Math.round(d.temperature_2m_max[k])+'°</span></div>'}).join("");
+  const stamp=weatherData.fetchedAt?new Intl.DateTimeFormat(LOCALE(),{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(weatherData.fetchedAt)):"—";
+  const days=d.time.slice(first,first+5).map((date,i)=>{const k=first+i,label=date===today()?"Auj.":new Intl.DateTimeFormat(LOCALE(),{weekday:"short",day:"numeric"}).format(new Date(date+"T12:00:00"));return '<div><span>'+esc(label)+'</span><b>'+weatherIcon(d.weather_code[k])+'</b><span>'+Math.round(d.temperature_2m_min[k])+'° / '+Math.round(d.temperature_2m_max[k])+'°</span></div>'}).join("");
   weather=hubCard("weather","","💡 Météo à destination",'<button type="button" class="hub-refresh" data-action="refresh-weather" aria-label="Actualiser la météo">↻</button>','<div class="hub-weather-now"><strong class="hub-temp">'+Math.round(c.temperature_2m)+'°</strong><div><b>'+weatherIcon(c.weather_code)+' '+esc(weatherText(c.weather_code))+'</b><small>Ressenti '+Math.round(c.apparent_temperature)+'° <i>•</i> Vent '+Math.round(c.wind_speed_10m)+' km/h</small><small>Humidité '+c.relative_humidity_2m+' %</small><small>Actualisée : '+esc(stamp)+'</small></div></div><div class="hub-days">'+days+'</div>',"trip-weather");
  }else weather=hubCard("weather","","💡 Météo à destination","⛅",'<p class="hub-empty">'+esc(weatherError||"Recherche de la météo…")+'</p>',"trip-weather");
  /* activités */
@@ -1610,7 +1611,10 @@ const focusAct=acts.find(a=>!a.done&&a.date);
   '<div class="hub-chips"><span>'+acts.length+' activités</span><span>'+planned+' programmées</span><span class="warn">'+(acts.length-planned)+' à planifier</span><span class="ok">'+doneA+' faites</span></div>'+(rows||'<p class="hub-empty">Ton programme est encore vierge.</p>'),"trip-itinerary",acts.length>5?"Voir les "+acts.length:"Voir plus");
  /* JALAP */
  const jalap='<article class="hub-card hub-jalap"><span class="hub-tag hub-tag-ai">ASSISTANT IA</span><header class="hub-head"><h4><img src="./assets/jalap.svg" alt="" width="22" height="22"> JALAP</h4><span class="hub-modes" aria-hidden="true"><i>✈</i><i class="on">⌘</i></span></header><div class="hub-body"><p class="hub-meta">Ton compagnon de voyage et de développement, propulsé par Gemini 3.8 Flash.</p><form id="hub-idea-form" class="hub-ask"><input id="hub-idea-input" type="text" autocomplete="off" placeholder="Ex. : ajoute les Catacombes samedi…" aria-label="Écrire à JALAP"><button type="submit" aria-label="Envoyer à JALAP">↗</button></form></div><button type="button" class="hub-more" data-action="open-sheet" data-panel="assistant-panel">Voir plus</button></article>';
- node.innerHTML='<div class="hub-col hub-col-left">'+stay+ess+trans+'</div><div class="hub-col hub-col-mid">'+jalap+'</div><div class="hub-col hub-col-right">'+weather+act+'</div>';
+ const spent=(t.expenses||[]).reduce((a,x)=>a+Number(x.amount||0),0),cap=Number(t.budget||0),pct=cap>0?Math.min(100,Math.round(spent/cap*100)):0,lastEx=(t.expenses||[]).slice(-2).reverse();
+ const budget=hubCard("budget","","💶 Budget",'<span class="hub-count">'+(cap>0?pct+" %":"")+'</span>','<div class="hub-budget-top"><strong>'+money(spent,t.currency)+'</strong><small>'+(cap>0?"sur "+money(cap,t.currency):"Budget non défini")+'</small></div><div class="budget-track"><div class="budget-fill" style="width:'+pct+'%"></div></div>'+(lastEx.length?'<div class="hub-expenses">'+lastEx.map(x=>'<span>'+esc(x.label)+'</span><b>'+money(x.amount,t.currency)+'</b>').join("")+'</div>':'<p class="hub-empty">Aucune dépense enregistrée.</p>'),"trip-budget");
+ node.innerHTML='<div class="hub-col hub-col-left">'+stay+ess+trans+'</div><div class="hub-col hub-col-mid">'+budget+jalap+'</div><div class="hub-col hub-col-right">'+weather+act+'</div>';
+ applyLang(node);
  const inp=$("#hub-idea-input");if(inp&&savedIdea){inp.value=savedIdea;if(focused)inp.focus({preventScroll:true})}
 }
 document.addEventListener("submit",e=>{
@@ -1625,7 +1629,7 @@ const AI_VERIFIED_KEY="pepper-gemini-verified-at-v1";
 function aiKeyLooksValid(v){return /^AIza[0-9A-Za-z_-]{30,50}$/.test(v)}
 function aiSetupModal(){
  const has=!!geminiApiKey(),verified=localStorage.getItem(AI_VERIFIED_KEY);
- const body='<ol class="ai-steps"><li><span class="ai-step-n">1</span><div><strong>Crée ta clé gratuite</strong><p>Connecte-toi avec ton compte Google puis clique sur « Create API Key ». Aucune carte bancaire n’est demandée.</p><a class="small-button" href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer">Ouvrir Google AI Studio ↗</a></div></li><li><span class="ai-step-n">2</span><div><strong>Colle-la ici</strong><p>Elle commence par <code>AIza</code>. Elle reste uniquement dans ce navigateur et n’est jamais envoyée sur GitHub.</p><div class="ai-key-row"><input id="ai-key-input" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…" value="'+esc(geminiApiKey())+'"><button type="button" class="small-button" data-action="ai-toggle-key">Afficher</button></div><p id="ai-key-hint" class="ai-hint"></p></div></li><li><span class="ai-step-n">3</span><div><strong>Teste la connexion</strong><p>PEPPER envoie une toute petite demande à Gemini 3.8 Flash pour vérifier que la clé fonctionne. La clé n’est enregistrée que si le test réussit.</p><div class="ai-actions"><button type="button" class="primary-button" data-action="ai-test">Tester et enregistrer</button>'+(has?'<button type="button" class="secondary-button" data-action="ai-remove-key">Supprimer la clé</button>':"")+'</div><div id="ai-result" class="ai-result" role="status" aria-live="polite">'+(has&&verified?'<span class="ok">✓ Clé enregistrée · dernier test réussi le '+esc(new Intl.DateTimeFormat("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(verified)))+'</span>':"")+'</div></div></li></ol><p class="ai-privacy">Niveau gratuit : Google peut utiliser les données envoyées pour améliorer ses produits. Ne transmets jamais de mot de passe, QR code, référence de réservation ou pièce d’identité à JALAP.</p>';
+ const body='<ol class="ai-steps"><li><span class="ai-step-n">1</span><div><strong>Crée ta clé gratuite</strong><p>Connecte-toi avec ton compte Google puis clique sur « Create API Key ». Aucune carte bancaire n’est demandée.</p><a class="small-button" href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer">Ouvrir Google AI Studio ↗</a></div></li><li><span class="ai-step-n">2</span><div><strong>Colle-la ici</strong><p>Elle commence par <code>AIza</code>. Elle reste uniquement dans ce navigateur et n’est jamais envoyée sur GitHub.</p><div class="ai-key-row"><input id="ai-key-input" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…" value="'+esc(geminiApiKey())+'"><button type="button" class="small-button" data-action="ai-toggle-key">Afficher</button></div><p id="ai-key-hint" class="ai-hint"></p></div></li><li><span class="ai-step-n">3</span><div><strong>Teste la connexion</strong><p>PEPPER envoie une toute petite demande à Gemini 3.8 Flash pour vérifier que la clé fonctionne. La clé n’est enregistrée que si le test réussit.</p><div class="ai-actions"><button type="button" class="primary-button" data-action="ai-test">Tester et enregistrer</button>'+(has?'<button type="button" class="secondary-button" data-action="ai-remove-key">Supprimer la clé</button>':"")+'</div><div id="ai-result" class="ai-result" role="status" aria-live="polite">'+(has&&verified?'<span class="ok">✓ Clé enregistrée · dernier test réussi le '+esc(new Intl.DateTimeFormat(LOCALE(),{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(verified)))+'</span>':"")+'</div></div></li></ol><p class="ai-privacy">Niveau gratuit : Google peut utiliser les données envoyées pour améliorer ses produits. Ne transmets jamais de mot de passe, QR code, référence de réservation ou pièce d’identité à JALAP.</p>';
  openModal("Configurer JALAP","Une clé Gemini gratuite, trois étapes.",body);
  const input=$("#ai-key-input");
  const hint=()=>{const v=input.value.trim(),h=$("#ai-key-hint");if(!h)return;h.textContent=!v?"":aiKeyLooksValid(v)?"Le format de la clé semble correct.":"Ce format ne ressemble pas à une clé Google (AIza… sans espaces). Tu peux quand même tester.";h.dataset.state=!v?"":aiKeyLooksValid(v)?"ok":"warn"};
@@ -1649,5 +1653,47 @@ async function aiSetupTest(){
  }
 }
 function aiSetupRemove(){localStorage.removeItem(GEMINI_API_KEY_KEY);localStorage.removeItem(AI_VERIFIED_KEY);closeModal();renderJalapMode();toast("Clé Gemini supprimée de ce navigateur.")}
+
+/* --- langue : français (complet) / English (interface) --- */
+let lang=(()=>{try{return localStorage.getItem("pepper-lang-v1")==="en"?"en":"fr"}catch(e){return "fr"}})();
+function LOCALE(){return lang==="en"?"en-GB":"fr-FR"}
+const EN={
+"Ton voyage, bien organisé":"Your trip, well organised","Réglages":"Settings","＋ Nouveau voyage":"＋ New trip","Pour un voyage bien piquant !":"For a trip with some spice!","Sélectionne ton voyage":"Select your trip","Aucun voyage pour l’instant":"No trips yet",
+"TON CARNET DE VOYAGE":"YOUR TRAVEL NOTEBOOK","À venir":"Upcoming","Terminé":"Finished","En cours":"In progress","À organiser":"To organise","Dates à définir":"Dates to set","Préparation en cours":"Getting ready","Enregistré sur cet appareil":"Saved on this device","Carte · programme · carnet":"Map · plan · notebook",
+"Vue d’ensemble":"Overview","Transports":"Transport","Activités":"Activities","Hébergement":"Accommodation","Carte":"Map","Stations-service":"Fuel stations","Vols":"Flights","Tout voir":"Fit all","Actualiser ↻":"Refresh ↻",
+"ALLER · RETOUR · CORRESPONDANCES":"OUTBOUND · RETURN · CONNECTIONS","Les trajets & billets":"Journeys & tickets","＋ Ajouter un trajet":"＋ Add a journey","LE PROGRAMME":"THE PLAN","Les étapes à ne pas manquer":"Stops not to miss","＋ Ajouter une activité":"＋ Add an activity","TON CAMP DE BASE":"YOUR BASE CAMP","＋ Ajouter / modifier":"＋ Add / edit","GARDER LE CAP":"STAY ON TRACK","Budget & dépenses":"Budget & expenses","＋ Ajouter une dépense":"＋ Add an expense",
+"EN CE MOMENT":"RIGHT NOW","Météo à destination":"Weather at destination","Recherche de la météo…":"Looking up the weather…","AVANT DE PARTIR":"BEFORE YOU GO","Les essentiels":"The essentials","＋ Ajouter une tâche":"＋ Add a task","TON COMPAGNON DE VOYAGE":"YOUR TRAVEL COMPANION","✈ Voyage":"✈ Travel","⌘ Développement":"⌘ Development",
+"Ton compagnon de voyage et de développement, propulsé par Gemini 3.8 Flash.":"Your travel and development companion, powered by Gemini 3.8 Flash.","Appliquer les changements":"Apply changes","Refuser":"Decline","Copier le contexte du voyage":"Copy trip context","Préparer ma demande":"Prepare my request","Auditer mon voyage avec JALAP":"Audit my trip with JALAP","Propulsé par Gemini 3.8 Flash":"Powered by Gemini 3.8 Flash",
+"À EMPORTER":"TO TAKE WITH YOU","Ton voyage en poche":"Your trip in your pocket","Exporter le programme (.ics)":"Export the plan (.ics)","Sauvegarder tous les voyages (.json)":"Back up all trips (.json)","Restaurer une sauvegarde (.json)":"Restore a backup (.json)","Le goût de partir.":"The taste of leaving.","Voyage":"Trip","Étape":"Stop","Clé Gemini à configurer":"Gemini key to set up",
+"PROCHAIN HÉBERGEMENT":"NEXT STAY","PROCHAIN TRAJET":"NEXT JOURNEY","ASSISTANT IA":"AI ASSISTANT","Voir plus":"See more","Ajouter":"Add","Adresse":"Address","Trajet":"Journey","Budget non défini":"No budget set","Aucune dépense enregistrée.":"No expenses recorded.","Aucune tâche.":"No tasks.","Aucun trajet renseigné pour l’instant.":"No journey added yet.","Ton programme est encore vierge.":"Your plan is still empty.","Date libre":"Flexible date","Réservé":"Booked","À réserver":"To book","ALLER":"OUTBOUND","RETOUR":"RETURN","CORRESPONDANCE":"CONNECTION","À préciser":"To be confirmed","Date à préciser":"Date to confirm","Itinéraire":"Directions","Billets":"Tickets","Infos":"Info","Transporteur":"Carrier","Départ":"Departure","Arrivée":"Arrival","À confirmer":"To be confirmed","Hôtel":"Hotel",
+"Ajoute ton logement pour retrouver l’adresse et les horaires d’arrivée.":"Add your accommodation to see its address and check-in time."};
+const EN_RULES=[[/^(\d+) activités$/,"$1 activities"],[/^(\d+) programmées$/,"$1 scheduled"],[/^(\d+) à planifier$/,"$1 to plan"],[/^(\d+) faites$/,"$1 done"],[/^J - (\d+)$/,"D - $1"],[/^(\d+) voyageurs?$/,(m,n)=>n+(n==="1"?" traveller":" travellers")],[/^sur (.+)$/,"of $1"],[/^Actualisée : (.+)$/,"Updated: $1"],[/^Humidité (\d+) %$/,"Humidity $1 %"],[/^Voir les (\d+)$/,"See all $1"]];
+const WEATHER_EN={"Ciel dégagé":"Clear sky","Plutôt dégagé":"Mostly clear","Partiellement nuageux":"Partly cloudy","Couvert":"Overcast","Brouillard":"Fog"};
+const PLACEHOLDER_EN={"Ex. : ajoute les Catacombes samedi…":"E.g. add the Catacombs on Saturday…","Ex. : Ajoute les Catacombes samedi vers 10 h…":"E.g. Add the Catacombs on Saturday around 10…"};
+function enText(raw){
+ const whole=EN[raw.trim()];if(whole!==undefined)return raw.replace(raw.trim(),whole);
+ const m=raw.match(/^([^\p{L}\d]*)([\s\S]*?)([^\p{L}\d]*)$/u);if(!m||!m[2])return null;
+ const core=m[2];let out=EN[core]??WEATHER_EN[core];
+ if(out===undefined)for(const [re,rep] of EN_RULES){if(re.test(core)){out=core.replace(re,rep);break}}
+ return out===undefined?null:m[1]+out+m[3];
+}
+function applyLang(root){
+ if(!root)return;
+ const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement&&!n.parentElement.closest("script,style,textarea,#jalap-thread,.leaflet-container")&&n.nodeValue.trim()?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT});
+ const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+ for(const n of nodes){
+  if(n._en!==undefined&&n.nodeValue===n._en){if(lang==="fr"){n.nodeValue=n._fr;n._en=undefined}continue}
+  if(lang==="en"){const t=enText(n.nodeValue);if(t!==null&&t!==n.nodeValue){n._fr=n.nodeValue;n._en=t;n.nodeValue=t}}
+ }
+ $$("[placeholder]",root).forEach(el=>{const ph=el.getAttribute("placeholder");if(lang==="en"&&el.dataset.phFr===undefined&&PLACEHOLDER_EN[ph]){el.dataset.phFr=ph;el.setAttribute("placeholder",PLACEHOLDER_EN[ph])}else if(lang==="fr"&&el.dataset.phFr!==undefined){el.setAttribute("placeholder",el.dataset.phFr);el.removeAttribute("data-ph-fr")}});
+ $$(".lang-button").forEach(b=>{const t=b.lastChild;if(t&&t.nodeType===3)t.nodeValue=lang.toUpperCase()});
+ $$('[data-action="set-lang"]').forEach(b=>{const on=b.dataset.lang===lang;b.classList.toggle("is-current",on);let c=b.querySelector("i");if(on&&!c){c=document.createElement("i");c.textContent="✓";b.appendChild(c)}if(!on&&c&&c.textContent==="✓")b.removeChild(c)});
+ document.documentElement.lang=lang;
+}
+function setLang(next){
+ lang=next==="en"?"en":"fr";try{localStorage.setItem("pepper-lang-v1",lang)}catch(e){}
+ closeMenus();render();applyLang(document.body);
+ toast(lang==="en"?"Interface switched to English. Forms and JALAP replies stay in French.":"Interface en français.");
+}
 
 initialise();
