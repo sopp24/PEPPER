@@ -306,7 +306,7 @@ function render(){
  $("#trip-switcher").innerHTML=state.trips.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===t.id?"selected":"")+'>'+esc(x.destination)+'</option>').join("");
  const q=encodeURIComponent(t.destination||"");$("#link-google-maps").href="https://www.google.com/maps/search/?api=1&query="+q;$("#link-apple-maps").href="https://maps.apple.com/?q="+q;$("#link-waze").href="https://www.waze.com/ul?q="+q+"&navigate=yes";$("#link-fuel").href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent("station-service carburant "+t.destination);
  renderStay(t);renderTransport(t);renderActivities(t);renderChecklist(t);renderHub(t);
- if(!t.geo&&t.destination)fetchDestination(t);else{renderMap(t);if(!weatherData||weatherData.tripId!==t.id)fetchWeather(t)}
+ if(!t.geo&&t.destination){$("#trip-map")?.classList.add("is-locating");fetchDestination(t)}else{renderMap(t);if(!weatherData||weatherData.tripId!==t.id)fetchWeather(t)}
 }
 function renderStay(t){
  const s=t.accommodation,node=$("#accommodation-content");if(!s||!s.name){node.innerHTML='<div class="empty-inline">Ajoute ton logement pour connaître les horaires, l’accès, les équipements et les consignes d’arrivée / départ.</div>';return}
@@ -685,7 +685,7 @@ function mapPadding(){
 }
 function tryAutoFit(){
  if(!mapNeedsFit||!map)return;const n=$("#map");if(!n||n.clientWidth<200||n.clientHeight<200)return;
- mapNeedsFit=false;map.resize();applyMapPadding();fitMap();
+ mapNeedsFit=false;map.resize();applyMapPadding();fitMap(true);
 }
 function applyMapPadding(animate){if(!map)return;try{map.setPadding(mapPadding())}catch(e){}}
 function updateZoomPct(){const out=$("#zoom-pct");if(out&&map)out.textContent=Math.round(100*Math.pow(2,map.getZoom()-12))+"%"}
@@ -751,7 +751,7 @@ function renderMap(t){
   return;
  }
  const tripChanged=mapTripId!==t.id;
- if(tripChanged){mapTripId=t.id;map.jumpTo({center,zoom:t.geo?12:2,pitch:0,bearing:0});mapPitch3D=false;$('[data-action="map-3d"]')?.setAttribute("aria-pressed","false")}
+ if(tripChanged){mapTripId=t.id;map.jumpTo({center,zoom:t.geo?13:2,pitch:0,bearing:0});mapPitch3D=false;$('[data-action="map-3d"]')?.setAttribute("aria-pressed","false")}
  (markers||[]).forEach(m=>m.remove());markers=[];activityMarkerIndex={};mapRouteCoords=[];
  if(t.geo)addMapMarker(center,mapPin("destination","✦",t.destination||"Destination"),"<strong>"+esc(t.destination)+"</strong><br>Destination");
  if(t.accommodation&&t.accommodation.geo){const g=t.accommodation.geo;addMapMarker([g.lon,g.lat],mapPin("stay","🛏","Hébergement"),"<strong>"+esc(t.accommodation.name)+"</strong><br>Hébergement")}
@@ -767,7 +767,8 @@ function renderMap(t){
  const count=$("#map-activity-count");if(count){const n=(t.activities||[]).filter(a=>a.geo).length;count.textContent=n?"· "+n+" lieu(x) repéré(s)":""}
  const label=$("#map-location-label");if(label)label.textContent=t.destination||"Destination";
  applyMapPadding();
- if(tripChanged){mapNeedsFit=markers.length>1;setTimeout(tryAutoFit,200)}
+ $("#trip-map")?.classList.remove("is-locating");
+ if(tripChanged){mapNeedsFit=markers.length>1;tryAutoFit();setTimeout(tryAutoFit,200)}
 }
 function focusActivityOnMap(id){
  const t=activeTrip(),activity=t?.activities.find(item=>item.id===id);if(!t||!activity)return;
@@ -788,11 +789,11 @@ function focusActivityOnMap(id){
   activity.geo=point;save();renderMap(t);show();
  }).catch(()=>toast("Impossible de géolocaliser cette étape.","error"));
 }
-function fitMap(){
+function fitMap(instant){
  if(!map)return;map.resize();
  const t=activeTrip(),pts=(markers||[]).map(m=>m.getLngLat());
- if(pts.length>1){const b=new maplibregl.LngLatBounds(pts[0],pts[0]);pts.forEach(p=>b.extend(p));map.fitBounds(b,{padding:mapPadding(),maxZoom:15,duration:900})}
- else if(t&&t.geo)map.flyTo({center:[t.geo.lon,t.geo.lat],zoom:13,duration:900});
+ if(pts.length>1){const b=new maplibregl.LngLatBounds(pts[0],pts[0]);pts.forEach(p=>b.extend(p));map.fitBounds(b,{padding:mapPadding(),maxZoom:15,duration:instant===true?0:900})}
+ else if(t&&t.geo){const c=[t.geo.lon,t.geo.lat];if(instant===true)map.jumpTo({center:c,zoom:13});else map.flyTo({center:c,zoom:13,duration:900})}
 }
 function toggle3D(){
  if(!map)return;mapPitch3D=!mapPitch3D;
@@ -856,19 +857,21 @@ async function geocodeMissingActivities(trip){
   }
  }finally{geocodeInFlight.delete(trip.id)}
 }
+const locatingTrips=new Set();
 async function fetchDestination(t){
  const id=t.id,q=t.destination;
+ if(locatingTrips.has(id))return;locatingTrips.add(id);
  try{
   const g=await geocode(q);
   if(activeTrip()&&activeTrip().id===id&&g){
    t.geo=g;save();renderMap(t);fetchWeather(t);geocodeMissingActivities(t);geocodeStay();
   }else if(activeTrip()?.id===id){
    weatherError="Je n’arrive pas à localiser cette destination. Vérifie le nom de la ville.";
-   renderWeather();renderMap(t);
+   renderWeather();$("#trip-map")?.classList.remove("is-locating");renderMap(t);
   }
  }catch(e){
-  if(activeTrip()?.id===id){weatherError="Géolocalisation indisponible. Vérifie ta connexion.";renderWeather();showFallbackMap(t)}
- }
+  if(activeTrip()?.id===id){weatherError="Géolocalisation indisponible. Vérifie ta connexion.";renderWeather();$("#trip-map")?.classList.remove("is-locating");showFallbackMap(t)}
+ } finally{locatingTrips.delete(id)}
 }
 async function geocodeStay(){
  const t=activeTrip(),s=t&&t.accommodation;if(!t||!s||!s.address||s.geo)return;
@@ -1599,7 +1602,7 @@ document.addEventListener("submit",e=>{
 });
 document.addEventListener("keydown",e=>{if(e.key==="Tab"&&sheetState&&!modalRoot.innerHTML){const f=$$("button:not([disabled]),a[href],input:not([disabled]),textarea,select",sheetState.root).filter(x=>x.offsetParent!==null);if(f.length){const first=f[0],last=f[f.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}}if(e.key==="Escape"){if(modalRoot.innerHTML)closeModal();else if(sheetState)closeSheet();else if(document.body.classList.contains("map-full"))toggleMapFullscreen(false);closeMenus()}});
 $$("[data-scroll]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.scroll,node=id==="assistant-panel"?$(".assistant-panel"):$("#"+id);if(node&&node.closest("#panel-vault")){openSheet(node.id||"assistant-panel");return}if(node)node.scrollIntoView({behavior:"smooth",block:"start"})}));
-async function initialise(){if(lang==="en"){try{await ensureI18n()}catch(e){lang="fr"}}localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);localStorage.removeItem("pepper-anthropic-api-key-v1");localStorage.removeItem(LEGACY_GROQ_API_KEY_KEY);await restoreStateFromIndexedDB();if(githubSyncEnabled()){if(githubAccessToken())await syncGitHubState({pull:true});else setGitHubSyncStatus("error","Jeton GitHub manquant")}else setGitHubSyncStatus("local");if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;setJalapMode(jalapMode);save({skipTouch:true,skipRemote:true});render();applyLang(document.body);watchLang();updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();if(githubSyncEnabled())scheduleGitHubSync(200);const t=activeTrip();if(t){renderMap(t);fetchWeather(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator){const hadController=!!navigator.serviceWorker.controller;let reloaded=false;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(hadController&&!reloaded){reloaded=true;location.reload()}});navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}}
+async function initialise(){if(lang==="en"){try{await ensureI18n()}catch(e){lang="fr"}}localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);localStorage.removeItem("pepper-anthropic-api-key-v1");localStorage.removeItem(LEGACY_GROQ_API_KEY_KEY);await restoreStateFromIndexedDB();if(githubSyncEnabled()){if(githubAccessToken())await syncGitHubState({pull:true});else setGitHubSyncStatus("error","Jeton GitHub manquant")}else setGitHubSyncStatus("local");if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;setJalapMode(jalapMode);save({skipTouch:true,skipRemote:true});render();applyLang(document.body);watchLang();if(state.trips.length&&navigator.onLine)(window.requestIdleCallback?window.requestIdleCallback(()=>ensureMapLib(),{timeout:1500}):setTimeout(()=>ensureMapLib(),600));updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();if(githubSyncEnabled())scheduleGitHubSync(200);const t=activeTrip();if(t){renderMap(t);fetchWeather(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator){const hadController=!!navigator.serviceWorker.controller;let reloaded=false;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(hadController&&!reloaded){reloaded=true;location.reload()}});navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}}
 /* ================= PEPPER UI : accueil, cartes flottantes, panneau « Voir plus » ================= */
 const CATEGORY_KIND={Culture:"culture",Architecture:"culture",Nature:"nature",Restaurant:"food",Sortie:"fun",Shopping:"shop",Transport:"move"};
 const CATEGORY_EMOJI={culture:"🏛",nature:"🌳",food:"🍴",fun:"🎭",shop:"🛍",move:"🚆",other:"📍"};

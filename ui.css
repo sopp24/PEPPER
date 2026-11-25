@@ -482,3 +482,7 @@ body{background:radial-gradient(ellipse 60% 35% at 92% -8%,rgba(237,120,197,.07)
  .trip-toolbar{border-radius:14px}
  .sheet{border-radius:22px 22px 0 0}
 }
+
+/* localisation en cours : on masque l'ancienne carte au lieu d'afficher un autre lieu */
+.map-locating{display:none;position:absolute;inset:0;z-index:510;align-items:center;justify-content:center;gap:12px;background:#0b0d10;color:#d8d3cf;font-size:14px}
+.map-hub.is-locating .map-locating{display:flex}
