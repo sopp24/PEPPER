@@ -751,3 +751,20 @@ html{scrollbar-gutter:stable}
  .landing-actions .picker-list{max-height:42dvh}
 }
 .settings-actions button,.settings-actions a{font-size:13px;font-weight:600}
+
+/* JALAP : conseils (pastilles « ＋ ajouter »), aperçu détaillé, sélecteur de mode */
+.jalap-mode-switch{grid-template-columns:repeat(auto-fit,minmax(0,1fr))}
+.jalap-mode-switch button[hidden]{display:none}
+.jalap-chips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px 36px}
+.jalap-chip{display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;max-width:100%;padding:7px 12px;border:1px solid rgba(242,166,111,.35);border-radius:12px;background:rgba(242,166,111,.08);color:#ffe0c8;font-size:12px;font-weight:600;text-align:left;line-height:1.3;transition:background .2s,transform .15s}
+.jalap-chip small{display:block;color:#c9b09c;font-size:10.5px;font-weight:400}
+.jalap-chip:hover{background:rgba(242,166,111,.18)}.jalap-chip:active{transform:scale(.97)}
+.jalap-chip.done,.jalap-chip:disabled{opacity:.5;cursor:default}
+.jalap-chip.quick{border-color:rgba(255,255,255,.16);background:rgba(255,255,255,.05);color:#e6e2df;flex-direction:row;font-weight:500}
+.jalap-change{display:flex;flex-direction:column;gap:4px}
+.jalap-change>span{color:#c4c0bd;font-size:11.5px}
+.jalap-change p{margin:2px 0;color:#e2dedb;font-size:12px;line-height:1.5}
+.jalap-change dl{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;margin:4px 0;font-size:11.5px}
+.jalap-change dt{color:#9a9794}.jalap-change dd{margin:0;color:#e6e2df}
+.jalap-change ul{margin:2px 0 0;padding-left:18px;color:#cfcac6;font-size:11.5px;line-height:1.5}
+.jalap-change.op-activity_delete strong{color:#ffb4a6}
