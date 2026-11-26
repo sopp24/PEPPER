@@ -599,3 +599,59 @@ html{scrollbar-gutter:stable}
 @media(max-width:760px) and (max-height:600px){[data-action="map-3d"]{display:none}}
 @media(max-width:760px){.map-tools .glass-group [data-action="map-fullscreen"]{display:none}}
 @media(max-width:760px) and (max-height:600px){.map-tools .glass-group [data-action="map-3d"]{display:none}}
+
+
+/* ---------- accueil : sélecteur de voyage avec recherche ---------- */
+.landing-actions .picker-list{
+ top:calc(100% + 8px);
+ bottom:auto;
+ right:50%;
+ transform:translateX(50%);
+ width:min(380px,86vw);
+ max-height:min(430px,48vh);
+ display:flex;
+ flex-direction:column;
+ gap:8px;
+ padding:10px;
+ overflow:hidden;
+ animation:menu-in .2s var(--ease-out);
+}
+.landing-actions .picker-list[hidden]{display:none}
+.picker-search{
+ display:flex;
+ flex:0 0 auto;
+ align-items:center;
+ gap:9px;
+ min-height:42px;
+ padding:0 12px;
+ border:1px solid rgba(255,255,255,.12);
+ border-radius:11px;
+ background:rgba(255,255,255,.055);
+ color:var(--muted);
+}
+.picker-search svg{flex:none}
+.picker-search input{
+ width:100%;
+ min-width:0;
+ border:0;
+ outline:0;
+ background:transparent;
+ color:var(--ink);
+ font:inherit;
+ font-size:13px;
+}
+.picker-search input::placeholder{color:var(--muted)}
+.picker-search:focus-within{border-color:rgba(249,195,155,.48);background:rgba(255,255,255,.08)}
+.picker-results{
+ min-height:0;
+ overflow-y:auto;
+ overscroll-behavior:contain;
+}
+.picker-results .picker-item{flex-shrink:0}
+.picker-empty{
+ margin:0;
+ padding:14px 10px;
+ color:var(--muted);
+ text-align:center;
+ font-size:13px;
+}
