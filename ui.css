@@ -614,7 +614,7 @@ html{scrollbar-gutter:stable}
  gap:8px;
  padding:10px;
  overflow:hidden;
- animation:menu-in .2s var(--ease-out);
+ animation:picker-menu-down .2s var(--ease-out);
 }
 .landing-actions .picker-list[hidden]{display:none}
 .picker-search{
@@ -655,3 +655,5 @@ html{scrollbar-gutter:stable}
  text-align:center;
  font-size:13px;
 }
+
+@keyframes picker-menu-down{from{opacity:0;transform:translate(50%,-7px) scale(.98)}to{opacity:1;transform:translate(50%,0) scale(1)}}
