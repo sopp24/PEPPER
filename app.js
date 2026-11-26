@@ -1834,25 +1834,56 @@ function renderPickerOptions(query=""){
  });
  results.innerHTML=trips.length?trips.map(t=>{const d=t.startDate?dateLabel(t.startDate)+(t.endDate?" → "+dateLabel(t.endDate):""):"Dates à définir";return '<div class="picker-item-row"><button type="button" role="option" class="picker-item '+(t.id===state.activeTripId?"is-current":"")+'" data-action="pick-trip" data-id="'+esc(t.id)+'"><strong>'+esc(t.destination||"Voyage")+'</strong><small>'+esc(d)+' · '+(t.activities||[]).length+' activité(s)</small></button><button type="button" class="picker-delete" data-action="delete-trip" data-id="'+esc(t.id)+'" aria-label="Supprimer le voyage '+esc(t.destination||"")+'"><span>Supprimer</span></button></div>'}).join(""):'<p class="picker-empty">Aucun voyage trouvé.</p>';
 }
-let projectBoardOpener=null,projectBoardCloseTimer=0;
+let projectBoardOpener=null,projectBoardCloseTimer=0,projectStoryObserver=null;
+function updateProjectStoryProgress(){
+ const root=$("#project-story-scroll"),fill=$("#story-progress-fill");if(!root||!fill)return;
+ const max=Math.max(1,root.scrollHeight-root.clientHeight);
+ fill.style.width=Math.min(100,Math.max(0,root.scrollTop/max*100))+"%";
+}
+function setupProjectStory(){
+ const root=$("#project-story-scroll");if(!root)return;
+ root.scrollTop=0;
+ const nodes=$("[data-story-reveal]",root);
+ nodes.forEach(node=>node.classList.remove("is-revealed"));
+ if(projectStoryObserver){projectStoryObserver.disconnect();projectStoryObserver=null}
+ if(!("IntersectionObserver" in window)){
+  nodes.forEach(node=>node.classList.add("is-revealed"));
+  updateProjectStoryProgress();return;
+ }
+ projectStoryObserver=new IntersectionObserver(entries=>{
+  entries.forEach(entry=>{
+   if(entry.isIntersecting){
+    entry.target.classList.add("is-revealed");
+    projectStoryObserver?.unobserve(entry.target);
+   }
+  });
+ },{root,threshold:.12,rootMargin:"0px 0px -7% 0px"});
+ nodes.forEach(node=>projectStoryObserver.observe(node));
+ updateProjectStoryProgress();
+}
 function openProjectBoard(){
  const board=$("#project-board");if(!board)return;
  clearTimeout(projectBoardCloseTimer);closeMenus();
  projectBoardOpener=document.activeElement;
  board.hidden=false;board.setAttribute("aria-hidden","false");
  document.body.classList.add("project-board-open");
- requestAnimationFrame(()=>{board.classList.add("is-visible");$("#project-board-close")?.focus({preventScroll:true})});
+ requestAnimationFrame(()=>{
+  board.classList.add("is-visible");
+  setupProjectStory();
+  $("#project-board-close")?.focus({preventScroll:true});
+ });
 }
 function closeProjectBoard(){
  const board=$("#project-board");if(!board||board.hidden)return;
  board.classList.remove("is-visible");board.setAttribute("aria-hidden","true");
  document.body.classList.remove("project-board-open");
+ if(projectStoryObserver){projectStoryObserver.disconnect();projectStoryObserver=null}
  clearTimeout(projectBoardCloseTimer);
  projectBoardCloseTimer=window.setTimeout(()=>{
   if(!board.classList.contains("is-visible"))board.hidden=true;
   if(projectBoardOpener&&projectBoardOpener.isConnected)projectBoardOpener.focus({preventScroll:true});
   projectBoardOpener=null;
- },260);
+ },300);
 }
 function printProjectBoard(format){
  const board=$("#project-board");if(!board)return;
@@ -1869,6 +1900,10 @@ function resetProjectBoardPrint(){
  const board=$("#project-board");if(board)delete board.dataset.printFormat;
 }
 window.addEventListener("afterprint",resetProjectBoardPrint);
+document.addEventListener("scroll",event=>{
+ if(event.target?.id==="project-story-scroll")updateProjectStoryProgress();
+},true);
+window.addEventListener("resize",updateProjectStoryProgress);
 
 function renderLanding(){
  const list=$("#picker-list"),label=$("#picker-label");if(!list)return;
