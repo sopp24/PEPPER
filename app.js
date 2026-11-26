@@ -24,7 +24,45 @@ const money=(v,c)=>new Intl.NumberFormat(LOCALE(),{style:"currency",currency:c||
 const icons={train:"🚆",plane:"✈️",car:"🚗",bus:"🚌",ferry:"⛴"};
 const modeName={train:"Train",plane:"Avion",car:"Voiture",bus:"Bus",ferry:"Ferry"};
 const directionName={outbound:"Aller",return:"Retour",connection:"Correspondance",other:"Étape"};
-let state=parse(localStorage.getItem(STORAGE_KEY),null)||parse(localStorage.getItem(RECOVERY_KEY),null)||parse(localStorage.getItem(LEGACY_KEY),null)||{trips:[],activeTripId:null};
+const PRESENTATION_SCREEN=new URLSearchParams(location.search).get("presentationScreen")||"";
+const PRESENTATION_SCREENS=new Set(["desktop-map","phone-program","phone-transport","phone-jalap"]);
+const isPresentationPreview=PRESENTATION_SCREENS.has(PRESENTATION_SCREEN);
+function buildPresentationDemoTrip(){
+ const geo=(lat,lon)=>({lat,lon});
+ return {
+  id:"pepper-presentation-demo",destination:"Lisbonne, Portugal",startDate:"2027-04-15",endDate:"2027-04-19",people:2,
+  geo:{lat:38.7223,lon:-9.1393,country:"Portugal"},
+  localTransitName:"Metro de Lisboa",localTransitUrl:"https://www.metrolisboa.pt/",localTrafficUrl:"https://www.google.com/maps",
+  notes:"Voyage de démonstration PEPPER. Données fictives, isolées du carnet personnel.",
+  accommodation:{
+   id:"demo-stay",name:"Memmo Alfama",type:"Hôtel",status:"Confirmé",
+   address:"Travessa das Merceeiras, Lisbonne",checkInDate:"2027-04-15",checkInTime:"15:00",
+   checkOutDate:"2027-04-19",checkOutTime:"11:00",contact:"Réception",phone:"",
+   amenities:"Wi-Fi · Petit-déjeuner",parking:"Non prévu",breakfast:"Inclus",
+   access:"Arrivée à partir de 15 h",notes:"Exemple de séjour pour la présentation.",
+   geo:geo(38.7107,-9.1302)
+  },
+  activities:[
+   {id:"demo-activity-1",name:"Tour de Belém",category:"Culture",date:"2027-04-16",startTime:"10:00",duration:90,address:"Belém, Lisbonne",description:"Découvrir le quartier historique et les bords du Tage.",price:0,bookingStatus:"unknown",bookingRequired:false,priority:"must",done:false,geo:geo(38.6916,-9.216)},
+   {id:"demo-activity-2",name:"LX Factory",category:"Shopping",date:"2027-04-16",startTime:"14:30",duration:120,address:"Rua Rodrigues de Faria, Lisbonne",description:"Explorer les boutiques et les anciennes halles.",price:0,bookingStatus:"not_required",bookingRequired:false,priority:"medium",done:false,geo:geo(38.7037,-9.1781)},
+   {id:"demo-activity-3",name:"Miradouro da Graça",category:"Nature",date:"2027-04-17",startTime:"18:00",duration:60,address:"Graça, Lisbonne",description:"Profiter de la vue sur les toits de Lisbonne.",price:0,bookingStatus:"not_required",bookingRequired:false,priority:"low",done:false,geo:geo(38.7178,-9.1318)}
+  ],
+  transport:[
+   {id:"demo-flight-out",direction:"outbound",mode:"plane",operator:"TAP Air Portugal",service:"Vol direct",number:"TP443",origin:"Paris-Orly",destination:"Lisbonne",departureDate:"2027-04-15",departureTime:"08:30",arrivalDate:"2027-04-15",arrivalTime:"10:05",platform:"Terminal 3",baggage:"Cabine + petit sac",boardingDeadline:"08:00",arrivalBufferMinutes:120,routeType:"direct",ticketUrl:"",bookingRef:"DEMO-TP443",notes:"Billet de démonstration."},
+   {id:"demo-flight-return",direction:"return",mode:"plane",operator:"TAP Air Portugal",service:"Vol direct",number:"TP442",origin:"Lisbonne",destination:"Paris-Orly",departureDate:"2027-04-19",departureTime:"18:15",arrivalDate:"2027-04-19",arrivalTime:"21:50",platform:"Terminal 1",baggage:"Cabine + petit sac",boardingDeadline:"17:45",arrivalBufferMinutes:120,routeType:"direct",ticketUrl:"",bookingRef:"DEMO-TP442",notes:"Billet de démonstration."}
+  ],
+  expenses:[
+   {id:"demo-expense-1",name:"Vol aller-retour",category:"Transport",amount:185,currency:"EUR",date:"2027-04-15"},
+   {id:"demo-expense-2",name:"Hébergement",category:"Logement",amount:320,currency:"EUR",date:"2027-04-15"}
+  ],
+  checklist:[
+   {id:"demo-check-1",title:"Télécharger les billets",done:true,category:"Avant le départ"},
+   {id:"demo-check-2",title:"Vérifier les horaires d’arrivée",done:false,category:"Avant le départ"}
+  ],
+  createdAt:"2026-11-26T10:00:00.000Z",updatedAt:"2026-11-26T10:00:00.000Z"
+ };
+}
+let state=isPresentationPreview?{trips:[buildPresentationDemoTrip()],activeTripId:"pepper-presentation-demo",deletedTrips:{}}:parse(localStorage.getItem(STORAGE_KEY),null)||parse(localStorage.getItem(RECOVERY_KEY),null)||parse(localStorage.getItem(LEGACY_KEY),null)||{trips:[],activeTripId:null};
 state.trips=Array.isArray(state.trips)?state.trips:[];
 state.deletedTrips=state.deletedTrips&&typeof state.deletedTrips==="object"&&!Array.isArray(state.deletedTrips)?state.deletedTrips:{};
 state.trips.forEach(t=>{t.activities=t.activities||[];t.expenses=t.expenses||[];t.checklist=t.checklist||[];t.transport=t.transport||[];t.accommodation=t.accommodation||null});
@@ -33,7 +71,7 @@ let jalapMessages=[],jalapPendingProposal=null,jalapPendingTripId=null,jalapBusy
 let githubSyncTimer=null,githubSyncRunning=false,githubSyncAgain=false,githubSyncStatus="local",githubLastContent="",githubSyncError="";
 const JALAP_DEV_PATHS=["index.html","app.js","styles.css","manifest.webmanifest","service-worker.js","README.md","lib/gemini-api.mjs","tests/gemini-api.test.mjs","assets/jalap.svg","assets/pepper-favicon.svg","tests/jalap.test.mjs","tests/jalap-dev.test.mjs"];
 const modalRoot=$("#modal-root");
-let showHome=true;
+let showHome=true;\nif(isPresentationPreview)showHome=false;
 
 function openPepperDatabase(){
  if(!("indexedDB" in window))return Promise.resolve(null);
@@ -241,7 +279,7 @@ async function connectGitHubSync(){
  if(githubSyncStatus==="error")throw new Error(githubSyncError||"La synchronisation GitHub a échoué.");
 }
 
-function save(options={}){const now=new Date().toISOString();if(state.deletedTrips)for(const t of state.trips)delete state.deletedTrips[t.id];if(!options.skipTouch){state.updatedAt=now;const trip=activeTrip();if(trip)trip.updatedAt=now}const snapshot=JSON.stringify(state);try{const previous=localStorage.getItem(STORAGE_KEY);if(previous)localStorage.setItem(RECOVERY_KEY,previous);localStorage.setItem(STORAGE_KEY,snapshot)}catch(e){toast("Le stockage classique est saturé. La sauvegarde locale étendue est tentée ; exporte aussi un fichier JSON privé.","error")}persistStateToIndexedDB(snapshot);if(!options.skipRemote){scheduleGitHubSync();scheduleCloudSync()}queueMicrotask(()=>{const t=activeTrip();if(t&&!showHome&&typeof renderHub==="function")renderHub(t)})}
+function save(options={}){if(isPresentationPreview)return;const now=new Date().toISOString();if(state.deletedTrips)for(const t of state.trips)delete state.deletedTrips[t.id];if(!options.skipTouch){state.updatedAt=now;const trip=activeTrip();if(trip)trip.updatedAt=now}const snapshot=JSON.stringify(state);try{const previous=localStorage.getItem(STORAGE_KEY);if(previous)localStorage.setItem(RECOVERY_KEY,previous);localStorage.setItem(STORAGE_KEY,snapshot)}catch(e){toast("Le stockage classique est saturé. La sauvegarde locale étendue est tentée ; exporte aussi un fichier JSON privé.","error")}persistStateToIndexedDB(snapshot);if(!options.skipRemote){scheduleGitHubSync();scheduleCloudSync()}queueMicrotask(()=>{const t=activeTrip();if(t&&!showHome&&typeof renderHub==="function")renderHub(t)})}
 function toast(message,type){const n=document.createElement("div");n.className="toast "+(type||"");n.textContent=trs(message);$("#toast-root").appendChild(n);setTimeout(()=>n.remove(),4200)}
 function dateTime(date,time){if(!date)return null;const d=new Date(date+"T"+(time||"00:00")+":00");return Number.isNaN(d.getTime())?null:d}
 function dateTimeLabel(d){return new Intl.DateTimeFormat(LOCALE(),{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(d)}
@@ -1788,7 +1826,18 @@ document.addEventListener("submit",e=>{
 });
 document.addEventListener("keydown",e=>{if(e.key==="Tab"&&sheetState&&!modalRoot.innerHTML){const f=$$("button:not([disabled]),a[href],input:not([disabled]),textarea,select",sheetState.root).filter(x=>x.offsetParent!==null);if(f.length){const first=f[0],last=f[f.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}}if(e.key==="Escape"&&$("#project-board")&&!$("#project-board").hidden){closeProjectBoard();return}if(e.key==="Escape"){if(modalRoot.innerHTML)closeModal();else if(sheetState)closeSheet();else if(document.body.classList.contains("map-full"))toggleMapFullscreen(false);closeMenus()}});
 $$("[data-scroll]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.scroll,node=id==="assistant-panel"?$(".assistant-panel"):$("#"+id);if(node&&node.closest("#panel-vault")){openSheet(node.id||"assistant-panel");return}if(node)node.scrollIntoView({behavior:"smooth",block:"start"})}));
-async function initialise(){if(lang==="en"){try{await ensureI18n()}catch(e){lang="fr"}}localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);localStorage.removeItem("pepper-anthropic-api-key-v1");localStorage.removeItem(LEGACY_GROQ_API_KEY_KEY);await restoreStateFromIndexedDB();if(githubSyncEnabled()){if(githubAccessToken())await syncGitHubState({pull:true});else setGitHubSyncStatus("error","Jeton GitHub manquant")}else setGitHubSyncStatus("local");if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;setJalapMode(jalapMode);save({skipTouch:true,skipRemote:true});render();applyLang(document.body);watchLang();if(sbSession()&&sbConfigured()){setCloudStatus("syncing");syncCloud()}if(state.trips.length&&navigator.onLine)(window.requestIdleCallback?window.requestIdleCallback(()=>ensureMapLib(),{timeout:1500}):setTimeout(()=>ensureMapLib(),600));updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();if(githubSyncEnabled())scheduleGitHubSync(200);const t=activeTrip();if(t){renderMap(t);fetchWeather(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator){const hadController=!!navigator.serviceWorker.controller;let reloaded=false;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(hadController&&!reloaded){reloaded=true;location.reload()}});navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}}
+async function initialise(){if(isPresentationPreview){
+ document.body.dataset.presentationPreview=PRESENTATION_SCREEN;
+ showHome=false;
+ if(lang==="en"){try{await ensureI18n()}catch(e){lang="fr"}}
+ setJalapMode(jalapMode);
+ render();applyLang(document.body);watchLang();
+ const previewPanel={ "phone-program":"trip-itinerary", "phone-transport":"trip-transport", "phone-jalap":"assistant-panel" }[PRESENTATION_SCREEN];
+ if(PRESENTATION_SCREEN==="desktop-map"){const vault=$("#panel-vault");if(vault)vault.hidden=false;}
+ if(previewPanel)window.setTimeout(()=>openSheet(previewPanel),450);
+ if(navigator.onLine)window.setTimeout(()=>ensureMapLib(),250);
+ return;
+ }if(lang==="en"){try{await ensureI18n()}catch(e){lang="fr"}}localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);localStorage.removeItem("pepper-anthropic-api-key-v1");localStorage.removeItem(LEGACY_GROQ_API_KEY_KEY);await restoreStateFromIndexedDB();if(githubSyncEnabled()){if(githubAccessToken())await syncGitHubState({pull:true});else setGitHubSyncStatus("error","Jeton GitHub manquant")}else setGitHubSyncStatus("local");if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;setJalapMode(jalapMode);save({skipTouch:true,skipRemote:true});render();applyLang(document.body);watchLang();if(sbSession()&&sbConfigured()){setCloudStatus("syncing");syncCloud()}if(state.trips.length&&navigator.onLine)(window.requestIdleCallback?window.requestIdleCallback(()=>ensureMapLib(),{timeout:1500}):setTimeout(()=>ensureMapLib(),600));updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();if(githubSyncEnabled())scheduleGitHubSync(200);const t=activeTrip();if(t){renderMap(t);fetchWeather(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator){const hadController=!!navigator.serviceWorker.controller;let reloaded=false;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(hadController&&!reloaded){reloaded=true;location.reload()}});navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}}
 /* ================= PEPPER UI : accueil, cartes flottantes, panneau « Voir plus » ================= */
 const CATEGORY_KIND={Culture:"culture",Architecture:"culture",Nature:"nature",Restaurant:"food",Sortie:"fun",Shopping:"shop",Transport:"move"};
 const CATEGORY_EMOJI={culture:"🏛",nature:"🌳",food:"🍴",fun:"🎭",shop:"🛍",move:"🚆",other:"📍"};
