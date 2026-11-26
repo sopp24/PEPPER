@@ -71,7 +71,8 @@ let jalapMessages=[],jalapPendingProposal=null,jalapPendingTripId=null,jalapBusy
 let githubSyncTimer=null,githubSyncRunning=false,githubSyncAgain=false,githubSyncStatus="local",githubLastContent="",githubSyncError="";
 const JALAP_DEV_PATHS=["index.html","app.js","styles.css","manifest.webmanifest","service-worker.js","README.md","lib/gemini-api.mjs","tests/gemini-api.test.mjs","assets/jalap.svg","assets/pepper-favicon.svg","tests/jalap.test.mjs","tests/jalap-dev.test.mjs"];
 const modalRoot=$("#modal-root");
-let showHome=true;\nif(isPresentationPreview)showHome=false;
+let showHome=true;
+if(isPresentationPreview)showHome=false;
 
 function openPepperDatabase(){
  if(!("indexedDB" in window))return Promise.resolve(null);
