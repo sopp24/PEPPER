@@ -347,7 +347,7 @@ function render(){
  const tt=$("#topbar-trip");if(tt)tt.textContent=t.destination||"";
  $$("[data-ql]").forEach(a=>{const k=a.dataset.ql;a.href=k==="google"?"https://www.google.com/maps/search/?api=1&query="+q:k==="apple"?"https://maps.apple.com/?q="+q:k==="waze"?"https://www.waze.com/ul?q="+q+"&navigate=yes":"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent("station-service carburant "+t.destination)});
  renderStay(t);renderTransport(t);renderActivities(t);renderCityTransit(t);renderHub(t);
- if(!t.geo&&t.destination){$("#trip-map")?.classList.add("is-locating");fetchDestination(t)}else{renderMap(t);if(!weatherData||weatherData.tripId!==t.id)fetchWeather(t)}
+ if(!t.geo&&t.destination){$("#trip-map")?.classList.add("is-locating");fetchDestination(t)}else if(!isPresentationPreview||PRESENTATION_SCREEN==="desktop-map"){renderMap(t);if(!weatherData||weatherData.tripId!==t.id)fetchWeather(t)}
 }
 function renderStay(t){
  const s=t.accommodation,node=$("#accommodation-content");if(!s||!s.name){node.innerHTML='<div class="empty-inline">Ajoute ton logement pour connaître les horaires, l’accès, les équipements et les consignes d’arrivée / départ.</div>';return}
@@ -1837,7 +1837,7 @@ async function initialise(){if(isPresentationPreview){
  const previewPanel={ "phone-program":"trip-itinerary", "phone-transport":"trip-transport", "phone-jalap":"assistant-panel" }[PRESENTATION_SCREEN];
  if(PRESENTATION_SCREEN==="desktop-map"){const vault=$("#panel-vault");if(vault)vault.hidden=false;}
  if(previewPanel)window.setTimeout(()=>openSheet(previewPanel),450);
- if(navigator.onLine)window.setTimeout(()=>ensureMapLib(),250);
+ if(PRESENTATION_SCREEN==="desktop-map"&&navigator.onLine)window.setTimeout(()=>ensureMapLib(),250);
  return;
  }if(lang==="en"){try{await ensureI18n()}catch(e){lang="fr"}}localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);localStorage.removeItem("pepper-anthropic-api-key-v1");localStorage.removeItem(LEGACY_GROQ_API_KEY_KEY);await restoreStateFromIndexedDB();if(githubSyncEnabled()){if(githubAccessToken())await syncGitHubState({pull:true});else setGitHubSyncStatus("error","Jeton GitHub manquant")}else setGitHubSyncStatus("local");if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;setJalapMode(jalapMode);save({skipTouch:true,skipRemote:true});render();applyLang(document.body);watchLang();if(sbSession()&&sbConfigured()){setCloudStatus("syncing");syncCloud()}if(state.trips.length&&navigator.onLine)(window.requestIdleCallback?window.requestIdleCallback(()=>ensureMapLib(),{timeout:1500}):setTimeout(()=>ensureMapLib(),600));updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();if(githubSyncEnabled())scheduleGitHubSync(200);const t=activeTrip();if(t){renderMap(t);fetchWeather(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator){const hadController=!!navigator.serviceWorker.controller;let reloaded=false;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(hadController&&!reloaded){reloaded=true;location.reload()}});navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}}
 /* ================= PEPPER UI : accueil, cartes flottantes, panneau « Voir plus » ================= */
