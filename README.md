@@ -83,13 +83,11 @@ Le dépôt est public. Si la synchronisation GitHub est activée, le carnet sync
 
 Les voyages sont stockés localement dans IndexedDB, avec une copie de récupération. « Sauvegarder tous les voyages » exporte un fichier JSON privé ; « Restaurer une sauvegarde » permet de le relire localement sans téléversement. Les prévisions météo déjà consultées peuvent rester affichables hors connexion. La coquille de l'application, le module Gemini et les données du carnet sont conservés ; les tuiles de carte, les sources externes et le suivi temps réel ne sont pas garantis hors connexion.
 
-## Board de présentation
+## Présentation de PEPPER
 
-Depuis l’accueil, **Découvrir PEPPER** ouvre un board qui présente le problème de dispersion des informations, la réponse de centralisation et les fonctions clés du carnet : trajets et billets, hébergement, activités, météo, budget, checklist et transports locaux.
+Depuis l’accueil, le bouton **Découvrir PEPPER** ouvre une présentation immersive qui se parcourt verticalement. Les chapitres apparaissent progressivement au fil du scroll : dispersion des informations, idée de centralisation, contenu du carnet, carte interactive, assistant JALAP et fonctionnement des données.
 
-Deux fonctions différenciantes y sont mises en avant : **JALAP**, l’assistant IA qui tient compte du contexte du voyage et propose des modifications à valider, et **la carte interactive**, qui rassemble les lieux et étapes avec plusieurs styles, une vue 3D et la géolocalisation.
-
-Le board reprend la charte sombre de PEPPER et s’adapte aux écrans mobiles. Ses deux commandes PDF ouvrent la fenêtre d’impression avec un format préconfiguré : **ordinateur 16:9** ou **téléphone 9:16**. Dans cette fenêtre, choisis « Enregistrer au format PDF ».
+La présentation se termine par un **board récapitulatif**. C’est ce board final, et lui seul, qui est exporté en PDF : **ordinateur au format paysage 16:9** ou **téléphone au format portrait 9:16**. Les commandes d’export sont placées dans l’en-tête du board final ; dans la fenêtre d’impression, choisir « Enregistrer au format PDF ».
 
 ## Publication GitHub Pages
 
