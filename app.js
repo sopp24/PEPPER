@@ -1733,6 +1733,10 @@ function onAction(event){
  const card=event.target.closest(".hub-card");
  if(card&&matchMedia("(max-width:760px)").matches&&!event.target.closest("button,a,input,label,form,select,textarea")){const more=card.querySelector(".hub-more");if(more&&more.dataset.panel){openSheet(more.dataset.panel);return}}
  const el=event.target.closest("[data-action]");if(!el)return;const n=el.dataset.action,id=el.dataset.id;
+ if(n==="board-open"){openProjectBoard();return}
+ if(n==="board-close"){closeProjectBoard();return}
+ if(n==="board-pdf-desktop"){printProjectBoard("desktop");return}
+ if(n==="board-pdf-phone"){printProjectBoard("phone");return}
  if(n==="jalap-apply"){applyJalapProposal();return}if(n==="jalap-cancel"){cancelJalapProposal();return}
  if(n==="jalap-set-mode"){setJalapMode(el.dataset.mode);return}
  if(n==="jalap-quick"){sendJalapMessage(null,el.dataset.text);return}
@@ -1782,7 +1786,7 @@ document.addEventListener("submit",e=>{
  if(fid==="activity-form"){e.preventDefault();addActivity(f)}
  if(fid==="idea-form")sendJalapMessage(e);
 });
-document.addEventListener("keydown",e=>{if(e.key==="Tab"&&sheetState&&!modalRoot.innerHTML){const f=$$("button:not([disabled]),a[href],input:not([disabled]),textarea,select",sheetState.root).filter(x=>x.offsetParent!==null);if(f.length){const first=f[0],last=f[f.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}}if(e.key==="Escape"){if(modalRoot.innerHTML)closeModal();else if(sheetState)closeSheet();else if(document.body.classList.contains("map-full"))toggleMapFullscreen(false);closeMenus()}});
+document.addEventListener("keydown",e=>{if(e.key==="Tab"&&sheetState&&!modalRoot.innerHTML){const f=$$("button:not([disabled]),a[href],input:not([disabled]),textarea,select",sheetState.root).filter(x=>x.offsetParent!==null);if(f.length){const first=f[0],last=f[f.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}}if(e.key==="Escape"&&$("#project-board")&&!$("#project-board").hidden){closeProjectBoard();return}if(e.key==="Escape"){if(modalRoot.innerHTML)closeModal();else if(sheetState)closeSheet();else if(document.body.classList.contains("map-full"))toggleMapFullscreen(false);closeMenus()}});
 $$("[data-scroll]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.scroll,node=id==="assistant-panel"?$(".assistant-panel"):$("#"+id);if(node&&node.closest("#panel-vault")){openSheet(node.id||"assistant-panel");return}if(node)node.scrollIntoView({behavior:"smooth",block:"start"})}));
 async function initialise(){if(lang==="en"){try{await ensureI18n()}catch(e){lang="fr"}}localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);localStorage.removeItem("pepper-anthropic-api-key-v1");localStorage.removeItem(LEGACY_GROQ_API_KEY_KEY);await restoreStateFromIndexedDB();if(githubSyncEnabled()){if(githubAccessToken())await syncGitHubState({pull:true});else setGitHubSyncStatus("error","Jeton GitHub manquant")}else setGitHubSyncStatus("local");if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;setJalapMode(jalapMode);save({skipTouch:true,skipRemote:true});render();applyLang(document.body);watchLang();if(sbSession()&&sbConfigured()){setCloudStatus("syncing");syncCloud()}if(state.trips.length&&navigator.onLine)(window.requestIdleCallback?window.requestIdleCallback(()=>ensureMapLib(),{timeout:1500}):setTimeout(()=>ensureMapLib(),600));updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();if(githubSyncEnabled())scheduleGitHubSync(200);const t=activeTrip();if(t){renderMap(t);fetchWeather(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator){const hadController=!!navigator.serviceWorker.controller;let reloaded=false;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(hadController&&!reloaded){reloaded=true;location.reload()}});navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}}
 /* ================= PEPPER UI : accueil, cartes flottantes, panneau « Voir plus » ================= */
@@ -1830,6 +1834,42 @@ function renderPickerOptions(query=""){
  });
  results.innerHTML=trips.length?trips.map(t=>{const d=t.startDate?dateLabel(t.startDate)+(t.endDate?" → "+dateLabel(t.endDate):""):"Dates à définir";return '<div class="picker-item-row"><button type="button" role="option" class="picker-item '+(t.id===state.activeTripId?"is-current":"")+'" data-action="pick-trip" data-id="'+esc(t.id)+'"><strong>'+esc(t.destination||"Voyage")+'</strong><small>'+esc(d)+' · '+(t.activities||[]).length+' activité(s)</small></button><button type="button" class="picker-delete" data-action="delete-trip" data-id="'+esc(t.id)+'" aria-label="Supprimer le voyage '+esc(t.destination||"")+'"><span>Supprimer</span></button></div>'}).join(""):'<p class="picker-empty">Aucun voyage trouvé.</p>';
 }
+let projectBoardOpener=null,projectBoardCloseTimer=0;
+function openProjectBoard(){
+ const board=$("#project-board");if(!board)return;
+ clearTimeout(projectBoardCloseTimer);closeMenus();
+ projectBoardOpener=document.activeElement;
+ board.hidden=false;board.setAttribute("aria-hidden","false");
+ document.body.classList.add("project-board-open");
+ requestAnimationFrame(()=>{board.classList.add("is-visible");$("#project-board-close")?.focus({preventScroll:true})});
+}
+function closeProjectBoard(){
+ const board=$("#project-board");if(!board||board.hidden)return;
+ board.classList.remove("is-visible");board.setAttribute("aria-hidden","true");
+ document.body.classList.remove("project-board-open");
+ clearTimeout(projectBoardCloseTimer);
+ projectBoardCloseTimer=window.setTimeout(()=>{
+  if(!board.classList.contains("is-visible"))board.hidden=true;
+  if(projectBoardOpener&&projectBoardOpener.isConnected)projectBoardOpener.focus({preventScroll:true});
+  projectBoardOpener=null;
+ },260);
+}
+function printProjectBoard(format){
+ const board=$("#project-board");if(!board)return;
+ if(format!=="phone"&&format!=="desktop")return;
+ board.dataset.printFormat=format;
+ let style=$("#project-board-page-style");
+ if(!style){style=document.createElement("style");style.id="project-board-page-style";document.head.appendChild(style)}
+ style.textContent=format==="phone"?"@page{size:108mm 192mm;margin:0}":"@page{size:16in 9in;margin:0}";
+ document.documentElement.dataset.projectBoardPrint=format;
+ window.print();
+}
+function resetProjectBoardPrint(){
+ delete document.documentElement.dataset.projectBoardPrint;
+ const board=$("#project-board");if(board)delete board.dataset.printFormat;
+}
+window.addEventListener("afterprint",resetProjectBoardPrint);
+
 function renderLanding(){
  const list=$("#picker-list"),label=$("#picker-label");if(!list)return;
  const trips=state.trips;
