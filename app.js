@@ -561,6 +561,8 @@ async function refreshLiveTransportStatus(trip){
 }
 function startLiveRefresh(trip){
  if(transportRefreshTimer)clearInterval(transportRefreshTimer);
+ transportRefreshTimer=null;
+ if(isPresentationPreview)return;
  const needsLive=(trip.transport||[]).some(leg=>isSNCFRealtimeEligible(leg)&&leg.number)||!!trip.localTransitRef;
  if(!needsLive||!apiBaseUrl()||!apiAccessToken())return;
  refreshLiveTransportStatus(trip);
@@ -1936,15 +1938,46 @@ function closeProjectBoard(){
   projectBoardOpener=null;
  },300);
 }
-function printProjectBoard(format){
- const board=$("#project-board"),summary=$("#board-summary");if(!board||!summary)return;
+let projectBoardPrintPending=false;
+async function printProjectBoard(format){
+ const board=$("#project-board"),summary=$("#board-summary");
+ if(!board||!summary||projectBoardPrintPending)return;
  if(format!=="phone"&&format!=="desktop")return;
+ projectBoardPrintPending=true;
  summary.dataset.printFormat=format;
- let style=$("#project-board-page-style");
- if(!style){style=document.createElement("style");style.id="project-board-page-style";document.head.appendChild(style)}
- style.textContent=format==="phone"?"@page pepper-board-phone{size:297mm 420mm;margin:0}":"@page pepper-board-wide{size:420mm 297mm;margin:0}";
- document.documentElement.dataset.projectBoardPrint=format;
- window.print();
+ const waitForScreen=frame=>{
+  frame.loading="eager";
+  const ready=()=>{
+   try{return !!frame.contentDocument&&frame.contentDocument.readyState==="complete"&&frame.contentWindow.location.href!=="about:blank"}
+   catch(error){return false}
+  };
+  if(ready())return Promise.resolve();
+  return new Promise(resolve=>{
+   let finished=false;
+   const finish=()=>{
+    if(finished)return;
+    finished=true;clearTimeout(timeout);
+    frame.removeEventListener("load",finish);
+    frame.removeEventListener("error",finish);
+    resolve();
+   };
+   const timeout=window.setTimeout(finish,6000);
+   frame.addEventListener("load",finish,{once:true});
+   frame.addEventListener("error",finish,{once:true});
+   if(ready())finish();
+  });
+ };
+ try{
+  await Promise.all([...summary.querySelectorAll("iframe")].map(waitForScreen));
+  if(document.fonts?.ready)await Promise.race([document.fonts.ready,new Promise(resolve=>window.setTimeout(resolve,1500))]);
+  document.documentElement.dataset.projectBoardPrint=format;
+  window.print();
+ }catch(error){
+  resetProjectBoardPrint();
+  console.error("PEPPER board export:",error);
+ }finally{
+  projectBoardPrintPending=false;
+ }
 }
 function resetProjectBoardPrint(){
  delete document.documentElement.dataset.projectBoardPrint;
