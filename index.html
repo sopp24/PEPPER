@@ -94,179 +94,248 @@
   </header>
 
   <main id="project-story-scroll" class="project-story-scroll" tabindex="0">
-   <section class="story-hero" data-story-step>
-    <div class="story-hero-inner story-animate">
-     <div class="story-kicker"><i></i> DÉCOUVRIR PEPPER</div>
-     <h1 id="story-main-title">TOUT TON VOYAGE.<br><span>AU MÊME ENDROIT.</span></h1>
-     <p>Billets, hébergement, adresses et activités se répartissent souvent entre plusieurs applications. PEPPER les rassemble dans un même carnet.</p>
-     <div class="story-scroll-cue"><span>DÉFILER POUR DÉCOUVRIR LE PROJET</span><i>↓</i></div>
+
+   <!-- INTRO : le problème est posé immédiatement, puis le projet se révèle. -->
+   <section class="pepper-scene pepper-hero" data-story-step>
+    <div class="pepper-scene-copy story-animate">
+     <div class="pepper-eyebrow"><span>PEPPER</span><i></i> PRÉSENTATION DU PROJET</div>
+     <h1 id="story-main-title">UN VOYAGE.<br><span>TOUT À PORTÉE.</span></h1>
+     <p>Billets, hébergement, adresses et activités : les informations d’un séjour sont souvent réparties entre plusieurs applications.</p>
+     <div class="pepper-scroll-prompt"><span>FAIS DÉFILER POUR DÉCOUVRIR</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v15m-6-6 6 6 6-6"/></svg></div>
     </div>
-    <div class="story-hero-visual story-animate" aria-label="Un carnet unique rassemble les principales informations du voyage">
-     <div class="story-hero-glow"></div>
-     <div class="story-orbit-chip chip-mail"><i>✉</i><span>Billets</span></div>
-     <div class="story-orbit-chip chip-stay"><i>⌂</i><span>Logement</span></div>
-     <div class="story-orbit-chip chip-plan"><i>☷</i><span>Programme</span></div>
-     <div class="story-orbit-chip chip-map"><i>⌖</i><span>Carte</span></div>
-     <div class="story-hero-core"><img src="./assets/chili.svg" alt="" aria-hidden="true"><strong>PEPPER</strong><small>MON CARNET DE VOYAGE</small></div>
+    <div class="pepper-visual hero-vector story-animate">
+     <svg viewBox="0 0 720 520" role="img" aria-label="Des informations dispersées sont rassemblées dans un carnet de voyage unique">
+      <defs>
+       <linearGradient id="pepper-flow" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9dce0"/><stop offset="1" stop-color="#747b84"/></linearGradient>
+       <linearGradient id="pepper-core" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#282d34"/><stop offset="1" stop-color="#111419"/></linearGradient>
+      </defs>
+      <g fill="none" stroke="#737a83" stroke-opacity=".35" stroke-width="2">
+       <path d="M115 105C214 105 221 178 296 212"/><path d="M601 105C516 105 503 173 426 212"/>
+       <path d="M115 411C214 411 221 340 296 306"/><path d="M601 411C516 411 503 340 426 306"/>
+      </g>
+      <g fill="#111419" stroke="#6e757e" stroke-width="1.5">
+       <rect x="42" y="54" width="190" height="103" rx="15"/><rect x="488" y="54" width="190" height="103" rx="15"/>
+       <rect x="42" y="363" width="190" height="103" rx="15"/><rect x="488" y="363" width="190" height="103" rx="15"/>
+      </g>
+      <g fill="none" stroke="#e7e9e7" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+       <rect x="65" y="78" width="28" height="21" rx="3"/><path d="m66 80 13 10 13-10"/>
+       <path d="M535 85c0-13 20-13 20 0 0 16-20 29-20 29s-20-13-20-29c0-13 20-13 20 0Z"/><circle cx="535" cy="85" r="4"/>
+       <path d="M69 390h37v29H69zM77 383h21v7H77zM77 398h21M77 407h15"/>
+       <path d="M518 393h35v31h-35zM526 402h19M526 410h19"/>
+      </g>
+      <g fill="#f2f3f1" font-family="DM Sans, sans-serif" font-size="13" font-weight="700">
+       <text x="108" y="91">E-MAILS</text><text x="554" y="91">CARTES</text>
+       <text x="108" y="403">RÉSERVATIONS</text><text x="554" y="403">NOTES</text>
+      </g>
+      <g fill="#9198a0" font-family="DM Sans, sans-serif" font-size="10">
+       <text x="108" y="113">Billets · confirmations</text><text x="554" y="113">Adresses · lieux</text>
+       <text x="108" y="425">Logement · transports</text><text x="554" y="425">Idées · budget</text>
+      </g>
+      <circle cx="360" cy="259" r="126" fill="none" stroke="#454b53" stroke-width="1" stroke-dasharray="3 9"/>
+      <circle cx="360" cy="259" r="105" fill="url(#pepper-core)" stroke="#858c94" stroke-opacity=".5" stroke-width="1.5"/>
+      <g fill="none" stroke="#f1f2ef" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+       <path d="M322 215h76a10 10 0 0 1 10 10v66a10 10 0 0 1-10 10h-76a10 10 0 0 1-10-10v-66a10 10 0 0 1 10-10Z"/>
+       <path d="M330 239h60M330 255h60M330 271h42"/>
+       <path d="M360 199v-11m-9 11h18"/>
+      </g>
+      <g fill="#f4f4f1" font-family="Space Grotesk, sans-serif" font-weight="700" text-anchor="middle">
+       <text x="360" y="331" font-size="21" letter-spacing="3">PEPPER</text>
+      </g>
+      <g fill="#9299a1" font-family="DM Sans, sans-serif" font-size="9" text-anchor="middle" letter-spacing="2">
+       <text x="360" y="349">UN SEUL CARNET</text>
+      </g>
+      <g fill="#f5f5f1"><circle cx="253" cy="180" r="3"/><circle cx="466" cy="180" r="3"/><circle cx="253" cy="338" r="3"/><circle cx="466" cy="338" r="3"/></g>
+     </svg>
     </div>
    </section>
 
-   <section class="story-scene story-problem" data-story-step>
-    <div class="story-scene-copy story-animate">
-     <div class="story-kicker">01 / LE CONSTAT</div>
-     <h2>UNE PRÉPARATION.<br><span>DES INFORMATIONS DISPERSÉES.</span></h2>
-     <p>Les confirmations restent dans les e-mails, l’hébergement sur une plateforme, les adresses dans une carte et les idées dans les notes. Pour retrouver une information, il faut passer d’un outil à l’autre.</p>
+   <!-- CONSTAT -->
+   <section class="pepper-scene pepper-problem" data-story-step>
+    <div class="pepper-section-index story-animate"><span>01</span><i></i><small>LE CONSTAT</small></div>
+    <div class="pepper-scene-copy story-animate">
+     <h2>UNE PRÉPARATION.<br><span>PLUSIEURS OUTILS.</span></h2>
+     <p>Les confirmations restent dans les e-mails, l’hébergement sur une plateforme, les adresses dans les cartes et les idées dans les notes. Retrouver une information oblige à passer d’un service à l’autre.</p>
     </div>
-    <div class="story-apps-visual story-animate">
-     <div class="story-app-card app-email"><span>✉</span><div><b>E-mails</b><small>Billets & confirmations</small></div><i>01</i></div>
-     <div class="story-app-card app-maps"><span>⌖</span><div><b>Cartes</b><small>Adresses & lieux</small></div><i>02</i></div>
-     <div class="story-app-card app-booking"><span>⌂</span><div><b>Réservations</b><small>Logement & transports</small></div><i>03</i></div>
-     <div class="story-app-card app-notes"><span>☷</span><div><b>Notes</b><small>Idées & budget</small></div><i>04</i></div>
-     <div class="story-apps-caption">PLUSIEURS OUTILS. AUCUNE VUE D’ENSEMBLE.</div>
+    <div class="pepper-visual problem-vector story-animate">
+     <svg viewBox="0 0 900 360" role="img" aria-label="Quatre familles d’informations réparties entre plusieurs services">
+      <g fill="#15191e" stroke="#626a73" stroke-width="1.5">
+       <rect x="18" y="30" width="198" height="270" rx="14"/><rect x="240" y="30" width="198" height="270" rx="14"/>
+       <rect x="462" y="30" width="198" height="270" rx="14"/><rect x="684" y="30" width="198" height="270" rx="14"/>
+      </g>
+      <g fill="none" stroke="#e8e9e6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+       <rect x="83" y="83" width="68" height="48" rx="5"/><path d="m85 86 32 25 32-25"/>
+       <path d="M339 87c0-20 30-20 30 0 0 24-30 43-30 43s-30-19-30-43c0-20 30-20 30 0Z"/><circle cx="339" cy="87" r="6"/>
+       <path d="M527 78h70v70h-70zM540 96h44M540 110h44M540 124h29"/>
+       <path d="M751 82h67v62h-67zM764 99h41M764 113h41M764 127h26"/>
+      </g>
+      <g fill="#f4f4f1" font-family="Space Grotesk, sans-serif" font-size="16" font-weight="700" text-anchor="middle">
+       <text x="117" y="190">E-MAILS</text><text x="339" y="190">CARTES</text><text x="561" y="190">RÉSERVATIONS</text><text x="783" y="190">NOTES</text>
+      </g>
+      <g fill="#9da4ab" font-family="DM Sans, sans-serif" font-size="11" text-anchor="middle">
+       <text x="117" y="214">Billets et confirmations</text><text x="339" y="214">Adresses et lieux</text>
+       <text x="561" y="214">Logement et transports</text><text x="783" y="214">Idées et budget</text>
+      </g>
+      <g stroke="#7f8790" stroke-width="1.4" stroke-dasharray="3 7" fill="none"><path d="M117 235v30m222-30v30m222-30v30m222-30v30"/></g>
+      <g fill="#b7bdc3" font-family="DM Sans, sans-serif" font-size="9" text-anchor="middle" letter-spacing="1.4"><text x="117" y="282">01</text><text x="339" y="282">02</text><text x="561" y="282">03</text><text x="783" y="282">04</text></g>
+     </svg>
     </div>
    </section>
 
-   <section class="story-scene story-solution" data-story-step>
-    <div class="story-scene-copy story-animate">
-     <div class="story-kicker">02 / L’IDÉE</div>
-     <h2>UN CARNET POUR<br><span>TOUT RASSEMBLER.</span></h2>
-     <p>PEPPER centralise les informations du séjour dans un espace dédié à chaque voyage. La carte situe les étapes ; les rubriques regroupent les détails utiles avant le départ et pendant le séjour.</p>
-     <div class="story-inline-points"><span>UN CARNET</span><i>·</i><span>UNE CARTE</span><i>·</i><span>TOUT LE VOYAGE</span></div>
+   <!-- IDÉE -->
+   <section class="pepper-scene pepper-solution" data-story-step>
+    <div class="pepper-section-index story-animate"><span>02</span><i></i><small>LA RÉPONSE</small></div>
+    <div class="pepper-scene-copy story-animate">
+     <h2>UN CARNET UNIQUE.<br><span>UN VOYAGE PLUS LISIBLE.</span></h2>
+     <p>PEPPER rassemble les informations dans un espace dédié à chaque séjour. La carte situe les étapes ; les rubriques donnent accès aux détails utiles, de la préparation au retour.</p>
+     <div class="pepper-feature-line"><span>TRAJETS</span><i></i><span>LOGEMENT</span><i></i><span>PROGRAMME</span><i></i><span>BUDGET</span></div>
     </div>
-    <div class="story-notebook-visual story-animate">
-     <div class="story-notebook-window">
-      <div class="story-notebook-top"><span></span><span></span><span></span><b>PEPPER / LISBONNE</b></div>
-      <div class="story-notebook-body">
-       <div class="story-notebook-side"><strong>MON VOYAGE</strong><small>15 — 19 AVRIL</small><i>⌖ &nbsp; Carte</i><i>☷ &nbsp; Programme</i><i>↗ &nbsp; Trajets</i><i>⌂ &nbsp; Logement</i></div>
-       <div class="story-notebook-map"><div class="notebook-map-grid"></div><svg viewBox="0 0 420 240" aria-hidden="true"><path d="M24 180C90 120 130 206 192 126S285 45 330 99s50 44 80 6" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="18" stroke-linecap="round"/><path d="M24 180C90 120 130 206 192 126S285 45 330 99s50 44 80 6" fill="none" stroke="#f2f2ef" stroke-width="3" stroke-dasharray="3 11" stroke-linecap="round"/><g fill="#121519" stroke="#f2f2ef" stroke-width="4"><circle cx="24" cy="180" r="9"/><circle cx="192" cy="126" r="9"/><circle cx="330" cy="99" r="9"/></g></svg><span class="notebook-map-label">LISBONNE · PORTUGAL</span></div>
+    <div class="pepper-visual solution-vector story-animate">
+     <svg viewBox="0 0 900 510" role="img" aria-label="Vue vectorielle d’un carnet de voyage réunissant carte et rubriques">
+      <rect x="18" y="18" width="864" height="474" rx="18" fill="#111419" stroke="#69717a" stroke-width="1.5"/>
+      <path d="M18 73h864" stroke="#414850" stroke-width="1.5"/>
+      <circle cx="48" cy="45" r="5" fill="#78818a"/><circle cx="68" cy="45" r="5" fill="#78818a"/><circle cx="88" cy="45" r="5" fill="#78818a"/>
+      <text x="845" y="49" fill="#a5abb1" font-family="DM Sans" font-size="11" text-anchor="end" letter-spacing="2">PEPPER / MON VOYAGE</text>
+      <path d="M18 73h190v419H18z" fill="#171b20"/>
+      <text x="46" y="118" fill="#f4f4f1" font-family="Space Grotesk" font-size="17" font-weight="700">MON VOYAGE</text>
+      <text x="46" y="142" fill="#8f979f" font-family="DM Sans" font-size="10" letter-spacing="1.5">15 — 19 AVRIL</text>
+      <g fill="#d7dadd" font-family="DM Sans" font-size="13">
+       <text x="48" y="199">⌖  Carte</text><text x="48" y="244">☷  Programme</text><text x="48" y="289">↗  Trajets</text><text x="48" y="334">⌂  Logement</text><text x="48" y="379">€  Budget</text>
+      </g>
+      <g stroke="#343b43" stroke-width="1"><path d="M36 215h152M36 260h152M36 305h152M36 350h152M36 395h152"/></g>
+      <rect x="208" y="73" width="674" height="419" fill="#151a20"/>
+      <g stroke="#333b43" stroke-width="1"><path d="M245 112h602M245 160h602M245 208h602M245 256h602M245 304h602M245 352h602M245 400h602M245 448h602"/><path d="M270 92v365m72-365v365m72-365v365m72-365v365m72-365v365m72-365v365m72-365v365m72-365v365"/></g>
+      <path d="M278 376C369 325 403 413 493 328S632 195 703 254s91 42 119-18" fill="none" stroke="#aeb5bc" stroke-width="17" stroke-opacity=".16" stroke-linecap="round"/>
+      <path d="M278 376C369 325 403 413 493 328S632 195 703 254s91 42 119-18" fill="none" stroke="#e4e7e5" stroke-width="3" stroke-dasharray="3 11" stroke-linecap="round"/>
+      <g fill="#151a20" stroke="#f1f2ef" stroke-width="4"><circle cx="278" cy="376" r="11"/><circle cx="493" cy="328" r="11"/><circle cx="703" cy="254" r="11"/><circle cx="822" cy="236" r="11"/></g>
+      <g fill="#e4e7e5" font-family="DM Sans" font-size="10" font-weight="700"><text x="260" y="410">LOGEMENT</text><text x="475" y="362">ACTIVITÉ</text><text x="685" y="289">ÉTAPE</text></g>
+      <rect x="722" y="91" width="136" height="29" rx="7" fill="#20262d" stroke="#525a63"/><text x="790" y="110" fill="#cbd0d3" font-family="DM Sans" font-size="9" text-anchor="middle" letter-spacing="1">LISBONNE</text>
+     </svg>
+    </div>
+   </section>
+
+   <!-- CARTE -->
+   <section class="pepper-scene pepper-map" data-story-step>
+    <div class="pepper-section-index story-animate"><span>03</span><i></i><small>LA CARTE</small></div>
+    <div class="pepper-scene-copy story-animate">
+     <h2>LES ÉTAPES<br><span>PRENNENT LEUR PLACE.</span></h2>
+     <p>Le logement, les activités et les points d’intérêt se retrouvent sur une même carte. Les repères donnent une lecture claire du séjour et des déplacements.</p>
+     <div class="pepper-feature-line"><span>REPÈRES</span><i></i><span>VUE 3D</span><i></i><span>GÉOLOCALISATION</span></div>
+    </div>
+    <div class="pepper-visual map-vector story-animate">
+     <svg viewBox="0 0 1000 520" role="img" aria-label="Carte schématique vectorielle reliant le logement, les activités et les déplacements">
+      <rect x="1" y="1" width="998" height="518" rx="18" fill="#12171d" stroke="#515a64"/>
+      <g fill="none" stroke="#404953" stroke-width="4" stroke-linecap="round">
+       <path d="M-20 100C125 50 165 155 278 125s174-80 285-15 190 60 470-33"/>
+       <path d="M-20 420c150-85 214-170 365-110s230 110 355 40 210-50 340 10"/>
+       <path d="M173-20c-9 134 79 200 27 326s-12 160 70 244"/>
+       <path d="M698-20c-50 130 18 204 105 283s46 177 130 285"/>
+      </g>
+      <g fill="none" stroke="#59636e" stroke-width="2" stroke-dasharray="8 9"><path d="M0 255h1000M495 0v520"/></g>
+      <path d="M98 360C201 295 247 390 376 315S574 155 688 232s133 76 215-22" fill="none" stroke="#b9c0c6" stroke-opacity=".16" stroke-width="32" stroke-linecap="round"/>
+      <path d="M98 360C201 295 247 390 376 315S574 155 688 232s133 76 215-22" fill="none" stroke="#f0f1ee" stroke-width="4" stroke-dasharray="3 15" stroke-linecap="round"/>
+      <g fill="#12171d" stroke="#f4f4f1" stroke-width="5"><circle cx="98" cy="360" r="16"/><circle cx="376" cy="315" r="16"/><circle cx="688" cy="232" r="16"/><circle cx="903" cy="210" r="16"/></g>
+      <g fill="#f4f4f1"><circle cx="98" cy="360" r="5"/><circle cx="376" cy="315" r="5"/><circle cx="688" cy="232" r="5"/><circle cx="903" cy="210" r="5"/></g>
+      <g font-family="DM Sans" font-size="13" font-weight="700" fill="#eef0ed"><text x="56" y="407">HÉBERGEMENT</text><text x="335" y="360">ACTIVITÉ</text><text x="650" y="276">ÉTAPE</text></g>
+      <g fill="#9da5ad" font-family="DM Sans" font-size="10" letter-spacing="2"><text x="36" y="37">ITINÉRAIRE</text><text x="849" y="485">VUE D’ENSEMBLE</text></g>
+     </svg>
+    </div>
+   </section>
+
+   <!-- JALAP -->
+   <section class="pepper-scene pepper-jalap" data-story-step>
+    <div class="pepper-section-index story-animate"><span>04</span><i></i><small>L’ASSISTANT</small></div>
+    <div class="pepper-scene-copy story-animate">
+     <h2>JALAP,<br><span>LE COPILOTE DU SÉJOUR.</span></h2>
+     <p>JALAP tient compte des informations du voyage pour proposer des idées et aider à organiser les journées. Les changements suggérés restent soumis à validation.</p>
+     <div class="pepper-feature-line"><span>ASSISTANCE IA</span><i></i><span>MODIFICATIONS À VALIDER</span></div>
+    </div>
+    <div class="pepper-visual jalap-vector story-animate">
+     <div class="pepper-jalap-card">
+      <div class="pepper-jalap-brand"><img src="./assets/jalap.svg" alt=""/><span><b>JALAP</b><small>ASSISTANT DE VOYAGE</small></span><i>IA</i></div>
+      <div class="pepper-chat-bubble">Tes visites sont regroupées dans le centre. Veux-tu organiser ton programme par quartier ?</div>
+      <div class="pepper-chat-status"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4 10 4 4 8-9"/></svg> Proposition à vérifier avant application</div>
+     </div>
+     <svg class="jalap-orbit" viewBox="0 0 520 420" aria-hidden="true"><circle cx="260" cy="210" r="170" fill="none" stroke="#69717a" stroke-opacity=".48" stroke-dasharray="3 9"/><circle cx="260" cy="210" r="125" fill="none" stroke="#69717a" stroke-opacity=".22"/><path d="M260 22v36M260 362v36M72 210h36M412 210h36" stroke="#9fa6ad" stroke-opacity=".6" stroke-width="2"/></svg>
+    </div>
+   </section>
+
+   <!-- DONNÉES -->
+   <section class="pepper-data-scene" data-story-step>
+    <div class="pepper-section-index story-animate"><span>05</span><i></i><small>TES DONNÉES</small></div>
+    <div class="pepper-data-content story-animate">
+     <h2>TON CARNET,<br><span>TON FONCTIONNEMENT.</span></h2>
+     <div class="pepper-data-options">
+      <div><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="5" width="32" height="38" rx="5"/><path d="M18 12h12M18 36h12"/></svg><span><b>ENREGISTREMENT LOCAL</b><small>Le carnet reste disponible sur ton appareil.</small></span></div>
+      <div><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M9 22a15 15 0 0 1 25-10l4 4M38 8v8H30M39 26a15 15 0 0 1-25 10l-4-4M10 40v-8h8"/></svg><span><b>SYNCHRONISATION FACULTATIVE</b><small>Une copie peut être conservée dans le dépôt associé.</small></span></div>
+     </div>
+    </div>
+   </section>
+
+   <!-- BOARD FINAL : mise en page éditoriale, screens réels, habillage vectoriel. -->
+   <section id="board-summary" class="pepper-board" data-story-step>
+    <header class="pepper-board-header">
+     <div class="pepper-board-brand"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M20 7c-5 0-9 4-9 10 0 6 3 10 8 10s9-5 9-12c0-4-2-7-5-8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M20 8c-1-4 1-6 5-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><b>PEPPER</b><small>TRAVEL COMPANION</small></div>
+     <div class="pepper-board-title"><span>PRÉSENTATION DU PROJET</span><h2>UN VOYAGE.<br><em>TOUT RASSEMBLÉ.</em></h2></div>
+     <div class="pepper-board-export">
+      <button type="button" data-action="board-pdf-desktop"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="15" rx="1"/><path d="M8 22h8M12 19v3"/></svg>PDF A3 paysage</button>
+      <button type="button" data-action="board-pdf-phone"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/></svg>PDF A3 portrait</button>
+     </div>
+    </header>
+
+    <div class="pepper-board-main">
+     <section class="pepper-board-story">
+      <div class="pepper-board-block">
+       <span class="pepper-board-index">01 / CONTEXTE</span>
+       <h3>Les informations sont dispersées.</h3>
+       <p>Billets dans les e-mails, logement sur une plateforme, adresses dans les cartes et idées dans les notes : préparer un séjour oblige à multiplier les outils.</p>
       </div>
-     </div>
-     <div class="story-notebook-foot"><span>TRAJETS</span><span>LOGEMENT</span><span>ACTIVITÉS</span><span>BUDGET</span></div>
+      <div class="pepper-board-rule"><svg viewBox="0 0 240 12" aria-hidden="true"><path d="M0 6h240" stroke="currentColor" stroke-width="1"/><circle cx="120" cy="6" r="4" fill="#111419"/></svg></div>
+      <div class="pepper-board-block">
+       <span class="pepper-board-index">02 / IDÉE</span>
+       <h3>Un carnet pour tout retrouver.</h3>
+       <p>PEPPER rassemble les étapes et les informations pratiques dans un espace unique, organisé autour d’une carte interactive.</p>
+      </div>
+      <div class="pepper-board-scope">
+       <span>LE CARNET RÉUNIT</span>
+       <div><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h16"/></svg>Programme & activités</div>
+       <div><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 10h16L12 3ZM6 12v8h12v-8M10 20v-5h4v5"/></svg>Logement & adresses</div>
+       <div><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18 20 6M5 6h15v12"/></svg>Trajets & billets</div>
+       <div><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l4 2"/></svg>Météo & budget</div>
+      </div>
+      <div class="pepper-board-principle"><b>PEPPER</b><span>Moins de dispersion.<br>Une vision claire du séjour.</span></div>
+     </section>
+
+     <figure class="pepper-board-desktop">
+      <div class="pepper-board-screen-head"><span>03 / VERSION ORDINATEUR</span><b>CARTE & VUE D’ENSEMBLE</b></div>
+      <div class="pepper-screen-bezel pepper-screen-desktop">
+       <div class="pepper-screen-top"><i></i><i></i><i></i><span>PEPPER · MON VOYAGE</span></div>
+       <div class="pepper-screen-content"><iframe src="./?presentationScreen=desktop-map" title="Interface PEPPER sur ordinateur : carte et vue d’ensemble" loading="lazy" tabindex="-1"></iframe></div>
+      </div>
+      <figcaption>La carte relie le logement, les activités et les étapes du séjour.</figcaption>
+     </figure>
+
+     <aside class="pepper-board-phones">
+      <div class="pepper-board-screen-head"><span>04 / VERSION MOBILE</span><b>LES FONCTIONS CLÉS</b></div>
+      <div class="pepper-phone-list">
+       <figure class="pepper-phone-row">
+        <div class="pepper-phone-bezel"><div class="pepper-phone-speaker"></div><div class="pepper-phone-screen"><iframe src="./?presentationScreen=phone-program" title="PEPPER mobile : programme et activités" loading="lazy" tabindex="-1"></iframe></div></div>
+        <figcaption><b>LE PROGRAMME</b><span>Activités, horaires et réservations classés dans l’ordre du séjour.</span></figcaption>
+       </figure>
+       <figure class="pepper-phone-row">
+        <div class="pepper-phone-bezel"><div class="pepper-phone-speaker"></div><div class="pepper-phone-screen"><iframe src="./?presentationScreen=phone-transport" title="PEPPER mobile : trajets et billets" loading="lazy" tabindex="-1"></iframe></div></div>
+        <figcaption><b>LES TRAJETS</b><span>Billets, horaires et correspondances réunis au même endroit.</span></figcaption>
+       </figure>
+       <figure class="pepper-phone-row">
+        <div class="pepper-phone-bezel"><div class="pepper-phone-speaker"></div><div class="pepper-phone-screen"><iframe src="./?presentationScreen=phone-jalap" title="PEPPER mobile : assistant JALAP" loading="lazy" tabindex="-1"></iframe></div></div>
+        <figcaption><b>JALAP</b><span>Un assistant qui s’appuie sur le contexte de chaque voyage.</span></figcaption>
+       </figure>
+      </div>
+     </aside>
     </div>
+    <footer class="pepper-board-footer"><b>PEPPER</b><span>UN CARNET · TOUT LE VOYAGE</span><i>LE GOÛT DE PARTIR.</i></footer>
+    <p class="pepper-board-note">Écrans issus de l’application · Voyage de démonstration · Données personnelles isolées</p>
    </section>
-
-   <section class="story-scene story-map-scene" data-story-step>
-    <div class="story-scene-copy story-animate">
-     <div class="story-kicker">03 / LA CARTE</div>
-     <h2>CHAQUE ÉTAPE<br><span>A SA PLACE.</span></h2>
-     <p>L’hébergement, les activités et les points d’intérêt apparaissent sur une même carte. Les repères permettent de visualiser les étapes et de garder une lecture claire du programme.</p>
-     <div class="story-feature-labels"><span>REPÈRES</span><span>VUE 3D</span><span>GÉOLOCALISATION</span></div>
-    </div>
-    <div class="story-map-feature story-animate">
-     <div class="story-map-feature-top"><span>APERÇU DE LA CARTE</span><b>01 — 03</b></div>
-     <div class="story-map-feature-art">
-      <div class="story-map-feature-grid"></div>
-      <svg viewBox="0 0 760 390" aria-label="Itinéraire de voyage reliant plusieurs étapes" role="img">
-       <g fill="none" stroke="rgba(255,255,255,.11)" stroke-width="4" stroke-linecap="round"><path d="M-20 80C100 30 130 140 260 110s170-75 260-10 140 55 280-20"/><path d="M-20 330c150-90 210-140 350-95s230 95 430 25"/><path d="M150-20c-5 120 70 170 20 260s-20 120 50 180"/></g>
-       <path d="M75 280C170 205 220 320 335 235S470 110 555 165s100 45 145-15" fill="none" stroke="#f2f2ef" stroke-opacity=".2" stroke-width="24" stroke-linecap="round"/>
-       <path d="M75 280C170 205 220 320 335 235S470 110 555 165s100 45 145-15" fill="none" stroke="#f5f5f1" stroke-width="3" stroke-dasharray="3 14" stroke-linecap="round"/>
-       <g fill="#101317" stroke="#f5f5f1" stroke-width="5"><circle cx="75" cy="280" r="13"/><circle cx="335" cy="235" r="13"/><circle cx="555" cy="165" r="13"/><circle cx="700" cy="150" r="13"/></g>
-      </svg>
-      <div class="story-map-feature-pin pin-a"><i>01</i><span><b>LOGEMENT</b><small>Point de départ</small></span></div>
-      <div class="story-map-feature-pin pin-b"><i>02</i><span><b>ACTIVITÉ</b><small>Étape du séjour</small></span></div>
-      <div class="story-map-feature-pin pin-c"><i>03</i><span><b>TRAJET</b><small>Relier les lieux</small></span></div>
-     </div>
-     <div class="story-map-feature-foot"><span>UNE VUE D’ENSEMBLE</span><span>TOUT RESTE CONNECTÉ</span></div>
-    </div>
-   </section>
-
-   <section class="story-scene story-jalap-scene" data-story-step>
-    <div class="story-jalap-visual story-animate">
-     <div class="story-jalap-mark"><img src="./assets/jalap.svg" alt="JALAP, assistant de voyage"/></div>
-     <div class="story-jalap-chat">
-      <div class="story-jalap-label">JALAP <span>ASSISTANT IA</span></div>
-      <p>Tes visites sont regroupées dans le centre. Veux-tu organiser ton programme par quartier ?</p>
-      <div class="story-jalap-approved"><i>✓</i> Proposition à vérifier avant application</div>
-     </div>
-    </div>
-    <div class="story-scene-copy story-animate">
-     <div class="story-kicker">04 / JALAP</div>
-     <h2>UN ASSISTANT<br><span>QUI CONNAÎT LE VOYAGE.</span></h2>
-     <p>JALAP s’appuie sur le contexte du séjour pour aider à organiser les journées et proposer des idées. Il peut suggérer des modifications du carnet, que tu valides avant leur application.</p>
-     <div class="story-feature-labels"><span>ASSISTANCE IA</span><span>CONTEXTE DU VOYAGE</span></div>
-    </div>
-   </section>
-
-   <section class="story-data-strip" data-story-step>
-    <div class="story-data-strip-inner story-animate">
-     <div class="story-kicker">ET POUR TES DONNÉES ?</div>
-     <h2>LES INFORMATIONS<br><span>RESTENT À PORTÉE.</span></h2>
-     <div class="story-data-options">
-      <div><b>LOCAL</b><small>Le carnet est enregistré sur ton appareil.</small></div>
-      <div><b>SYNCHRONISATION FACULTATIVE</b><small>Une synchronisation facultative permet d’en conserver une copie sur le dépôt associé.</small></div>
-     </div>
-    </div>
-   </section>
-
-   <section id="board-summary" class="board-summary" data-story-step>
-    
- <header class="board-final-header">
-  <div>
-   <div class="story-kicker">PEPPER / LE CARNET DE VOYAGE</div>
-   <h2>UN VOYAGE.<br><span>TOUT RASSEMBLÉ.</span></h2>
-  </div>
-  <div class="board-summary-actions">
-   <button type="button" class="board-export-button" data-action="board-pdf-desktop"><span aria-hidden="true">▤</span> PDF A3 <small>paysage</small></button>
-   <button type="button" class="board-export-button" data-action="board-pdf-phone"><span aria-hidden="true">▯</span> PDF A3 <small>portrait</small></button>
-  </div>
- </header>
- <div class="board-final-grid">
-  <section class="board-final-copy">
-   <div class="board-final-copy-block">
-    <span>CONTEXTE</span>
-    <p>La préparation d’un séjour mobilise plusieurs outils. Les billets sont dans les e-mails, l’hébergement sur une plateforme, les adresses dans les cartes et les idées dans les notes. Les informations utiles restent dispersées.</p>
-   </div>
-   <div class="board-final-copy-block">
-    <span>IDÉE</span>
-    <p>PEPPER les rassemble dans un carnet unique. La carte offre une vue d’ensemble des étapes ; les rubriques donnent accès aux informations pratiques, des trajets au programme.</p>
-   </div>
-   <div class="board-final-tags"><span>CARTE</span><span>TRAJETS</span><span>LOGEMENT</span><span>PROGRAMME</span><span>JALAP</span></div>
-   <div class="board-final-signature"><strong>PEPPER</strong><small>Moins de dispersion. Plus de voyage.</small></div>
-  </section>
-
-  <figure class="board-desktop-card">
-   <div class="board-screen-label"><span>01 / ORDINATEUR</span><b>CARTE & VUE D’ENSEMBLE</b></div>
-   <div class="board-desktop-frame">
-    <div class="board-desktop-chrome"><span></span><span></span><span></span><i>PEPPER · TRAVEL COMPANION</i></div>
-    <div class="board-desktop-viewport">
-     <iframe src="./?presentationScreen=desktop-map" title="Véritable interface PEPPER sur ordinateur : carte et vue d’ensemble du voyage" loading="lazy" tabindex="-1"></iframe>
-    </div>
-   </div>
-   <figcaption>Carte, logement et étapes : le séjour se lit d’un regard.</figcaption>
-  </figure>
-
-  <aside class="board-mobile-column">
-   <div class="board-screen-label"><span>02 / TÉLÉPHONE</span><b>FONCTIONS AU QUOTIDIEN</b></div>
-   <div class="board-mobile-stack">
-    <figure class="board-phone-card">
-     <div class="board-phone-device">
-      <div class="board-phone-notch"><i></i></div>
-      <div class="board-phone-viewport"><iframe src="./?presentationScreen=phone-program" title="Véritable interface PEPPER sur téléphone : programme et activités" loading="lazy" tabindex="-1"></iframe></div>
-     </div>
-     <figcaption>Le programme rassemble activités, horaires et réservations dans l’ordre chronologique.</figcaption>
-    </figure>
-    <figure class="board-phone-card">
-     <div class="board-phone-device">
-      <div class="board-phone-notch"><i></i></div>
-      <div class="board-phone-viewport"><iframe src="./?presentationScreen=phone-transport" title="Véritable interface PEPPER sur téléphone : trajets et billets" loading="lazy" tabindex="-1"></iframe></div>
-     </div>
-     <figcaption>Les trajets regroupent billets, horaires, correspondances et informations pratiques essentielles.</figcaption>
-    </figure>
-    <figure class="board-phone-card">
-     <div class="board-phone-device">
-      <div class="board-phone-notch"><i></i></div>
-      <div class="board-phone-viewport"><iframe src="./?presentationScreen=phone-jalap" title="Véritable interface PEPPER sur téléphone : assistant JALAP" loading="lazy" tabindex="-1"></iframe></div>
-     </div>
-     <figcaption>JALAP propose idées et modifications selon le contexte du voyage.</figcaption>
-    </figure>
-   </div>
-  </aside>
- </div>
- <footer class="board-final-footer"><strong>PEPPER</strong><span>UN CARNET · TOUT LE VOYAGE</span><i>LE GOÛT DE PARTIR.</i></footer>
- <p class="board-print-hint">Les captures affichent l’interface réelle avec un voyage de démonstration. Les données restent isolées.</p>
-
-   </section>
-
+  </main>
   </main>
  </section>
 </div>
