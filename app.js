@@ -596,7 +596,7 @@ function renderActivities(t){
 /* ===================== Carte (MapLibre GL : vectorielle, fluide, 3D) ===================== */
 const MAP_STYLE_KEY="pepper-map-style-v2";
 let mapStyleName=(()=>{try{const v=localStorage.getItem(MAP_STYLE_KEY);return ["satellite","dark","plan"].includes(v)?v:"dark"}catch(e){return "dark"}})();
-let mapCreating=false,mapNeedsFit=false,mapStyleReady=false,mapStyleTimer=0,mapPitch3D=false,mapRouteCoords=[],mapUserMarker=null,mapResizeObserver=null;
+let mapUserMoved=false,mapFitSig="",mapCreating=false,mapNeedsFit=false,mapStyleReady=false,mapStyleTimer=0,mapPitch3D=false,mapRouteCoords=[],mapUserMarker=null,mapResizeObserver=null;
 const MAP_TRIP_RADIUS_KM=20,MAP_NEAR_DESTINATION_KM=20;
 const ESRI_IMAGERY="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const ESRI_PLACES="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}";
@@ -676,20 +676,35 @@ function showFallbackMap(trip){
 }
 function isDesktopMap(){return matchMedia("(min-width:1100px)").matches}
 /* Décale le centre visuel de la carte pour que les lieux restent visibles entre les cartes flottantes. */
-function mapPadding(){
- const hub=$("#trip-map");if(!hub||hub.classList.contains("hub-hidden"))return {top:70,bottom:40,left:40,right:40};
- if(isDesktopMap()){const l=$(".hub-col-left"),r=$(".hub-col-right");return {top:80,bottom:90,left:(l?l.offsetWidth:300)+48,right:(r?r.offsetWidth:340)+48}}
- if(matchMedia("(max-width:760px)").matches){const c=$("#hub-cards");return {top:70,bottom:(c?Math.min(c.offsetHeight,260):200)+30,left:20,right:20}}
- return {top:70,bottom:60,left:40,right:40};
+/* Marges « libres » de la carte : tout ce qui est posé dessus (rubriques, outils) est exclu du cadrage. */
+function mapInsets(){
+ const stage=$("#map")?.getBoundingClientRect(),ins={top:56,bottom:40,left:40,right:40};
+ if(!stage||stage.width<50||stage.height<50)return ins;
+ const W=stage.width,H=stage.height,gap=26,hidden=$("#trip-map")?.classList.contains("hub-hidden");
+ const els=[...$$(".map-tools .glass-group")];if(!hidden)els.push(...$$(".hub-card"));
+ for(const e of els){
+  const cs=getComputedStyle(e);if(cs.display==="none"||cs.visibility==="hidden")continue;
+  const r=e.getBoundingClientRect(),q={l:r.left-stage.left,r:r.right-stage.left,t:r.top-stage.top,b:r.bottom-stage.top};
+  if(r.width<4||r.height<4||q.t>=H-2||q.b<=2||q.l>=W-2||q.r<=2)continue;
+  const cx=(q.l+q.r)/2,cy=(q.t+q.b)/2;
+  if(e.classList.contains("map-place")||(cx>.3*W&&cx<.7*W&&cy<.5*H))ins.top=Math.max(ins.top,q.b+gap);
+  else if((r.width>.5*W&&q.t>.4*H)||(cx>.3*W&&cx<.7*W))ins.bottom=Math.max(ins.bottom,H-q.t+gap);
+  else if(cx<=.3*W)ins.left=Math.max(ins.left,q.r+gap);
+  else ins.right=Math.max(ins.right,W-q.l+gap);
+ }
+ const kx=Math.min(1,W*.66/(ins.left+ins.right)),ky=Math.min(1,H*.66/(ins.top+ins.bottom));
+ ins.left*=kx;ins.right*=kx;ins.top*=ky;ins.bottom*=ky;
+ return ins;
 }
+function mapPadding(){return mapInsets()}
 function fitMapRadiusAround(point,instant=false){
  if(!map||!point||!Number.isFinite(Number(point.lat))||!Number.isFinite(Number(point.lon)))return;
  const lat=Number(point.lat),lon=Number(point.lon);
  const latDelta=MAP_TRIP_RADIUS_KM/111.32;
  const lonDelta=Math.min(179,MAP_TRIP_RADIUS_KM/(111.32*Math.max(.01,Math.cos(lat*Math.PI/180))));
  const bounds=[[lon-lonDelta,lat-latDelta],[lon+lonDelta,lat+latDelta]];
- map.resize();applyMapPadding();
- map.fitBounds(bounds,{padding:mapPadding(),maxZoom:13,duration:instant?0:850,essential:true});
+ map.resize();map.setPadding(mapInsets());
+ map.fitBounds(bounds,{padding:0,maxZoom:13,duration:instant?0:850,essential:true});
 }
 function addUserLocationMarker(point){
  if(!map)return;
@@ -698,27 +713,26 @@ function addUserLocationMarker(point){
  mapUserMarker=new maplibregl.Marker({element:el}).setLngLat([point.lon,point.lat]).addTo(map);
 }
 function focusTripMap(t,instant=true){
- if(!map||!t||!t.geo)return;
- // Premier cadrage immédiat sur la destination : 20 km autour, même si la géolocalisation est refusée.
- fitMapRadiusAround(t.geo,instant);
- if(!navigator.geolocation||typeof navigator.geolocation.getCurrentPosition!=="function")return;
+ if(!map||!t)return;
+ const hasPoints=mapFitPoints(t).length>0;
+ if(hasPoints)fitTripPoints(t,instant);else if(t.geo)fitMapRadiusAround(t.geo,instant);
+ if(!t.geo||!navigator.geolocation||typeof navigator.geolocation.getCurrentPosition!=="function")return;
  const tripId=t.id,destination={lat:Number(t.geo.lat),lon:Number(t.geo.lon)};
  try{
   navigator.geolocation.getCurrentPosition(position=>{
    if(!map||activeTrip()?.id!==tripId||mapTripId!==tripId)return;
    const user={lat:Number(position.coords.latitude),lon:Number(position.coords.longitude)};
    if(!Number.isFinite(user.lat)||!Number.isFinite(user.lon))return;
-   // Si l’utilisateur se trouve dans la zone de la destination, privilégier sa position exacte.
    if(haversineKm(user,destination)<=MAP_NEAR_DESTINATION_KM){
     addUserLocationMarker(user);
-    fitMapRadiusAround(user,false);
+    if(!mapFitPoints(activeTrip()||t).length&&!mapUserMoved)fitMapRadiusAround(user,false);
    }
   },()=>{}, {enableHighAccuracy:false,timeout:7000,maximumAge:90000});
  }catch(error){}
 }
 function tryAutoFit(){
  if(!mapNeedsFit||!map)return;const n=$("#map");if(!n||n.clientWidth<200||n.clientHeight<200)return;
- mapNeedsFit=false;map.resize();applyMapPadding();fitMap(true);
+ mapNeedsFit=false;map.resize();applyMapPadding();focusTripMap(activeTrip(),true);
 }
 function applyMapPadding(animate){if(!map)return;try{map.setPadding(mapPadding())}catch(e){}}
 function updateZoomPct(){const out=$("#zoom-pct");if(out&&map)out.textContent=Math.round(100*Math.pow(2,map.getZoom()-12))+"%"}
@@ -757,7 +771,7 @@ function createMap(t,center,style){
  map.on("style.load",()=>{mapStyleReady=true;clearTimeout(mapStyleTimer);addMapOverlays()});
  map.on("error",e=>{if(!mapStyleReady&&e&&e.error&&!e.sourceId&&!e.tile){clearTimeout(mapStyleTimer);mapStyleTimer=setTimeout(()=>escalateMapStyle(mapStyleName),300)}});
  mapStyleTried[mapStyleName]=0;armMapStyleTimer(mapStyleName);
- map.on("idle",tryAutoFit);
+ map.on("idle",tryAutoFit);map.on("movestart",e=>{if(e.originalEvent)mapUserMoved=true});
  if(window.ResizeObserver){mapResizeObserver&&mapResizeObserver.disconnect();mapResizeObserver=new ResizeObserver(()=>{if(map){map.resize();applyMapPadding();tryAutoFit()}});mapResizeObserver.observe(node)}
  updateMapStyleButtons();updateZoomPct();applyMapPadding();
 }
@@ -805,7 +819,11 @@ function renderMap(t){
  const label=$("#map-location-label");if(label)label.textContent=t.destination||"Destination";
  applyMapPadding();
  $("#trip-map")?.classList.remove("is-locating");
- if(tripChanged){mapNeedsFit=false;focusTripMap(t,true)}
+ const sig=mapFitPoints(t).map(q=>q.join(",")).join("|"),sigChanged=sig!==mapFitSig;mapFitSig=sig;
+ if(tripChanged)mapUserMoved=false;
+ const holder=$("#map"),sized=holder&&holder.clientWidth>=200&&holder.clientHeight>=200;
+ if(tripChanged){if(sized){mapNeedsFit=false;requestAnimationFrame(()=>focusTripMap(activeTrip()||t,true))}else mapNeedsFit=true}
+ else if(sigChanged&&!mapUserMoved&&sized)requestAnimationFrame(()=>fitTripPoints(activeTrip()||t,false));
 }
 function focusActivityOnMap(id){
  const t=activeTrip(),activity=t?.activities.find(item=>item.id===id);if(!t||!activity)return;
@@ -826,11 +844,23 @@ function focusActivityOnMap(id){
   activity.geo=point;save();renderMap(t);show();
  }).catch(()=>toast("Impossible de géolocaliser cette étape.","error"));
 }
+function mapFitPoints(t){
+ const pts=[];(t.activities||[]).forEach(a=>{if(a.geo&&Number.isFinite(Number(a.geo.lon))&&Number.isFinite(Number(a.geo.lat)))pts.push([Number(a.geo.lon),Number(a.geo.lat)])});
+ const g=t.accommodation&&t.accommodation.geo;if(g&&Number.isFinite(Number(g.lon))&&Number.isFinite(Number(g.lat)))pts.push([Number(g.lon),Number(g.lat)]);
+ return pts;
+}
+function fitTripPoints(t,instant){
+ if(!map||!t)return;map.resize();
+ const pts=mapFitPoints(t);
+ if(!pts.length){if(t.geo)fitMapRadiusAround(t.geo,instant);return}
+ const insets=mapInsets();map.setPadding(insets);
+ if(pts.length===1){const opts={center:pts[0],zoom:15,essential:true};if(instant)map.jumpTo(opts);else map.easeTo({...opts,duration:800});return}
+ const b=new maplibregl.LngLatBounds(pts[0],pts[0]);pts.forEach(q=>b.extend(q));
+ map.fitBounds(b,{padding:0,maxZoom:16.5,duration:instant?0:800,essential:true});
+}
 function fitMap(instant){
- if(!map)return;map.resize();
- const t=activeTrip(),pts=(markers||[]).map(m=>m.getLngLat());
- if(pts.length>1){const b=new maplibregl.LngLatBounds(pts[0],pts[0]);pts.forEach(p=>b.extend(p));const sw=b.getSouthWest(),ne=b.getNorthEast(),dx=Math.max(ne.lng-sw.lng,.012)*.35,dy=Math.max(ne.lat-sw.lat,.008)*.35;b.extend([sw.lng-dx,sw.lat-dy]);b.extend([ne.lng+dx,ne.lat+dy]);map.fitBounds(b,{padding:mapPadding(),maxZoom:12.6,duration:instant===true?0:900})}
- else if(t&&t.geo){const c=[t.geo.lon,t.geo.lat];if(instant===true)map.jumpTo({center:c,zoom:12.4});else map.flyTo({center:c,zoom:12.4,duration:900})}
+ if(!map)return;mapUserMoved=false;
+ fitTripPoints(activeTrip(),instant===true);
 }
 function toggle3D(){
  if(!map)return;mapPitch3D=!mapPitch3D;
@@ -851,15 +881,17 @@ function toggleHub(){
  const hub=$("#trip-map");if(!hub)return;const hidden=hub.classList.toggle("hub-hidden");
  $('[data-action="toggle-hub"]')?.setAttribute("aria-pressed",String(hidden));
  try{localStorage.setItem("pepper-hub-hidden-v1",hidden?"1":"0")}catch(e){}
- setTimeout(()=>{applyMapPadding();if(map)map.resize()},60);
+ setTimeout(()=>{if(map){map.resize();applyMapPadding();if(!mapUserMoved)fitTripPoints(activeTrip(),false)}},80);
 }
 function toggleMapFullscreen(force){
  const hub=$("#trip-map");if(!hub)return;const on=force===undefined?!hub.classList.contains("is-fullscreen"):force;
  hub.classList.toggle("is-fullscreen",on);document.body.classList.toggle("map-full",on);
  $('[data-action="map-fullscreen"]')?.setAttribute("aria-pressed",String(on));
- setTimeout(()=>{if(map){map.resize();applyMapPadding()}},80);
+ setTimeout(()=>{if(map){map.resize();applyMapPadding();if(!mapUserMoved)fitTripPoints(activeTrip(),false)}},120);
 }
-window.addEventListener("resize",()=>{if(map)applyMapPadding()});
+let mapResizeTimer=0;
+window.addEventListener("resize",()=>{if(!map)return;applyMapPadding();clearTimeout(mapResizeTimer);mapResizeTimer=setTimeout(()=>{if(map&&!mapUserMoved&&document.body.dataset.view==="trip"){map.resize();fitTripPoints(activeTrip(),true)}},260)});
+window.addEventListener("orientationchange",()=>setTimeout(()=>{if(map&&!mapUserMoved&&document.body.dataset.view==="trip"){map.resize();fitTripPoints(activeTrip(),true)}},450));
 
 async function geocode(query){
  if(!query)return null;
@@ -1115,10 +1147,30 @@ async function copyRequest(event){
  if(await copyText(value)){toast("Demande copiée. Colle-la dans cette conversation pour que JALAP puisse la traiter.");$("#idea-input").value=""}else toast("Copie impossible. Sélectionne et copie le texte manuellement.","error");
 }
 
-function settingsModal(){
- const t=activeTrip(),gemini=geminiApiKey(),github=githubAccessToken(),enabled=githubSyncEnabled();
- const body='<div id="cloud-section" class="detail-section"></div><div class="detail-section"><h4>Enregistrement et synchronisation</h4><p>Chaque modification est d’abord enregistrée immédiatement sur cet appareil (IndexedDB). Si la synchronisation GitHub est activée, PEPPER écrit ensuite le carnet dans <strong>sopp24/PEPPER/data/trips.json</strong>, directement via l’API GitHub, sans Cloudflare, Netlify, Vercel ou base de données intermédiaire.</p><p><strong>Attention :</strong> le dépôt est public. Le fichier de voyage synchronisé sera donc visible de tous. Les QR codes, mots de passe et codes d’accès explicites sont exclus de la copie GitHub.</p></div><form id="settings-form" class="settings-stack"><div class="field full"><label>CLÉ API GOOGLE GEMINI (OFFRE GRATUITE)</label><input type="password" name="geminiApiKey" value="'+esc(gemini)+'" autocomplete="off" placeholder="Clé API Google AI Studio"><span class="field-help">Une seule clé Gemini alimente JALAP Voyage et JALAP Développement avec le modèle Gemini 3.8 Flash. Elle reste dans le stockage local de ce navigateur et n’est jamais publiée sur GitHub. Les demandes et le contexte transmis sont envoyés directement à Google. Sur le niveau sans frais, les données peuvent être utilisées pour améliorer les produits Google : ne transmets pas de données sensibles.</span><div class="github-sync-links"><button type="button" class="small-button" data-action="ai-setup">✦ Assistant de configuration de l’IA</button><a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer">Créer une clé API Gemini ↗</a><a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener noreferrer">Consulter les tarifs et quotas ↗</a></div></div><div class="field full"><label>JETON GITHUB FINE-GRAINED</label><input type="password" name="githubToken" value="'+esc(github)+'" autocomplete="off" placeholder="github_pat_…"><span class="field-help">Crée un jeton limité au seul dépôt sopp24/PEPPER, avec Contents : Read and write. Le jeton reste dans le stockage local de ce navigateur et est envoyé directement à api.github.com. Ne l’ajoute jamais au code.</span></div><label class="github-sync-toggle"><input type="checkbox" name="githubSyncEnabled" '+(enabled?"checked":"")+'> <span><strong>Synchroniser automatiquement le carnet avec GitHub</strong><small>Les cases cochées, activités, transports, dépenses et changements validés par JALAP seront sauvegardés dans data/trips.json après environ 2 secondes.</small></span></label><div class="github-sync-links"><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Créer un jeton GitHub ↗</a></div><div class="detail-section github-local-note"><h4>Ce qui reste local</h4><p>Les clés API, le jeton GitHub, les brouillons JALAP et les préférences ne sont jamais ajoutés au dépôt. La copie du carnet dans GitHub est publique et synchronisée séparément.</p></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Fermer</button><button class="primary-button" type="submit">Enregistrer les réglages</button></div></form><div class="detail-grid"><div class="detail-item"><small>Voyages sur cet appareil</small><strong>'+state.trips.length+'</strong></div><div class="detail-item"><small>Voyage actif</small><strong>'+esc(t?.destination||"Aucun")+'</strong></div><div class="detail-item"><small>Synchronisation GitHub</small><strong>'+esc(enabled?"Activée":"Désactivée")+'</strong></div></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="export-json">Exporter tous les voyages</button><button class="secondary-button" type="button" data-action="import-json">Importer une sauvegarde</button></div>';
- openModal("Réglages de PEPPER","Compte pour la synchronisation, Gemini 3.8 Flash pour JALAP, jeton GitHub séparé pour les commits.",body);renderCloudSection();
+function settingsModal(tab){
+ const t=activeTrip(),gemini=geminiApiKey(),github=githubAccessToken(),enabled=githubSyncEnabled(),sess=sbSession();
+ const chip=(on,yes,no)=>'<span class="set-chip '+(on?"on":"off")+'"><i></i>'+(on?yes:no)+'</span>';
+ const tabs=[["account","☁","Compte"],["ai","✦","IA"],["github","⌥","GitHub"],["data","▤","Données"]];
+ const body='<div class="settings" data-tab="'+esc(tab||"account")+'">'
+  +'<div class="settings-tabs" role="tablist">'+tabs.map(x=>'<button type="button" role="tab" data-action="settings-tab" data-tab="'+x[0]+'" aria-selected="'+((tab||"account")===x[0])+'"><span aria-hidden="true">'+x[1]+'</span>'+x[2]+'</button>').join("")+'</div>'
+  /* --- Compte --- */
+  +'<section class="settings-panel" data-panel="account"><div class="settings-head"><h3>Compte et synchronisation</h3>'+chip(!!sess,"Connecté","Non connecté")+'</div><p class="settings-lead">Retrouve tes voyages sur tous tes appareils. Ils sont privés : seul ton compte peut les lire.</p><div id="cloud-section" class="settings-card"></div>'
+  +'<details class="settings-more"><summary>Comment ça marche ?</summary><p>Chaque modification est d’abord enregistrée sur cet appareil, puis envoyée à ton compte environ 2 secondes plus tard. Les voyages sont fusionnés un par un (le plus récent l’emporte) et les suppressions sont propagées. PEPPER resynchronise quand tu reviens sur l’onglet et toutes les 2 minutes.</p></details></section>'
+  /* --- IA + GitHub : un seul formulaire pour enregistrer --- */
+  +'<form id="settings-form" class="settings-form">'
+  +'<section class="settings-panel" data-panel="ai"><div class="settings-head"><h3>JALAP · Intelligence artificielle</h3>'+chip(!!gemini,"Clé enregistrée","Pas de clé")+'</div><p class="settings-lead">Une seule clé Gemini gratuite fait fonctionner JALAP (voyage et développement).</p>'
+  +'<div class="settings-card"><div class="field full"><label>CLÉ API GOOGLE GEMINI</label><input type="password" name="geminiApiKey" value="'+esc(gemini)+'" autocomplete="off" placeholder="AIza…"></div><div class="settings-actions"><button type="button" class="small-button" data-action="ai-setup">✦ Assistant de configuration</button><a class="small-button" href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer">Créer une clé ↗</a></div></div>'
+  +'<details class="settings-more"><summary>Confidentialité</summary><p>La clé reste dans le stockage local de ce navigateur et n’est jamais publiée. Tes demandes sont envoyées directement à Google. Sur le niveau gratuit, Google peut utiliser les données pour améliorer ses produits : ne transmets rien de sensible. <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener noreferrer">Tarifs et quotas ↗</a></p></details></section>'
+  +'<section class="settings-panel" data-panel="github"><div class="settings-head"><h3>GitHub · avancé</h3>'+chip(!!github,"Jeton enregistré","Aucun jeton")+'</div><p class="settings-lead">Optionnel. Sert uniquement au mode Développement de JALAP (modifier le code du site).</p>'
+  +'<div class="settings-card"><div class="field full"><label>JETON GITHUB FINE-GRAINED</label><input type="password" name="githubToken" value="'+esc(github)+'" autocomplete="off" placeholder="github_pat_…"><span class="field-help">Limité au dépôt sopp24/PEPPER, permission « Contents : Read and write ». <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Créer un jeton ↗</a></span></div></div>'
+  +'<label class="settings-danger"><input type="checkbox" name="githubSyncEnabled" '+(enabled?"checked":"")+'><span><strong>Publier mon carnet sur GitHub</strong><small>⚠ Le dépôt est public : tes voyages seraient visibles de tous. À laisser décoché — ta synchronisation privée passe par ton compte.</small></span></label></section>'
+  +'<div class="settings-save"><button class="secondary-button" type="button" data-action="close-modal">Fermer</button><button class="primary-button" type="submit">Enregistrer</button></div></form>'
+  /* --- Données --- */
+  +'<section class="settings-panel" data-panel="data"><div class="settings-head"><h3>Données de cet appareil</h3></div><div class="settings-stats"><div><small>Voyages</small><strong>'+state.trips.length+'</strong></div><div><small>Voyage actif</small><strong>'+esc(t?.destination||"Aucun")+'</strong></div></div>'
+  +'<div class="settings-actions"><button class="secondary-button" type="button" data-action="export-json">↓ Exporter une sauvegarde</button><button class="secondary-button" type="button" data-action="import-json">↑ Importer une sauvegarde</button></div>'
+  +'<p class="settings-lead small">Les exports contiennent tes données complètes : garde-les dans un espace privé.</p></section>'
+  +'</div>';
+ openModal("Réglages","",body);renderCloudSection();
 }
 
 async function copyJalapAudit(){
@@ -1602,12 +1654,13 @@ function onAction(event){
  if(n==="close-modal"){if(event.target===el||el.matches("button"))closeModal();return}
  if(n==="delete-trip"){deleteTrip(id);return}
  if(n==="set-lang"){setLang(el.dataset.lang);return}
+ if(n==="settings-tab"){const box=el.closest(".settings");if(box){box.dataset.tab=el.dataset.tab;$$("[role=tab]",box).forEach(b=>b.setAttribute("aria-selected",String(b===el)))}return}
  if(n==="cloud-login"||n==="cloud-signup"){cloudAuth(n==="cloud-signup"?"signup":"login");return}
- if(n==="cloud-logout"){sbClearSession();setCloudStatus("off");renderCloudSection();toast("Déconnecté. Tes voyages restent sur cet appareil.");return}
+ if(n==="cloud-logout"){sbClearSession();setCloudStatus("off");settingsModal("account");toast("Déconnecté. Tes voyages restent sur cet appareil.");return}
  if(n==="cloud-sync-now"){syncCloud().then(()=>toast("Synchronisation terminée."));return}
  if(n==="open-summary"){if(matchMedia("(max-width:760px)").matches)openSheet("trip-summary");else window.scrollTo({top:0,behavior:"smooth"});return}
  if(n==="phone-map"){closeSheet();toggleMapFullscreen(false);return}
- if(n==="map-zoom-in"){map&&map.zoomIn();return}if(n==="map-zoom-out"){map&&map.zoomOut();return}if(n==="map-3d"){toggle3D();return}if(n==="map-locate"){locateMe();return}
+ if(n==="map-zoom-in"){mapUserMoved=true;map&&map.zoomIn();return}if(n==="map-zoom-out"){mapUserMoved=true;map&&map.zoomOut();return}if(n==="map-3d"){toggle3D();return}if(n==="map-locate"){locateMe();return}
  if(n==="map-style"){let next=el.dataset.style;if(matchMedia("(max-width:760px)").matches&&el.getAttribute("aria-pressed")==="true"){const order=["dark","satellite","plan"];next=order[(order.indexOf(next)+1)%order.length]}setMapStyle(next);return}if(n==="toggle-hub"){toggleHub();return}if(n==="map-fullscreen"){toggleMapFullscreen();return}
  if(n==="go-home"){event.preventDefault();showHome=true;closeSheet();render();window.scrollTo({top:0});return}
  if(n==="toggle-lang"){toggleLang(el);return}if(n==="toggle-picker"){togglePicker(el);return}if(n==="pick-trip"){state.activeTripId=id;showHome=false;weatherData=null;save({skipRemote:true,skipTouch:true});render();window.scrollTo({top:0});return}
@@ -1746,6 +1799,18 @@ window.addEventListener("resize",()=>{earth=null});
 /* --- panneau « Voir plus » (monte depuis le bas) --- */
 const SHEET_META={"trip-summary":["🧭","Mon voyage"],"trip-accommodation":["🏨","Hébergement"],"trip-citytransit":["🚦","Transport"],"trip-transport":["🚆","Trajets & billets"],"assistant-panel":["🌶","JALAP · Assistant IA"],"trip-weather":["⛅","Météo à destination"],"trip-itinerary":["📍","Activités & programme"]};
 let sheetState=null;
+function setDockCurrent(id){$$(".mobile-dock button").forEach(b=>b.classList.toggle("is-current",id?b.dataset.panel===id:b.dataset.action==="phone-map"))}
+let hubDotsBound=false;
+function updateHubDots(){
+ const box=$("#hub-dots"),strip=$("#hub-cards");if(!box||!strip)return;
+ const cards=$$(".hub-card",strip).filter(c=>c.offsetParent!==null).sort((a,b)=>(+getComputedStyle(a).order-+getComputedStyle(b).order)||0);
+ if(box.children.length!==cards.length)box.innerHTML=cards.map(()=>"<i></i>").join("");
+ box.style.setProperty("--cards-h",strip.offsetHeight+"px");
+ const mid=strip.getBoundingClientRect().left+strip.clientWidth/2;let best=0,bd=1e9;
+ cards.forEach((c,i)=>{const r=c.getBoundingClientRect(),d=Math.abs((r.left+r.right)/2-mid);if(d<bd){bd=d;best=i}});
+ [...box.children].forEach((d,i)=>d.classList.toggle("on",i===best));
+ if(!hubDotsBound){hubDotsBound=true;let raf=0;strip.addEventListener("scroll",()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(updateHubDots)},{passive:true})}
+}
 function openSheet(id){
  const panel=document.getElementById(id);if(!panel)return;
  if(sheetState)closeSheet(true);
@@ -1753,7 +1818,7 @@ function openSheet(id){
  panel.parentNode.insertBefore(ph,panel);
  root.innerHTML='<div class="sheet-overlay" data-action="close-sheet"><section class="sheet" role="dialog" aria-modal="true" aria-label="'+esc(meta[1])+'"><div class="sheet-grip" aria-hidden="true"></div><header class="sheet-head"><h2><span>'+meta[0]+'</span>'+esc(meta[1])+'</h2><button type="button" class="sheet-close" data-action="close-sheet" aria-label="Fermer">×</button></header><div class="sheet-body"></div></section></div>';
  $(".sheet-body",root).appendChild(panel);
- document.body.classList.add("sheet-open");
+ document.body.classList.add("sheet-open");setDockCurrent(id);
  sheetState={panel,ph,root,opener:document.activeElement};
  requestAnimationFrame(()=>requestAnimationFrame(()=>$(".sheet-overlay",root)?.classList.add("is-open")));
  bindSheetDrag();
@@ -1761,7 +1826,7 @@ function openSheet(id){
  if(id==="assistant-panel")setTimeout(()=>$("#idea-input")?.focus({preventScroll:true}),320);
 }
 function closeSheet(immediate){
- if(!sheetState)return;const {panel,ph,root,opener}=sheetState;sheetState=null;
+ if(!sheetState)return;const {panel,ph,root,opener}=sheetState;sheetState=null;setDockCurrent(null);
  const finish=()=>{if(ph.parentNode)ph.replaceWith(panel);root.innerHTML="";document.body.classList.remove("sheet-open");if(opener&&opener.isConnected&&!immediate)opener.focus({preventScroll:true})};
  const overlay=$(".sheet-overlay",root);
  if(immediate||!overlay){finish();return}
@@ -1830,7 +1895,7 @@ const focusAct=acts.find(a=>!a.done&&a.date);
  const scrollers=$$(".hub-body",node).map(x=>x.scrollTop);
  node.innerHTML=html;node.dataset.html=html;node.dataset.lang=lang;if(!node.dataset.ready&&!node._readyTimer)node._readyTimer=setTimeout(()=>{node.dataset.ready="1"},900);
  $$(".hub-body",node).forEach((x,i)=>{if(scrollers[i])x.scrollTop=scrollers[i]});
- applyLang(node);
+ applyLang(node);updateHubDots();
  if(!node._prefApplied){node._prefApplied=true;try{if(localStorage.getItem("pepper-hub-hidden-v1")==="1"){$("#trip-map")?.classList.add("hub-hidden");$('[data-action="toggle-hub"]')?.setAttribute("aria-pressed","true")}}catch(e){}}
  const inp=$("#hub-idea-input");if(inp&&savedIdea){inp.value=savedIdea;if(focused)inp.focus({preventScroll:true})}
 }
@@ -2028,12 +2093,12 @@ function renderCloudSection(){
  const box=$("#cloud-section");if(!box)return;
  const sess=sbSession(),cfg=sbConfig(),builtIn=!!(SUPABASE_URL_DEFAULT&&SUPABASE_ANON_KEY_DEFAULT);
  if(sess){
-  box.innerHTML='<h4>☁ Synchronisation entre appareils</h4><p>Connecté : <strong>'+esc(sess.user&&sess.user.email||"")+'</strong>. Tes voyages sont enregistrés dans ton compte et retrouvés sur tous tes appareils.</p><p id="cloud-state" class="ai-hint"></p><div class="ai-actions"><button type="button" class="small-button" data-action="cloud-sync-now">Synchroniser maintenant</button><button type="button" class="secondary-button" data-action="cloud-logout">Se déconnecter</button></div>';
+  const mail=sess.user&&sess.user.email||"";
+  box.innerHTML='<div class="settings-account"><span class="avatar" aria-hidden="true">'+esc((mail[0]||"?").toUpperCase())+'</span><div><strong>'+esc(mail)+'</strong><small id="cloud-state">Synchronisation active</small></div></div><div class="settings-actions"><button type="button" class="small-button" data-action="cloud-sync-now">↻ Synchroniser maintenant</button><button type="button" class="secondary-button" data-action="cloud-logout">Se déconnecter</button></div>';
   return;
  }
- box.innerHTML='<h4>☁ Synchronisation entre appareils</h4><p>Connecte-toi (ou crée un compte) pour retrouver tes voyages sur tous tes appareils. Tes données sont privées : seul ton compte peut les lire.</p>'
-  +(builtIn?"":'<div class="field full"><label>URL DU PROJET SUPABASE</label><input id="sb-url" type="url" autocomplete="off" placeholder="https://xxxx.supabase.co" value="'+esc(cfg.url)+'"></div><div class="field full"><label>CLÉ PUBLIQUE (ANON / PUBLISHABLE)</label><input id="sb-key" type="text" autocomplete="off" spellcheck="false" placeholder="eyJ… ou sb_publishable_…" value="'+esc(cfg.key)+'"><span class="field-help">Jamais la clé « service_role ».</span></div>')
-  +'<div class="field full"><label>E-MAIL</label><input id="sb-email" type="email" autocomplete="email" placeholder="toi@exemple.fr"></div><div class="field full"><label>MOT DE PASSE</label><input id="sb-pass" type="password" autocomplete="current-password" placeholder="6 caractères minimum"></div><p id="cloud-msg" class="ai-hint" role="status"></p><div class="ai-actions"><button type="button" class="primary-button" data-action="cloud-login">Se connecter</button><button type="button" class="secondary-button" data-action="cloud-signup">Créer un compte</button></div>';
+ box.innerHTML=(builtIn?"":'<div class="field full"><label>URL DU PROJET SUPABASE</label><input id="sb-url" type="url" autocomplete="off" placeholder="https://xxxx.supabase.co" value="'+esc(cfg.url)+'"></div><div class="field full"><label>CLÉ PUBLIQUE (ANON / PUBLISHABLE)</label><input id="sb-key" type="text" autocomplete="off" spellcheck="false" placeholder="sb_publishable_…" value="'+esc(cfg.key)+'"></div>')
+  +'<div class="field full"><label>E-MAIL</label><input id="sb-email" type="email" autocomplete="email" placeholder="toi@exemple.fr"></div><div class="field full"><label>MOT DE PASSE</label><input id="sb-pass" type="password" autocomplete="current-password" placeholder="6 caractères minimum"></div><p id="cloud-msg" class="ai-hint" role="status"></p><div class="settings-actions"><button type="button" class="primary-button" data-action="cloud-login">Se connecter</button><button type="button" class="secondary-button" data-action="cloud-signup">Créer un compte</button></div>';
  $("#sb-pass")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();cloudAuth("login")}});
 }
 async function cloudAuth(mode){
@@ -2046,7 +2111,7 @@ async function cloudAuth(mode){
  try{
   const r=await sbSignIn(mode==="signup"?"signup":"login",email,pass);
   if(r.needsConfirm){say("Compte créé. Confirme ton e-mail avec le lien reçu, puis reviens te connecter.","ok");return}
-  await syncCloud();renderCloudSection();toast("Compte connecté : tes voyages sont synchronisés.");
+  await syncCloud();settingsModal("account");toast("Compte connecté : tes voyages sont synchronisés.");
  }catch(e){say(sbFriendlyError(e),"warn")}
 }
 

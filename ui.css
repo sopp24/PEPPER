@@ -682,3 +682,72 @@ html{scrollbar-gutter:stable}
  .hub-col-left .hub-card{padding:10px 12px 9px;gap:6px}
  .hub-col-left .hub-route small{display:none}
 }
+
+/* =====================================================================
+   Réglages lisibles (onglets) + améliorations téléphone
+   ===================================================================== */
+.settings{display:flex;flex-direction:column;gap:14px;min-width:0}
+.settings-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:4px;border-radius:14px;background:rgba(255,255,255,.05);position:sticky;top:-1px;z-index:3}
+.settings-tabs button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;border:0;border-radius:10px;background:transparent;color:#a9a5a1;font-size:13px;font-weight:600;transition:background .2s,color .2s}
+.settings-tabs button span{font-size:14px;opacity:.9}
+.settings-tabs button[aria-selected="true"]{background:rgba(255,255,255,.12);color:#fff}
+.settings-tabs button:hover{color:#fff}
+.settings[data-tab="account"] [data-panel]:not([data-panel="account"]),
+.settings[data-tab="ai"] [data-panel]:not([data-panel="ai"]),
+.settings[data-tab="github"] [data-panel]:not([data-panel="github"]),
+.settings[data-tab="data"] [data-panel]:not([data-panel="data"]){display:none}
+.settings[data-tab="account"] .settings-form,.settings[data-tab="data"] .settings-form{display:none}
+.settings-form{display:flex;flex-direction:column;gap:14px}
+.settings-panel{display:flex;flex-direction:column;gap:12px;animation:modal-up .3s var(--ease-out) both}
+.settings-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.settings-head h3{margin:0;font-size:18px;font-weight:600;letter-spacing:-.02em}
+.settings-lead{margin:0;color:#c4c0bd;font-size:13px;line-height:1.55}.settings-lead.small{font-size:12px;color:#a09d9a}
+.settings-card{display:flex;flex-direction:column;gap:12px;padding:14px;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(255,255,255,.035)}
+.settings-card .field{margin:0}
+.settings-actions{display:flex;flex-wrap:wrap;gap:8px}
+.settings-actions .small-button,.settings-actions .secondary-button,.settings-actions .primary-button{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 16px;text-decoration:none}
+.set-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.07);color:#b3aeaa;font-size:11px;font-weight:600;white-space:nowrap}
+.set-chip i{width:7px;height:7px;border-radius:50%;background:#7b7a78}
+.set-chip.on{color:#c9e8a6;background:rgba(180,213,138,.12)}.set-chip.on i{background:#a8d687}
+.settings-account{display:flex;align-items:center;gap:12px}
+.settings-account .avatar{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--grad);color:#1c1210;font-weight:700}
+.settings-account strong{display:block;font-size:14px;overflow-wrap:anywhere}.settings-account small{display:block;color:#a9d68a;font-size:12px}
+.settings-more{border:1px solid rgba(255,255,255,.07);border-radius:12px;background:rgba(255,255,255,.025)}
+.settings-more summary{padding:11px 14px;cursor:pointer;font-size:12.5px;font-weight:600;color:#cfcac6;list-style:none}
+.settings-more summary::-webkit-details-marker{display:none}
+.settings-more summary::after{content:"＋";float:right;color:#8d8a87}.settings-more[open] summary::after{content:"－"}
+.settings-more p{margin:0;padding:0 14px 13px;color:#b3aeaa;font-size:12px;line-height:1.6}.settings-more a{color:#f2c29b}
+.settings-danger{display:flex;gap:12px;align-items:flex-start;padding:13px 14px;border:1px solid rgba(255,99,82,.3);border-radius:14px;background:rgba(255,99,82,.07);cursor:pointer}
+.settings-danger input{margin-top:3px;width:18px;height:18px;accent-color:#ff8a7a}
+.settings-danger strong{display:block;font-size:13px}.settings-danger small{display:block;margin-top:3px;color:#ffb4a6;font-size:11.5px;line-height:1.5}
+.settings-save{position:sticky;bottom:-1px;display:flex;justify-content:flex-end;gap:8px;padding:12px 0 2px;background:linear-gradient(180deg,rgba(21,23,25,0),#151719 30%)}
+.settings-save .primary-button,.settings-save .secondary-button{min-height:44px;padding:0 20px}
+.settings-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.settings-stats div{padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.035)}
+.settings-stats small{display:block;color:#9a9794;font-size:11px}.settings-stats strong{display:block;margin-top:3px;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal:has(.settings){width:min(560px,100%)}
+
+/* pastilles de position du carrousel (téléphone) */
+.hub-dots{display:none}
+
+@media(max-width:760px){
+ /* évite le zoom automatique d'iOS dans les champs, cibles tactiles confortables */
+ input,select,textarea{font-size:16px!important}
+ .modal .small-button,.modal .secondary-button,.modal .primary-button,.sheet .small-button,.sheet .secondary-button,.sheet .primary-button,.sheet .text-button,.sheet .icon-button{min-height:44px}
+ .sheet-close,.modal-close{width:42px;height:42px}
+ button,a,[role="button"]{touch-action:manipulation}
+ body[data-view="trip"]{overscroll-behavior:none}
+ .modal-overlay{align-items:flex-end;padding:0}
+ .modal{width:100%;max-height:94dvh;border-radius:24px 24px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+ .modal-head{position:sticky;top:-18px;z-index:4;background:#151719;margin:-18px -16px 10px;padding:16px 16px 10px}
+ .settings-tabs button{font-size:12px;gap:4px;padding:0 2px}
+ .settings-tabs{top:46px}
+ .hub-dots{display:flex;position:absolute;left:0;right:0;bottom:calc(88px + var(--cards-h,200px) + 6px + env(safe-area-inset-bottom));z-index:541;justify-content:center;gap:6px;pointer-events:none}
+ .hub-dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.28);transition:width .2s,background .2s}
+ .hub-dots i.on{width:18px;border-radius:4px;background:#fff}
+ .map-hub.hub-hidden .hub-dots{display:none}
+ .mobile-dock button.is-current{background:rgba(255,255,255,.08)}
+ .mobile-dock button{border-radius:16px}
+ .landing-actions .picker-list{max-height:42dvh}
+}
+.settings-actions button,.settings-actions a{font-size:13px;font-weight:600}
