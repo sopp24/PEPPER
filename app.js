@@ -1832,6 +1832,7 @@ async function initialise(){if(isPresentationPreview){
  showHome=false;
  if(lang==="en"){try{await ensureI18n()}catch(e){lang="fr"}}
  setJalapMode(jalapMode);
+ weatherData={tripId:"pepper-presentation-demo",fetchedAt:"2026-11-26T09:00:00.000Z",stale:false,data:{current:{temperature_2m:19,apparent_temperature:19,relative_humidity_2m:62,weather_code:2,wind_speed_10m:11},daily:{time:["2027-04-15","2027-04-16","2027-04-17","2027-04-18","2027-04-19"],weather_code:[2,1,0,3,2],temperature_2m_min:[14,15,15,14,13],temperature_2m_max:[20,21,22,19,20]}}};
  render();applyLang(document.body);watchLang();
  const previewPanel={ "phone-program":"trip-itinerary", "phone-transport":"trip-transport", "phone-jalap":"assistant-panel" }[PRESENTATION_SCREEN];
  if(PRESENTATION_SCREEN==="desktop-map"){const vault=$("#panel-vault");if(vault)vault.hidden=false;}
