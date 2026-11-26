@@ -795,7 +795,7 @@ function renderMap(t){
   mapPitch3D=false;$('[data-action="map-3d"]')?.setAttribute("aria-pressed","false");
  }
  (markers||[]).forEach(m=>m.remove());markers=[];activityMarkerIndex={};mapRouteCoords=[];
- if(t.geo)addMapMarker(center,mapPin("destination","✦",t.destination||"Destination"),"<strong>"+esc(t.destination)+"</strong><br>Destination");
+
  if(t.accommodation&&t.accommodation.geo){const g=t.accommodation.geo;addMapMarker([g.lon,g.lat],mapPin("stay",KIND_SVG.stay,"Hébergement"),"<strong>"+esc(t.accommodation.name)+"</strong><br>Hébergement")}
  const dated=[];
  (t.activities||[]).forEach(a=>{
