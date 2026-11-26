@@ -1947,8 +1947,8 @@ function renderCityTransit(t){
 
 /* ===================== Synchronisation entre appareils (Supabase) ===================== */
 /* Renseigne ces deux valeurs pour que TOUS tes appareils soient configurés d'office (clé publique « anon » / publishable uniquement, jamais la clé service_role). */
-const SUPABASE_URL_DEFAULT="";
-const SUPABASE_ANON_KEY_DEFAULT="";
+const SUPABASE_URL_DEFAULT="https://wmusxpcxfwzjtmgethrz.supabase.co";
+const SUPABASE_ANON_KEY_DEFAULT="sb_publishable_RhvXLWcQU_6kdP7OYoOWKw_Dh1q1ukX";
 const SB_CFG_KEY="pepper-supabase-config-v1",SB_SESSION_KEY="pepper-supabase-session-v1";
 let cloudSyncTimer=null,cloudSyncRunning=false,cloudSyncAgain=false;
 function sbConfig(){const c=parse(localStorage.getItem(SB_CFG_KEY),null)||{};return {url:String(SUPABASE_URL_DEFAULT||c.url||"").trim().replace(/\/+$/,""),key:String(SUPABASE_ANON_KEY_DEFAULT||c.key||"").trim()}}
