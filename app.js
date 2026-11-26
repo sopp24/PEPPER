@@ -1596,6 +1596,9 @@ document.addEventListener("change",e=>{
  if(e.target.matches('[data-action="toggle-activity"]'))markActivity(e);
  if(e.target.matches('[data-action="toggle-check"]'))markChecklist(e);
 });
+document.addEventListener("input",e=>{
+ if(e.target.id==="picker-search")renderPickerOptions(e.target.value);
+});
 document.addEventListener("submit",e=>{
  const f=e.target,fid=f.getAttribute?f.getAttribute("id"):"";
  if(fid==="settings-form"){e.preventDefault();const data=new FormData(f),key=String(data.get("geminiApiKey")||"").trim(),github=String(data.get("githubToken")||"").trim(),enabled=data.get("githubSyncEnabled")==="on";if(key)localStorage.setItem(GEMINI_API_KEY_KEY,key);else localStorage.removeItem(GEMINI_API_KEY_KEY);if(github)localStorage.setItem(GITHUB_TOKEN_KEY,github);else localStorage.removeItem(GITHUB_TOKEN_KEY);localStorage.setItem(GITHUB_SYNC_ENABLED_KEY,enabled?"true":"false");localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);closeModal();if(enabled){connectGitHubSync().then(()=>toast("Connexion GitHub active : les modifications seront synchronisées automatiquement.")).catch(error=>{setGitHubSyncStatus("error",error.message);toast(error.message,"error")})}else{setGitHubSyncStatus("local");toast("Clés enregistrées localement. Synchronisation GitHub désactivée.")}}
@@ -1630,16 +1633,36 @@ function categoryEmoji(c){return CATEGORY_EMOJI[categoryKind(c)]}
 function closeMenus(except){$$(".lang-list, .picker-list").forEach(l=>{if(l!==except){l.hidden=true;const b=l.previousElementSibling;if(b)b.setAttribute("aria-expanded","false")}})}
 function toggleMenu(button){const list=button.nextElementSibling;if(!list)return;const open=list.hidden;closeMenus(list);list.hidden=!open;button.setAttribute("aria-expanded",String(open))}
 function toggleLang(el){toggleMenu(el)}
-function togglePicker(el){toggleMenu(el)}
+function togglePicker(el){
+ toggleMenu(el);
+ const list=el.nextElementSibling;
+ if(list&&!list.hidden){
+  const search=$("#picker-search");
+  if(search){search.value="";renderPickerOptions("");search.focus()}
+ }
+}
 document.addEventListener("click",e=>{if(!e.target.closest(".lang-menu, .trip-picker"))closeMenus()});
 
 /* --- accueil --- */
+function normalizePickerText(value){
+ return String(value??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("fr");
+}
+function renderPickerOptions(query=""){
+ const results=$("#picker-results");if(!results)return;
+ const needle=normalizePickerText(query);
+ const trips=state.trips.filter(t=>{
+  const activityNames=(t.activities||[]).map(a=>a.title||a.name||"").join(" ");
+  const haystack=[t.destination,t.name,t.title,t.startDate?dateLabel(t.startDate):"",t.endDate?dateLabel(t.endDate):"",activityNames].filter(Boolean).join(" ");
+  return !needle||normalizePickerText(haystack).includes(needle);
+ });
+ results.innerHTML=trips.length?trips.map(t=>{const d=t.startDate?dateLabel(t.startDate)+(t.endDate?" → "+dateLabel(t.endDate):""):"Dates à définir";return '<button type="button" role="option" class="picker-item '+(t.id===state.activeTripId?"is-current":"")+'" data-action="pick-trip" data-id="'+esc(t.id)+'"><strong>'+esc(t.destination||"Voyage")+'</strong><small>'+esc(d)+' · '+(t.activities||[]).length+' activité(s)</small></button>'}).join(""):'<p class="picker-empty">Aucun voyage trouvé.</p>';
+}
 function renderLanding(){
  const list=$("#picker-list"),label=$("#picker-label");if(!list)return;
  const trips=state.trips;
  label.textContent=trips.length?"Sélectionne ton voyage":"Aucun voyage pour l’instant";
  $(".picker-button").disabled=!trips.length;
- list.innerHTML=trips.map(t=>{const d=t.startDate?dateLabel(t.startDate)+(t.endDate?" → "+dateLabel(t.endDate):""):"Dates à définir";return '<button type="button" role="option" class="picker-item '+(t.id===state.activeTripId?"is-current":"")+'" data-action="pick-trip" data-id="'+esc(t.id)+'"><strong>'+esc(t.destination||"Voyage")+'</strong><small>'+esc(d)+' · '+(t.activities||[]).length+' activité(s)</small></button>'}).join("");
+ renderPickerOptions($("#picker-search")?.value||"");
  if(showHome)startEarth();else stopEarth();
 }
 
