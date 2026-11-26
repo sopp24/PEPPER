@@ -13,7 +13,7 @@ const GITHUB_OWNER="sopp24";
 const GITHUB_REPO="PEPPER";
 const GITHUB_BRANCH="main";
 const GITHUB_TRIPS_PATH="data/trips.json";
-const DEFAULT_CHECKLIST=["Vérifier les papiers d’identité et les visas","Confirmer les billets, horaires et formalités d’enregistrement","Confirmer l’hébergement et les heures d’arrivée / départ","Vérifier les conditions de bagages et les documents nécessaires","Prévoir les moyens de paiement et télécharger les documents hors ligne"];
+const LEGACY_DEFAULT_CHECKLIST=["Vérifier les papiers d’identité et les visas","Confirmer les billets, horaires et formalités d’enregistrement","Confirmer l’hébergement et les heures d’arrivée / départ","Vérifier les conditions de bagages et les documents nécessaires","Prévoir les moyens de paiement et télécharger les documents hors ligne"];
 const $=(s,root=document)=>root.querySelector(s),$$=(s,root=document)=>Array.from(root.querySelectorAll(s));
 const parse=(v,f)=>{try{return JSON.parse(v)}catch(e){return f}};
 const uid=()=>"pepper-"+Math.random().toString(36).slice(2,9)+"-"+Date.now().toString(36);
@@ -27,7 +27,7 @@ const directionName={outbound:"Aller",return:"Retour",connection:"Correspondance
 let state=parse(localStorage.getItem(STORAGE_KEY),null)||parse(localStorage.getItem(RECOVERY_KEY),null)||parse(localStorage.getItem(LEGACY_KEY),null)||{trips:[],activeTripId:null};
 state.trips=Array.isArray(state.trips)?state.trips:[];
 state.deletedTrips=state.deletedTrips&&typeof state.deletedTrips==="object"&&!Array.isArray(state.deletedTrips)?state.deletedTrips:{};
-state.trips.forEach(t=>{t.activities=t.activities||[];t.expenses=t.expenses||[];t.checklist=t.checklist||DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false}));t.transport=t.transport||[];t.accommodation=t.accommodation||null});
+state.trips.forEach(t=>{t.activities=t.activities||[];t.expenses=t.expenses||[];t.checklist=t.checklist||[];t.transport=t.transport||[];t.accommodation=t.accommodation||null});
 let map=null,markers=null,activityMarkerIndex={},mapTripId=null,mapLibraryRetryCount=0,weatherData=null,weatherError="",weatherRequest=0,transportRefreshTimer=null,pepperDbPromise=null,leafletPromise=null,geocodeInFlight=new Set();
 let jalapMessages=[],jalapPendingProposal=null,jalapPendingTripId=null,jalapBusy=false,jalapMode=localStorage.getItem('pepper-jalap-mode-v1')||'travel',jalapDevChanges=null,jalapDevOriginalRequest='',jalapDevBusy=false,jalapDevBaseSha=null,jalapDevBaseFiles=[];
 let githubSyncTimer=null,githubSyncRunning=false,githubSyncAgain=false,githubSyncStatus="local",githubLastContent="",githubSyncError="";
@@ -241,7 +241,7 @@ async function connectGitHubSync(){
  if(githubSyncStatus==="error")throw new Error(githubSyncError||"La synchronisation GitHub a échoué.");
 }
 
-function save(options={}){const now=new Date().toISOString();if(state.deletedTrips)for(const t of state.trips)delete state.deletedTrips[t.id];if(!options.skipTouch){state.updatedAt=now;const trip=activeTrip();if(trip)trip.updatedAt=now}const snapshot=JSON.stringify(state);try{const previous=localStorage.getItem(STORAGE_KEY);if(previous)localStorage.setItem(RECOVERY_KEY,previous);localStorage.setItem(STORAGE_KEY,snapshot)}catch(e){toast("Le stockage classique est saturé. La sauvegarde locale étendue est tentée ; exporte aussi un fichier JSON privé.","error")}persistStateToIndexedDB(snapshot);if(!options.skipRemote)scheduleGitHubSync();queueMicrotask(()=>{const t=activeTrip();if(t&&!showHome&&typeof renderHub==="function")renderHub(t)})}
+function save(options={}){const now=new Date().toISOString();if(state.deletedTrips)for(const t of state.trips)delete state.deletedTrips[t.id];if(!options.skipTouch){state.updatedAt=now;const trip=activeTrip();if(trip)trip.updatedAt=now}const snapshot=JSON.stringify(state);try{const previous=localStorage.getItem(STORAGE_KEY);if(previous)localStorage.setItem(RECOVERY_KEY,previous);localStorage.setItem(STORAGE_KEY,snapshot)}catch(e){toast("Le stockage classique est saturé. La sauvegarde locale étendue est tentée ; exporte aussi un fichier JSON privé.","error")}persistStateToIndexedDB(snapshot);if(!options.skipRemote){scheduleGitHubSync();scheduleCloudSync()}queueMicrotask(()=>{const t=activeTrip();if(t&&!showHome&&typeof renderHub==="function")renderHub(t)})}
 function toast(message,type){const n=document.createElement("div");n.className="toast "+(type||"");n.textContent=trs(message);$("#toast-root").appendChild(n);setTimeout(()=>n.remove(),4200)}
 function dateTime(date,time){if(!date)return null;const d=new Date(date+"T"+(time||"00:00")+":00");return Number.isNaN(d.getTime())?null:d}
 function dateTimeLabel(d){return new Intl.DateTimeFormat(LOCALE(),{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(d)}
@@ -307,7 +307,7 @@ function render(){
  const q=encodeURIComponent(t.destination||"");$("#link-google-maps").href="https://www.google.com/maps/search/?api=1&query="+q;$("#link-apple-maps").href="https://maps.apple.com/?q="+q;$("#link-waze").href="https://www.waze.com/ul?q="+q+"&navigate=yes";$("#link-fuel").href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent("station-service carburant "+t.destination);
  const tt=$("#topbar-trip");if(tt)tt.textContent=t.destination||"";
  $$("[data-ql]").forEach(a=>{const k=a.dataset.ql;a.href=k==="google"?"https://www.google.com/maps/search/?api=1&query="+q:k==="apple"?"https://maps.apple.com/?q="+q:k==="waze"?"https://www.waze.com/ul?q="+q+"&navigate=yes":"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent("station-service carburant "+t.destination)});
- renderStay(t);renderTransport(t);renderActivities(t);renderChecklist(t);renderHub(t);
+ renderStay(t);renderTransport(t);renderActivities(t);renderCityTransit(t);renderHub(t);
  if(!t.geo&&t.destination){$("#trip-map")?.classList.add("is-locating");fetchDestination(t)}else{renderMap(t);if(!weatherData||weatherData.tripId!==t.id)fetchWeather(t)}
 }
 function renderStay(t){
@@ -351,18 +351,18 @@ function getTripPhase(trip){
 }
 function renderJourneyOverview(trip){
  const node=$("#journey-overview");if(!node)return;
- const phase=getTripPhase(trip),activities=trip.activities||[],checklist=trip.checklist||[],transport=trip.transport||[];
+ const phase=getTripPhase(trip),activities=trip.activities||[],transport=trip.transport||[];
  const pendingBookings=activities.filter(a=>!a.done&&(activityBookingState(a)==="to_book"||a.bookingRequired)&&activityBookingState(a)!=="booked");
- const flexible=activities.filter(a=>!a.done&&!a.date),pendingTasks=checklist.filter(x=>!x.done);
+ const flexible=activities.filter(a=>!a.done&&!a.date),transitAlerts=getWarnings(trip).length;
  const daysBefore=trip.startDate?Math.max(0,Math.ceil((new Date(trip.startDate+"T00:00:00")-new Date(today()+"T00:00:00"))/86400000)):null;
- let kicker="AVANT LE DÉPART",headline="Prépare ton voyage à ton rythme",description="Centralise les essentiels maintenant. Garde les activités flexibles sans date, puis construis ton planning quand tes réservations seront confirmées.",metrics=[
+ let kicker="AVANT LE DÉPART",headline="Prépare ton voyage à ton rythme",description="Centralise tes réservations maintenant. Garde les activités flexibles sans date, puis construis ton planning quand tes réservations seront confirmées.",metrics=[
   [String(pendingBookings.length),"réservation(s) à traiter"],
   [String(flexible.length),"activité(s) sans date"],
-  [String(pendingTasks.length),"tâche(s) restante(s)"]
- ],actions=[["Voir les réservations","trip-itinerary"],["Préparer ma checklist","trip-checklist"],["Vérifier les transports","trip-transport"]];
+  [String(transitAlerts),"alerte(s) transport"]
+ ],actions=[["Voir les réservations","trip-itinerary"],["Infos transport","trip-citytransit"],["Vérifier les transports","trip-transport"]];
  if(phase==="before"){
   if(daysBefore!==null)description=daysBefore===0?"Départ aujourd’hui. Vérifie les billets, l’arrivée au logement et les dernières formalités.":daysBefore===1?"Départ demain. Fais un dernier contrôle des billets, bagages et consignes d’arrivée.":"Encore "+daysBefore+" jour(s) avant le départ. Avance sur les réservations prioritaires sans figer le reste du programme.";
-  metrics=[[String(pendingBookings.length),"réservation(s) en attente"],[String(flexible.length),"activité(s) à planifier"],[String(pendingTasks.length),"tâche(s) à terminer"]];
+  metrics=[[String(pendingBookings.length),"réservation(s) en attente"],[String(flexible.length),"activité(s) à planifier"],[String(transitAlerts),"alerte(s) transport"]];
  }else if(phase==="during"){
   kicker="PENDANT LE VOYAGE";headline="Profite du séjour, PEPPER garde le fil";
   const currentActivities=activities.filter(a=>a.date===today()&&!a.done).sort((a,b)=>(a.startTime||"99:99").localeCompare(b.startTime||"99:99"));
@@ -566,7 +566,7 @@ function updateNetworkStatus(){
 }
 
 function renderTransport(t){
- const node=$("#transport-content"),legs=t.transport||[];if(!legs.length){node.innerHTML='<div class="empty-inline">Aucun trajet renseigné. Ajoute ton aller, ton retour ou une correspondance pour afficher les marges et alertes de planning.</div>'+renderLocalTransitSources(t);startLiveRefresh(t);refreshLocalTransitStatus(t);return}
+ const node=$("#transport-content"),legs=t.transport||[];if(!legs.length){node.innerHTML='<div class="empty-inline">Aucun trajet renseigné. Ajoute ton aller, ton retour ou une correspondance pour afficher les marges et alertes de planning.</div>';startLiveRefresh(t);return}
  node.innerHTML='<div class="transport-list">'+legs.map(leg=>{
   const info=arrivalInfo(leg),dep=dateTime(leg.departureDate,leg.departureTime),arr=dateTime(leg.arrivalDate,leg.arrivalTime),facts=[["Départ",dep?dateTimeLabel(dep):"À préciser"],["Arrivée",arr?dateTimeLabel(arr):"À préciser"],["Voie / terminal",leg.platform||"À vérifier"],["Bagages",leg.baggage||"À vérifier"],["Limite d’embarquement",leg.boardingDeadline||"À vérifier"]];
   const when=info.arrivalBy?"Arrivée conseillée au plus tard : "+dateTimeLabel(info.arrivalBy)+". ":"",roadEta=info.estimatedArrival?"Arrivée voiture indicative : "+dateTimeLabel(info.estimatedArrival)+" (pauses de 15 min / 2 h estimées, hors trafic). ":"";
@@ -575,8 +575,7 @@ function renderTransport(t){
   const pauses=leg.mode==="car"&&Number(leg.drivingDurationMinutes)>120?'<div class="transport-warning">Trajet long : prévois une pause au moins toutes les 2 heures et dès les premiers signes de fatigue. '+(leg.plannedStops?"Pauses planifiées : "+esc(leg.plannedStops)+".":"")+'</div>':"";
   return '<article class="transport-card"><div class="transport-card-head"><div class="transport-mode"><span class="transport-mode-icon">'+(icons[leg.mode]||"↗")+'</span><span><strong>'+esc(directionName[leg.direction]||"Trajet")+' · '+esc(modeName[leg.mode]||"Transport")+'</strong><small>'+esc(leg.operator||"Transporteur à préciser")+(leg.service?" · "+esc(leg.service):"")+(leg.number?" · "+esc(leg.number):"")+'</small></span></div><span class="status-pill">À vérifier</span></div><div class="transport-route"><div class="transport-stop"><strong>'+esc(leg.origin||"Départ")+'</strong><small>'+esc(leg.departureDate?dateLabel(leg.departureDate):"Date à préciser")+' · '+esc(leg.departureTime||"—")+'</small></div><span class="transport-line">→</span><div class="transport-stop"><strong>'+esc(leg.destination||"Arrivée")+'</strong><small>'+esc(leg.arrivalDate?dateLabel(leg.arrivalDate):"Date à préciser")+' · '+esc(leg.arrivalTime||"—")+'</small></div></div><div class="transport-facts">'+facts.map(f=>'<div class="transport-fact"><small>'+esc(f[0])+'</small><strong>'+esc(f[1])+'</strong></div>').join("")+'</div>'+advice+officialSources+liveStatusSlot(leg)+pauses+(leg.notes?'<div class="stay-notes">'+esc(leg.notes)+'</div>':"")+'<div class="inline-links">'+(leg.ticketUrl?'<a href="'+esc(leg.ticketUrl)+'" target="_blank" rel="noopener noreferrer">Ouvrir le billet / transporteur ↗</a>':"")+'<a href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((leg.origin||"")+" "+(leg.destination||""))+'" target="_blank" rel="noopener noreferrer">Voir le trajet ↗</a></div><div class="transport-actions"><button type="button" data-action="edit-transport" data-id="'+esc(leg.id)+'">Modifier</button><button type="button" data-action="delete-transport" data-id="'+esc(leg.id)+'">Supprimer</button></div></article>';
  }).join("")+'</div>';
- node.innerHTML+=renderLocalTransitSources(t);
- startLiveRefresh(t);refreshLocalTransitStatus(t);
+ startLiveRefresh(t);
  const warnings=getWarnings(t);if(warnings.length)node.innerHTML+='<div class="transport-warnings">'+warnings.map(w=>'<div class="transport-warning">⚠ '+esc(w)+'</div>').join("")+'</div>';
 }
 function renderActivities(t){
@@ -593,10 +592,6 @@ function renderActivities(t){
   return '<div class="activity-row '+(a.done?"is-complete":"")+'"><label class="activity-check" title="Marquer comme faite"><input type="checkbox" data-action="toggle-activity" data-id="'+esc(a.id)+'" '+(a.done?"checked":"")+' aria-label="Activité faite : '+esc(a.name)+'"></label><span class="activity-date"><strong>'+day+'</strong><small>'+esc(month)+'</small></span><button class="activity-info" type="button" data-action="activity-detail" data-id="'+esc(a.id)+'"><strong>'+esc(a.name)+'</strong><small>'+esc(a.category||"Visite")+' · '+esc(timing)+(a.duration?" · "+esc(a.duration)+" min":"")+(bookingLabel?" · "+bookingLabel:"")+'</small></button><span class="activity-end">'+(a.done?'<span class="completion-tag">Faite ✓</span>':'<span class="priority '+cls+'">'+priority+'</span>')+mapLink+quickLink+'</span></div>';
  }).join("");
  $("#activities-list").innerHTML=(planned.length?'<div class="itinerary-group-label">PLANNING PROGRAMMÉ</div>'+renderRows(planned):"")+(flexible.length?'<div class="itinerary-group-label">À PLANIFIER · SANS DATE</div>'+renderRows(flexible):"");
-}
-function renderChecklist(t){
- const list=t.checklist||[],done=list.filter(x=>x.done).length;$("#check-progress").textContent=done+" / "+list.length;
- $("#checklist-content").innerHTML=list.map(x=>'<label class="check-row '+(x.done?"done":"")+'"><input type="checkbox" data-action="toggle-check" data-id="'+esc(x.id)+'" '+(x.done?"checked":"")+'><span>'+esc(x.label)+'</span></label>').join("")||'<div class="empty-inline">Aucune tâche.</div>';
 }
 /* ===================== Carte (MapLibre GL : vectorielle, fluide, 3D) ===================== */
 const MAP_STYLE_KEY="pepper-map-style-v2";
@@ -1011,7 +1006,7 @@ function detailModal(id){
 }
 function saveTripForm(form){
  const d=Object.fromEntries(new FormData(form).entries());if(d.startDate&&d.endDate&&d.endDate<d.startDate){toast("La date de retour doit suivre celle de départ.","error");return}
- let t=state.trips.find(x=>x.id===d.id);if(!t){t={id:uid(),activities:[],transport:[],expenses:[],checklist:DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false})),accommodation:null,createdAt:new Date().toISOString()};state.trips.push(t)}
+ let t=state.trips.find(x=>x.id===d.id);if(!t){t={id:uid(),activities:[],transport:[],expenses:[],checklist:[],accommodation:null,createdAt:new Date().toISOString()};state.trips.push(t)}
  Object.assign(t,{destination:d.destination.trim(),startDate:d.startDate,endDate:d.endDate,people:Number(d.people||1),localTransitName:d.localTransitName||"",localTransitUrl:d.localTransitUrl||"",localTrafficUrl:d.localTrafficUrl||"",localTransitRef:d.localTransitRef||"",notes:d.notes||""});
  state.activeTripId=t.id;showHome=false;weatherData=null;save();closeModal();render();toast("Voyage enregistré. Synchronisation GitHub en cours si elle est activée.");
 }
@@ -1046,8 +1041,6 @@ function deleteTrip(id){
 function markActivity(event){
  const t=activeTrip(),a=t&&t.activities.find(x=>x.id===event.target.dataset.id);if(!a)return;a.done=event.target.checked;a.completedAt=a.done?new Date().toISOString():null;save();renderActivities(t);toast(a.done?"Activité cochée et enregistrée.":"Activité remise dans les étapes à faire.");
 }
-function markChecklist(event){const t=activeTrip(),item=t&&t.checklist.find(x=>x.id===event.target.dataset.id);if(!item)return;item.done=event.target.checked;save();renderChecklist(t)}
-function addChecklist(){const label=promptT("Quelle tâche veux-tu ajouter à ta checklist ?");if(!label||!label.trim())return;const t=activeTrip();t.checklist.push({id:uid(),label:label.trim(),done:false});save();renderChecklist(t)}
 function slug(v){return String(v||"voyage").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"voyage"}
 function download(content,name,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url)}
 function exportJSON(){const t=activeTrip();if(!t)return;const backup={format:"pepper-backup",version:1,exportedAt:new Date().toISOString(),activeTripId:state.activeTripId,trips:state.trips};download(JSON.stringify(backup,null,2),"pepper-sauvegarde-"+today()+".json","application/json")}
@@ -1067,7 +1060,7 @@ async function importBackup(form){
    const item=JSON.parse(JSON.stringify(t));
    item.id=item.id||uid();item.activities=Array.isArray(item.activities)?item.activities:[];
    item.transport=Array.isArray(item.transport)?item.transport:[];item.expenses=Array.isArray(item.expenses)?item.expenses:[];
-   item.checklist=Array.isArray(item.checklist)?item.checklist:DEFAULT_CHECKLIST.map(label=>({id:uid(),label,done:false}));
+   item.checklist=Array.isArray(item.checklist)?item.checklist:[];
    return item;
   });
   const strategy=form.elements.strategy.value;
@@ -1103,8 +1096,7 @@ function shareContext(t){
   accommodation:t.accommodation?{name:t.accommodation.name,type:t.accommodation.type,address:t.accommodation.address,checkInDate:t.accommodation.checkInDate,checkInTime:t.accommodation.checkInTime,checkOutDate:t.accommodation.checkOutDate,checkOutTime:t.accommodation.checkOutTime,amenities:t.accommodation.amenities,parking:t.accommodation.parking,breakfast:t.accommodation.breakfast}:null,
   transport:t.transport.map(x=>({id:x.id,direction:x.direction,mode:x.mode,operator:x.operator,service:x.service,number:x.number,origin:x.origin,destination:x.destination,departureDate:x.departureDate,departureTime:x.departureTime,arrivalDate:x.arrivalDate,arrivalTime:x.arrivalTime,platform:x.platform,baggage:x.baggage,routeType:x.routeType,arrivalBufferMinutes:x.arrivalBufferMinutes,drivingDurationMinutes:x.drivingDurationMinutes,plannedStops:x.plannedStops,boardingDeadline:x.boardingDeadline,trafficUrl:x.trafficUrl})),
   activities:t.activities.map(x=>({id:x.id,name:x.name,category:x.category,date:x.date||null,startTime:x.startTime||null,duration:x.duration,address:x.address,description:x.description,priority:x.priority,done:!!x.done,bookingRequired:x.bookingRequired,bookingStatus:x.bookingStatus||"unknown",price:x.price,sources:x.sources||[]})),
-  planningWarnings:[...getWarnings(t),...getPlanningWarnings(t)],
-  checklist:t.checklist.map(x=>({label:x.label,done:!!x.done}))
+  planningWarnings:[...getWarnings(t),...getPlanningWarnings(t)]
  };
 }
 async function copyText(value){
@@ -1125,8 +1117,8 @@ async function copyRequest(event){
 
 function settingsModal(){
  const t=activeTrip(),gemini=geminiApiKey(),github=githubAccessToken(),enabled=githubSyncEnabled();
- const body='<div class="detail-section"><h4>Enregistrement et synchronisation</h4><p>Chaque modification est d’abord enregistrée immédiatement sur cet appareil (IndexedDB). Si la synchronisation GitHub est activée, PEPPER écrit ensuite le carnet dans <strong>sopp24/PEPPER/data/trips.json</strong>, directement via l’API GitHub, sans Cloudflare, Netlify, Vercel ou base de données intermédiaire.</p><p><strong>Attention :</strong> le dépôt est public. Le fichier de voyage synchronisé sera donc visible de tous. Les QR codes, mots de passe et codes d’accès explicites sont exclus de la copie GitHub.</p></div><form id="settings-form" class="settings-stack"><div class="field full"><label>CLÉ API GOOGLE GEMINI (OFFRE GRATUITE)</label><input type="password" name="geminiApiKey" value="'+esc(gemini)+'" autocomplete="off" placeholder="Clé API Google AI Studio"><span class="field-help">Une seule clé Gemini alimente JALAP Voyage et JALAP Développement avec le modèle Gemini 3.8 Flash. Elle reste dans le stockage local de ce navigateur et n’est jamais publiée sur GitHub. Les demandes et le contexte transmis sont envoyés directement à Google. Sur le niveau sans frais, les données peuvent être utilisées pour améliorer les produits Google : ne transmets pas de données sensibles.</span><div class="github-sync-links"><button type="button" class="small-button" data-action="ai-setup">✦ Assistant de configuration de l’IA</button><a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer">Créer une clé API Gemini ↗</a><a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener noreferrer">Consulter les tarifs et quotas ↗</a></div></div><div class="field full"><label>JETON GITHUB FINE-GRAINED</label><input type="password" name="githubToken" value="'+esc(github)+'" autocomplete="off" placeholder="github_pat_…"><span class="field-help">Crée un jeton limité au seul dépôt sopp24/PEPPER, avec Contents : Read and write. Le jeton reste dans le stockage local de ce navigateur et est envoyé directement à api.github.com. Ne l’ajoute jamais au code.</span></div><label class="github-sync-toggle"><input type="checkbox" name="githubSyncEnabled" '+(enabled?"checked":"")+'> <span><strong>Synchroniser automatiquement le carnet avec GitHub</strong><small>Les cases cochées, activités, transports, dépenses et changements validés par JALAP seront sauvegardés dans data/trips.json après environ 2 secondes.</small></span></label><div class="github-sync-links"><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Créer un jeton GitHub ↗</a></div><div class="detail-section github-local-note"><h4>Ce qui reste local</h4><p>Les clés API, le jeton GitHub, les brouillons JALAP et les préférences ne sont jamais ajoutés au dépôt. La copie du carnet dans GitHub est publique et synchronisée séparément.</p></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Fermer</button><button class="primary-button" type="submit">Enregistrer les réglages</button></div></form><div class="detail-grid"><div class="detail-item"><small>Voyages sur cet appareil</small><strong>'+state.trips.length+'</strong></div><div class="detail-item"><small>Voyage actif</small><strong>'+esc(t?.destination||"Aucun")+'</strong></div><div class="detail-item"><small>Synchronisation GitHub</small><strong>'+esc(enabled?"Activée":"Désactivée")+'</strong></div></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="export-json">Exporter tous les voyages</button><button class="secondary-button" type="button" data-action="import-json">Importer une sauvegarde</button></div>';
- openModal("Réglages de PEPPER","Gemini 3.8 Flash pour les deux modes JALAP ; jeton GitHub séparé pour la synchronisation et les commits.",body);
+ const body='<div id="cloud-section" class="detail-section"></div><div class="detail-section"><h4>Enregistrement et synchronisation</h4><p>Chaque modification est d’abord enregistrée immédiatement sur cet appareil (IndexedDB). Si la synchronisation GitHub est activée, PEPPER écrit ensuite le carnet dans <strong>sopp24/PEPPER/data/trips.json</strong>, directement via l’API GitHub, sans Cloudflare, Netlify, Vercel ou base de données intermédiaire.</p><p><strong>Attention :</strong> le dépôt est public. Le fichier de voyage synchronisé sera donc visible de tous. Les QR codes, mots de passe et codes d’accès explicites sont exclus de la copie GitHub.</p></div><form id="settings-form" class="settings-stack"><div class="field full"><label>CLÉ API GOOGLE GEMINI (OFFRE GRATUITE)</label><input type="password" name="geminiApiKey" value="'+esc(gemini)+'" autocomplete="off" placeholder="Clé API Google AI Studio"><span class="field-help">Une seule clé Gemini alimente JALAP Voyage et JALAP Développement avec le modèle Gemini 3.8 Flash. Elle reste dans le stockage local de ce navigateur et n’est jamais publiée sur GitHub. Les demandes et le contexte transmis sont envoyés directement à Google. Sur le niveau sans frais, les données peuvent être utilisées pour améliorer les produits Google : ne transmets pas de données sensibles.</span><div class="github-sync-links"><button type="button" class="small-button" data-action="ai-setup">✦ Assistant de configuration de l’IA</button><a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer">Créer une clé API Gemini ↗</a><a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener noreferrer">Consulter les tarifs et quotas ↗</a></div></div><div class="field full"><label>JETON GITHUB FINE-GRAINED</label><input type="password" name="githubToken" value="'+esc(github)+'" autocomplete="off" placeholder="github_pat_…"><span class="field-help">Crée un jeton limité au seul dépôt sopp24/PEPPER, avec Contents : Read and write. Le jeton reste dans le stockage local de ce navigateur et est envoyé directement à api.github.com. Ne l’ajoute jamais au code.</span></div><label class="github-sync-toggle"><input type="checkbox" name="githubSyncEnabled" '+(enabled?"checked":"")+'> <span><strong>Synchroniser automatiquement le carnet avec GitHub</strong><small>Les cases cochées, activités, transports, dépenses et changements validés par JALAP seront sauvegardés dans data/trips.json après environ 2 secondes.</small></span></label><div class="github-sync-links"><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Créer un jeton GitHub ↗</a></div><div class="detail-section github-local-note"><h4>Ce qui reste local</h4><p>Les clés API, le jeton GitHub, les brouillons JALAP et les préférences ne sont jamais ajoutés au dépôt. La copie du carnet dans GitHub est publique et synchronisée séparément.</p></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="close-modal">Fermer</button><button class="primary-button" type="submit">Enregistrer les réglages</button></div></form><div class="detail-grid"><div class="detail-item"><small>Voyages sur cet appareil</small><strong>'+state.trips.length+'</strong></div><div class="detail-item"><small>Voyage actif</small><strong>'+esc(t?.destination||"Aucun")+'</strong></div><div class="detail-item"><small>Synchronisation GitHub</small><strong>'+esc(enabled?"Activée":"Désactivée")+'</strong></div></div><div class="modal-actions"><button class="secondary-button" type="button" data-action="export-json">Exporter tous les voyages</button><button class="secondary-button" type="button" data-action="import-json">Importer une sauvegarde</button></div>';
+ openModal("Réglages de PEPPER","Compte pour la synchronisation, Gemini 3.8 Flash pour JALAP, jeton GitHub séparé pour les commits.",body);renderCloudSection();
 }
 
 async function copyJalapAudit(){
@@ -1150,7 +1142,7 @@ function appendJalapMessage(role,content){
  thread.scrollTop=thread.scrollHeight;
 }
 function jalapOperationTitle(op){
- const labels={activity_add:"Ajouter une activité",activity_update:"Modifier une activité",activity_delete:"Supprimer une activité",transport_add:"Ajouter un trajet",transport_update:"Modifier un trajet",trip_update:"Modifier les informations du voyage",checklist_add:"Ajouter une tâche"};
+ const labels={activity_add:"Ajouter une activité",activity_update:"Modifier une activité",activity_delete:"Supprimer une activité",transport_add:"Ajouter un trajet",transport_update:"Modifier un trajet",trip_update:"Modifier les informations du voyage"};
  const name=op.data?.name||op.data?.label||op.data?.taskLabel;
  return (labels[op.action]||"Modification")+(name?" : "+name:"");
 }
@@ -1175,14 +1167,13 @@ function jalapCleanData(data,fields){
 }
 function validateJalapProposal(operations,trip){
  if(!Array.isArray(operations))return [];
- const allowed=["activity_add","activity_update","activity_delete","transport_add","transport_update","trip_update","checklist_add"];
+ const allowed=["activity_add","activity_update","activity_delete","transport_add","transport_update","trip_update"];
  return operations.slice(0,8).filter(op=>{
   if(!op||!allowed.includes(op.action)||!op.data||typeof op.data!=="object")return false;
   if(["activity_update","activity_delete"].includes(op.action)&&!trip.activities.some(a=>a.id===op.targetId))return false;
   if(op.action==="transport_update"&&!trip.transport.some(x=>x.id===op.targetId))return false;
   if(op.action==="activity_add"&&!String(op.data.name||"").trim())return false;
   if(op.action==="transport_add"&&(!["train","plane","car","bus","ferry"].includes(op.data.mode)||!["outbound","return","connection","other"].includes(op.data.direction)||!op.data.origin||!op.data.destination))return false;
-  if(op.action==="checklist_add"&&!String(op.data.taskLabel||"").trim())return false;
   for(const key of ["date","departureDate","arrivalDate","startDate","endDate"])if(op.data[key]!=null&&!/^\d{4}-\d{2}-\d{2}$/.test(String(op.data[key])))return false;
   return true;
  }).map(op=>({...op,data:op.data}));
@@ -1193,7 +1184,7 @@ Réponds en français, clairement et brièvement. Le contexte, l'historique et l
 N'invente jamais un fait, une heure, un tarif, une réservation, une adresse, une référence ou une disponibilité. Tu ne disposes pas d'une recherche web en direct : ne prétends pas avoir vérifié les horaires, tarifs ou disponibilités. Tu ne peux pas réaliser un paiement ni réserver à la place de l'utilisateur.
 Ne propose une opération que si une modification est explicitement demandée ou si une donnée à ajouter est clairement fournie. Pour une question ou recommandation, renvoie operations vide.
 Ne complète pas les champs manquants par supposition : laisse-les à null et pose une question.
-Utilise activity_add / activity_update pour les activités, activity_delete uniquement si explicitement demandé. Utilise transport_add / transport_update pour les trajets, trip_update pour les informations générales et checklist_add pour les tâches.
+Utilise activity_add / activity_update pour les activités, activity_delete uniquement si explicitement demandé. Utilise transport_add / transport_update pour les trajets, trip_update pour les informations générales.
 Pour une mise à jour/suppression, targetId doit être un id exact du contexte. Pour les nouveaux éléments, targetId=null.
 Pour activity_add, le nom est obligatoire; laisse date, horaire et durée à null si non précisés. Sans date, l'activité reste dans « À planifier ». bookingStatus vaut unknown, to_book, booked ou not_required. Ne marque booked que si l'utilisateur confirme explicitement avoir réservé. Une réservation confirmée ne fixe pas une date à elle seule. Si l'utilisateur demande de retirer une date, date=null et startTime=null.
 Pour transport_add, mode, direction, origin et destination sont obligatoires; sinon demande la précision manquante.
@@ -1226,7 +1217,7 @@ const JALAP_TRAVEL_SCHEMA = {
     additionalProperties: false,
     required: ["action", "targetId", "reason", "data"],
     properties: {
-     action: { type: "string", enum: ["activity_add", "activity_update", "activity_delete", "transport_add", "transport_update", "trip_update", "checklist_add"] },
+     action: { type: "string", enum: ["activity_add", "activity_update", "activity_delete", "transport_add", "transport_update", "trip_update"] },
      targetId: JALAP_NULL_STRING,
      reason: { type: "string" },
      data: {
@@ -1586,8 +1577,6 @@ function applyJalapProposal(){
    const nextStart=fields.startDate||trip.startDate,nextEnd=fields.endDate||trip.endDate;
    if(nextStart&&nextEnd&&nextEnd<nextStart){appendJalapMessage("assistant","J'ai écarté une modification des dates car la date de retour serait antérieure au départ.");continue;}
    Object.assign(trip,fields);applied.push("voyage mis à jour");
-  }else if(op.action==="checklist_add"){
-   trip.checklist.push({id:uid(),label:String(data.taskLabel||"Tâche").slice(0,180),done:false});applied.push("tâche ajoutée");
   }
  }
  if(!applied.length){toast("Aucune modification valide à appliquer.","error");return;}
@@ -1613,6 +1602,9 @@ function onAction(event){
  if(n==="close-modal"){if(event.target===el||el.matches("button"))closeModal();return}
  if(n==="delete-trip"){deleteTrip(id);return}
  if(n==="set-lang"){setLang(el.dataset.lang);return}
+ if(n==="cloud-login"||n==="cloud-signup"){cloudAuth(n==="cloud-signup"?"signup":"login");return}
+ if(n==="cloud-logout"){sbClearSession();setCloudStatus("off");renderCloudSection();toast("Déconnecté. Tes voyages restent sur cet appareil.");return}
+ if(n==="cloud-sync-now"){syncCloud().then(()=>toast("Synchronisation terminée."));return}
  if(n==="open-summary"){if(matchMedia("(max-width:760px)").matches)openSheet("trip-summary");else window.scrollTo({top:0,behavior:"smooth"});return}
  if(n==="phone-map"){closeSheet();toggleMapFullscreen(false);return}
  if(n==="map-zoom-in"){map&&map.zoomIn();return}if(n==="map-zoom-out"){map&&map.zoomOut();return}if(n==="map-3d"){toggle3D();return}if(n==="map-locate"){locateMe();return}
@@ -1628,13 +1620,12 @@ function onAction(event){
  if(n==="add-activity"){activityForm();return}if(n==="edit-activity"){const activity=activeTrip()?.activities.find(x=>x.id===id);if(activity)activityForm(activity);return}
  if(n==="activity-detail"){detailModal(id);return}if(n==="mark-activity-booked"){markActivityBooked(id);return}if(n==="delete-activity"){if(confirm("Supprimer cette activité ?"))deleteActivity(id);return}
  if(n==="focus-activity-map"){focusActivityOnMap(id);return}if(n==="fit-map"){fitMap();return}if(n==="refresh-map"){const t=activeTrip();if(t){if(!t.geo)fetchDestination(t);else{renderMap(t);geocodeMissingActivities(t)}}return}if(n==="refresh-weather"){const t=activeTrip();if(t){if(!t.geo)fetchDestination(t);else fetchWeather(t)}return}if(n==="export-ics"){exportICS();return}if(n==="export-json"){exportJSON();return}
- if(n==="add-check"){addChecklist();return}if(n==="copy-trip-context"){copyContext();return}if(n==="copy-jalap-request"){copyRequest();return}if(n==="copy-jalap-audit"){copyJalapAudit();return}
+ if(n==="copy-trip-context"){copyContext();return}if(n==="copy-jalap-request"){copyRequest();return}if(n==="copy-jalap-audit"){copyJalapAudit();return}
 }
 document.addEventListener("click",onAction);
 document.addEventListener("change",e=>{
  if(e.target.id==="trip-switcher"){state.activeTripId=e.target.value;weatherData=null;weatherError="";save();render()}
  if(e.target.matches('[data-action="toggle-activity"]'))markActivity(e);
- if(e.target.matches('[data-action="toggle-check"]'))markChecklist(e);
 });
 document.addEventListener("input",e=>{
  if(e.target.id==="picker-search")renderPickerOptions(e.target.value);
@@ -1651,7 +1642,7 @@ document.addEventListener("submit",e=>{
 });
 document.addEventListener("keydown",e=>{if(e.key==="Tab"&&sheetState&&!modalRoot.innerHTML){const f=$$("button:not([disabled]),a[href],input:not([disabled]),textarea,select",sheetState.root).filter(x=>x.offsetParent!==null);if(f.length){const first=f[0],last=f[f.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}}if(e.key==="Escape"){if(modalRoot.innerHTML)closeModal();else if(sheetState)closeSheet();else if(document.body.classList.contains("map-full"))toggleMapFullscreen(false);closeMenus()}});
 $$("[data-scroll]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.scroll,node=id==="assistant-panel"?$(".assistant-panel"):$("#"+id);if(node&&node.closest("#panel-vault")){openSheet(node.id||"assistant-panel");return}if(node)node.scrollIntoView({behavior:"smooth",block:"start"})}));
-async function initialise(){if(lang==="en"){try{await ensureI18n()}catch(e){lang="fr"}}localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);localStorage.removeItem("pepper-anthropic-api-key-v1");localStorage.removeItem(LEGACY_GROQ_API_KEY_KEY);await restoreStateFromIndexedDB();if(githubSyncEnabled()){if(githubAccessToken())await syncGitHubState({pull:true});else setGitHubSyncStatus("error","Jeton GitHub manquant")}else setGitHubSyncStatus("local");if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;setJalapMode(jalapMode);save({skipTouch:true,skipRemote:true});render();applyLang(document.body);watchLang();if(state.trips.length&&navigator.onLine)(window.requestIdleCallback?window.requestIdleCallback(()=>ensureMapLib(),{timeout:1500}):setTimeout(()=>ensureMapLib(),600));updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();if(githubSyncEnabled())scheduleGitHubSync(200);const t=activeTrip();if(t){renderMap(t);fetchWeather(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator){const hadController=!!navigator.serviceWorker.controller;let reloaded=false;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(hadController&&!reloaded){reloaded=true;location.reload()}});navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}}
+async function initialise(){if(lang==="en"){try{await ensureI18n()}catch(e){lang="fr"}}localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);localStorage.removeItem("pepper-anthropic-api-key-v1");localStorage.removeItem(LEGACY_GROQ_API_KEY_KEY);await restoreStateFromIndexedDB();if(githubSyncEnabled()){if(githubAccessToken())await syncGitHubState({pull:true});else setGitHubSyncStatus("error","Jeton GitHub manquant")}else setGitHubSyncStatus("local");if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;setJalapMode(jalapMode);save({skipTouch:true,skipRemote:true});render();applyLang(document.body);watchLang();if(sbSession()&&sbConfigured()){setCloudStatus("syncing");syncCloud()}if(state.trips.length&&navigator.onLine)(window.requestIdleCallback?window.requestIdleCallback(()=>ensureMapLib(),{timeout:1500}):setTimeout(()=>ensureMapLib(),600));updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();if(githubSyncEnabled())scheduleGitHubSync(200);const t=activeTrip();if(t){renderMap(t);fetchWeather(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator){const hadController=!!navigator.serviceWorker.controller;let reloaded=false;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(hadController&&!reloaded){reloaded=true;location.reload()}});navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}}
 /* ================= PEPPER UI : accueil, cartes flottantes, panneau « Voir plus » ================= */
 const CATEGORY_KIND={Culture:"culture",Architecture:"culture",Nature:"nature",Restaurant:"food",Sortie:"fun",Shopping:"shop",Transport:"move"};
 const CATEGORY_EMOJI={culture:"🏛",nature:"🌳",food:"🍴",fun:"🎭",shop:"🛍",move:"🚆",other:"📍"};
@@ -1753,7 +1744,7 @@ function stopEarth(){if(earthRaf){cancelAnimationFrame(earthRaf);earthRaf=0}}
 window.addEventListener("resize",()=>{earth=null});
 
 /* --- panneau « Voir plus » (monte depuis le bas) --- */
-const SHEET_META={"trip-summary":["🧭","Mon voyage"],"trip-accommodation":["🏨","Hébergement"],"trip-checklist":["💡","Les essentiels"],"trip-transport":["🚆","Trajets & billets"],"assistant-panel":["🌶","JALAP · Assistant IA"],"trip-weather":["⛅","Météo à destination"],"trip-itinerary":["📍","Activités & programme"]};
+const SHEET_META={"trip-summary":["🧭","Mon voyage"],"trip-accommodation":["🏨","Hébergement"],"trip-citytransit":["🚦","Transport"],"trip-transport":["🚆","Trajets & billets"],"assistant-panel":["🌶","JALAP · Assistant IA"],"trip-weather":["⛅","Météo à destination"],"trip-itinerary":["📍","Activités & programme"]};
 let sheetState=null;
 function openSheet(id){
  const panel=document.getElementById(id);if(!panel)return;
@@ -1801,10 +1792,12 @@ function renderHub(t){
  const stay=s&&s.name?hubCard("stay","PROCHAIN HÉBERGEMENT","🏨 Hébergement",kindIcon("stay"),
   '<p class="hub-meta">'+esc(s.type||"Hébergement")+' <i>•</i> '+esc(s.name)+'</p><div class="hub-split"><div><small>Adresse</small><strong>'+esc(s.address||"À préciser")+'</strong></div><div class="hub-aside"><small>CHECK-IN</small><strong>'+esc(s.checkInDate?dateLabel(s.checkInDate):"À confirmer")+'</strong><strong>'+esc(s.checkInTime||"")+'</strong></div></div>',"trip-accommodation")
   :hubCard("stay","","🏨 Hébergement",kindIcon("stay"),'<p class="hub-empty">Ajoute ton logement pour retrouver l’adresse et les horaires d’arrivée.</p>',"trip-accommodation","Ajouter");
- /* essentiels */
- const list=t.checklist||[],doneN=list.filter(x=>x.done).length;
- const ess=hubCard("ess","","💡 Les essentiels",'<span class="hub-count">'+doneN+'/'+list.length+'</span>',
-  '<div class="hub-checks">'+(list.slice(0,4).map(x=>'<label class="check-row '+(x.done?"done":"")+'"><input type="checkbox" data-action="toggle-check" data-id="'+esc(x.id)+'" '+(x.done?"checked":"")+'><span>'+esc(x.label)+'</span></label>').join("")||'<p class="hub-empty">Aucune tâche.</p>')+'</div>',"trip-checklist");
+ /* transport de la ville */
+ const ti=transitInfo(t),nAl=ti.alerts.length;
+ const ess=hubCard("transit","","🚦 Transport",'<span class="hub-count'+(nAl?" warn":"")+'">'+(nAl?"⚠ "+nAl:"✓")+'</span>',
+  '<ul class="hub-transit-list"><li><span aria-hidden="true">🚗</span><div><b>Trafic routier</b><small>'+(t.geo?"Carte du trafic en direct":"Localisation en cours…")+'</small></div><a href="'+esc(ti.road)+'" target="_blank" rel="noopener noreferrer">Voir ↗</a></li>'
+  +'<li><span aria-hidden="true">🚇</span><div><b>'+esc(ti.name||"Transports en commun")+'</b><small>'+(ti.publicUrl?"Perturbations et horaires":"Réseau à renseigner")+'</small></div>'+(ti.publicUrl?'<a href="'+esc(ti.publicUrl)+'" target="_blank" rel="noopener noreferrer">Infos ↗</a>':'<button type="button" data-action="edit-trip">Ajouter</button>')+'</li>'
+  +'<li class="'+(nAl?"warn":"ok")+'"><span aria-hidden="true">'+(nAl?"⚠":"✓")+'</span><div><b>'+(nAl?nAl+" alerte(s) sur tes trajets":"Aucune alerte sur tes trajets")+'</b></div></li></ul>',"trip-citytransit");
  /* trajet */
  let trans;
  if(leg){const dep=dateTime(leg.departureDate,leg.departureTime),arr=dateTime(leg.arrivalDate,leg.arrivalTime);
@@ -1931,6 +1924,130 @@ async function setLang(next){
  if(lang==="en")await ensureI18n();
  closeMenus();render();applyLang(document.body);watchLang();
  toast(lang==="en"?"Interface switched to English. JALAP now answers in English.":"Interface en français. JALAP répond en français.");
+}
+
+/* ===================== Fenêtre « Transport » : trafic routier, transports en commun, alertes ===================== */
+function transitInfo(t){
+ const inferred=suggestedLocalNetwork(t.destination),name=t.localTransitName||inferred?.name,url=t.localTransitUrl||inferred?.url,traffic=t.localTrafficUrl;
+ const q=encodeURIComponent(t.destination||""),g=t.geo;
+ const road=g?"https://www.google.com/maps/@"+g.lat+","+g.lon+",12z/data=!5m1!1e1":"https://www.google.com/maps/search/?api=1&query="+q;
+ const waze=g?"https://www.waze.com/live-map/directions?navigate=yes&to=ll."+g.lat+"%2C"+g.lon:"https://www.waze.com/ul?q="+q+"&navigate=yes";
+ const france=/france/i.test((g&&g.country)||"")||/france/i.test(t.destination||"");
+ return {name,url,traffic,publicUrl:traffic||url,road,waze,france,alerts:getWarnings(t)};
+}
+function renderCityTransit(t){
+ const node=$("#citytransit-content");if(!node)return;
+ const i=transitInfo(t),dest=esc(t.destination||"ta destination");
+ const alerts=i.alerts.length?'<div class="transport-warnings">'+i.alerts.map(w=>'<div class="transport-warning">⚠ '+esc(w)+'</div>').join("")+'</div>':'<div class="notice transit-ok">✓ Aucune alerte détectée entre tes trajets, ton logement et ton programme.</div>';
+ const link=(href,label)=>'<a href="'+esc(href)+'" target="_blank" rel="noopener noreferrer">'+label+' ↗</a>';
+ const road='<div class="arrival-advice"><strong>🚗 Trafic routier</strong><p>Accidents, ralentissements et travaux autour de '+dest+', en temps réel.</p><div class="inline-links">'+link(i.road,"Trafic en direct (Google Maps)")+link(i.waze,"Waze — carte en direct")+(i.france?link("https://www.bison-fute.gouv.fr/trafic-des-agglomerations.html","Bison Futé — grandes agglomérations")+link("https://www4.bison-fute.gouv.fr/maintenant.html","Bison Futé — trafic en France"):"")+link("https://www.google.com/maps/search/?api=1&query="+encodeURIComponent("station-service carburant "+(t.destination||"")),"Stations-service")+'</div></div>';
+ node.innerHTML=alerts+road+renderLocalTransitSources(t)+'<div class="notice">Vérifie les préavis de grève, les travaux et les perturbations la veille du départ : ils changent vite et seules les sources officielles font foi.</div><div class="inline-links"><button class="small-button" type="button" data-action="edit-trip">Modifier le réseau local</button></div>';
+ refreshLocalTransitStatus(t);
+}
+
+/* ===================== Synchronisation entre appareils (Supabase) ===================== */
+/* Renseigne ces deux valeurs pour que TOUS tes appareils soient configurés d'office (clé publique « anon » / publishable uniquement, jamais la clé service_role). */
+const SUPABASE_URL_DEFAULT="";
+const SUPABASE_ANON_KEY_DEFAULT="";
+const SB_CFG_KEY="pepper-supabase-config-v1",SB_SESSION_KEY="pepper-supabase-session-v1";
+let cloudSyncTimer=null,cloudSyncRunning=false,cloudSyncAgain=false;
+function sbConfig(){const c=parse(localStorage.getItem(SB_CFG_KEY),null)||{};return {url:String(SUPABASE_URL_DEFAULT||c.url||"").trim().replace(/\/+$/,""),key:String(SUPABASE_ANON_KEY_DEFAULT||c.key||"").trim()}}
+function sbConfigured(){const c=sbConfig();return !!(c.url&&c.key)}
+function sbSession(){return parse(localStorage.getItem(SB_SESSION_KEY),null)}
+function sbStoreSession(j){const s={access_token:j.access_token,refresh_token:j.refresh_token,expires_at:j.expires_at||Math.floor(Date.now()/1000)+(j.expires_in||3600),user:{id:j.user&&j.user.id,email:j.user&&j.user.email}};localStorage.setItem(SB_SESSION_KEY,JSON.stringify(s));return s}
+function sbClearSession(){localStorage.removeItem(SB_SESSION_KEY)}
+async function sbRequest(path,opts={}){
+ const {url,key}=sbConfig();if(!url||!key)throw new Error("Supabase n’est pas configuré.");
+ const headers={apikey:key,"content-type":"application/json",...(opts.token?{Authorization:"Bearer "+opts.token}:{}),...(opts.headers||{})};
+ const res=await fetch(url+path,{method:opts.method||"GET",headers,body:opts.body===undefined?undefined:JSON.stringify(opts.body),signal:AbortSignal.timeout(15000)});
+ let data=null;try{data=await res.json()}catch(e){}
+ if(!res.ok){const err=new Error((data&&(data.msg||data.error_description||data.message||data.error))||"Erreur Supabase ("+res.status+")");err.status=res.status;throw err}
+ return data;
+}
+async function sbAccessToken(){
+ const s=sbSession();if(!s)throw Object.assign(new Error("Non connecté."),{status:401});
+ if(s.expires_at-60>Date.now()/1000)return s.access_token;
+ try{const j=await sbRequest("/auth/v1/token?grant_type=refresh_token",{method:"POST",body:{refresh_token:s.refresh_token}});return sbStoreSession(j).access_token}
+ catch(e){if(e.status===400||e.status===401){sbClearSession();setCloudStatus("off")}throw e}
+}
+async function sbSignIn(mode,email,password){
+ const j=await sbRequest(mode==="signup"?"/auth/v1/signup":"/auth/v1/token?grant_type=password",{method:"POST",body:{email,password}});
+ if(!j||!j.access_token)return {needsConfirm:true};
+ sbStoreSession(j);return {ok:true};
+}
+function sbFriendlyError(e){
+ const m=String(e&&e.message||"");
+ if(/invalid login/i.test(m))return "E-mail ou mot de passe incorrect.";
+ if(/already registered|already been registered/i.test(m))return "Un compte existe déjà avec cet e-mail : connecte-toi.";
+ if(/not confirmed/i.test(m))return "Confirme d’abord ton e-mail avec le lien reçu, puis connecte-toi.";
+ if(/password/i.test(m)&&/(least|short|weak)/i.test(m))return "Mot de passe trop court (6 caractères minimum).";
+ if(e&&e.name==="TimeoutError"||e instanceof TypeError)return "Impossible de joindre Supabase. Vérifie l’URL du projet et ta connexion.";
+ return m||"Erreur inconnue.";
+}
+function setCloudStatus(status,message){
+ const node=$("#cloud-sync-status");
+ const labels={syncing:"Synchronisation…",synced:"Synchronisé sur ton compte",error:"Compte : synchronisation en échec"};
+ if(node){node.hidden=status==="off";node.dataset.status=status==="off"?"local":status;node.innerHTML='<i></i> '+esc(message&&status==="error"?"Compte : "+message:labels[status]||"")}
+ const gh=$("#github-sync-status");if(gh)gh.hidden=status!=="off"&&!githubSyncEnabled();
+ const st=$("#cloud-state");if(st)st.textContent=status==="synced"?"✓ Synchronisé à l’instant.":status==="syncing"?"Synchronisation en cours…":status==="error"?"✕ "+(message||"Échec de la synchronisation."):"";
+}
+function cloudSnapshot(){return {trips:state.trips,deletedTrips:state.deletedTrips||{},updatedAt:state.updatedAt||new Date().toISOString()}}
+async function syncCloud(){
+ if(!sbSession()||!sbConfigured()){setCloudStatus("off");return}
+ if(cloudSyncRunning){cloudSyncAgain=true;return}
+ cloudSyncRunning=true;
+ try{
+  do{
+   cloudSyncAgain=false;setCloudStatus("syncing");
+   const token=await sbAccessToken(),sess=sbSession();
+   const rows=await sbRequest("/rest/v1/pepper_state?select=data,updated_at&limit=1",{token});
+   const remote=Array.isArray(rows)&&rows[0]?rows[0].data:null;
+   if(remote&&Array.isArray(remote.trips)){
+    const before=JSON.stringify([state.trips,state.deletedTrips]);
+    const merged=mergeGitHubTripStates(state,remote);
+    state={...state,trips:merged.trips,deletedTrips:merged.deletedTrips||{}};
+    if(!state.trips.some(x=>x.id===state.activeTripId))state.activeTripId=state.trips[0]?.id||null;
+    if(before!==JSON.stringify([state.trips,state.deletedTrips])){save({skipRemote:true,skipTouch:true});render()}
+   }
+   const local=cloudSnapshot(),same=remote&&JSON.stringify([remote.trips,remote.deletedTrips||{}])===JSON.stringify([local.trips,local.deletedTrips]);
+   if(!same)await sbRequest("/rest/v1/pepper_state?on_conflict=user_id",{method:"POST",token,headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:{user_id:sess.user.id,data:local,updated_at:new Date().toISOString()}});
+  }while(cloudSyncAgain);
+  setCloudStatus("synced");
+ }catch(e){console.error("PEPPER cloud sync:",e);setCloudStatus(e.status===401?"off":"error",sbFriendlyError(e))}
+ finally{cloudSyncRunning=false}
+}
+function scheduleCloudSync(delay=1800){
+ if(!sbSession()||!sbConfigured())return;
+ clearTimeout(cloudSyncTimer);cloudSyncTimer=setTimeout(()=>syncCloud(),delay);
+}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")syncCloud()});
+window.addEventListener("online",()=>syncCloud());
+setInterval(()=>{if(document.visibilityState==="visible")syncCloud()},120000);
+
+function renderCloudSection(){
+ const box=$("#cloud-section");if(!box)return;
+ const sess=sbSession(),cfg=sbConfig(),builtIn=!!(SUPABASE_URL_DEFAULT&&SUPABASE_ANON_KEY_DEFAULT);
+ if(sess){
+  box.innerHTML='<h4>☁ Synchronisation entre appareils</h4><p>Connecté : <strong>'+esc(sess.user&&sess.user.email||"")+'</strong>. Tes voyages sont enregistrés dans ton compte et retrouvés sur tous tes appareils.</p><p id="cloud-state" class="ai-hint"></p><div class="ai-actions"><button type="button" class="small-button" data-action="cloud-sync-now">Synchroniser maintenant</button><button type="button" class="secondary-button" data-action="cloud-logout">Se déconnecter</button></div>';
+  return;
+ }
+ box.innerHTML='<h4>☁ Synchronisation entre appareils</h4><p>Connecte-toi (ou crée un compte) pour retrouver tes voyages sur tous tes appareils. Tes données sont privées : seul ton compte peut les lire.</p>'
+  +(builtIn?"":'<div class="field full"><label>URL DU PROJET SUPABASE</label><input id="sb-url" type="url" autocomplete="off" placeholder="https://xxxx.supabase.co" value="'+esc(cfg.url)+'"></div><div class="field full"><label>CLÉ PUBLIQUE (ANON / PUBLISHABLE)</label><input id="sb-key" type="text" autocomplete="off" spellcheck="false" placeholder="eyJ… ou sb_publishable_…" value="'+esc(cfg.key)+'"><span class="field-help">Jamais la clé « service_role ».</span></div>')
+  +'<div class="field full"><label>E-MAIL</label><input id="sb-email" type="email" autocomplete="email" placeholder="toi@exemple.fr"></div><div class="field full"><label>MOT DE PASSE</label><input id="sb-pass" type="password" autocomplete="current-password" placeholder="6 caractères minimum"></div><p id="cloud-msg" class="ai-hint" role="status"></p><div class="ai-actions"><button type="button" class="primary-button" data-action="cloud-login">Se connecter</button><button type="button" class="secondary-button" data-action="cloud-signup">Créer un compte</button></div>';
+ $("#sb-pass")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();cloudAuth("login")}});
+}
+async function cloudAuth(mode){
+ const msg=$("#cloud-msg"),say=(t,state)=>{if(msg){msg.textContent=t;msg.dataset.state=state||""}};
+ const url=$("#sb-url")?.value.trim(),key=$("#sb-key")?.value.trim(),email=$("#sb-email")?.value.trim(),pass=$("#sb-pass")?.value||"";
+ if(url!==undefined||key!==undefined)localStorage.setItem(SB_CFG_KEY,JSON.stringify({url:url||"",key:key||""}));
+ if(!sbConfigured()){say("Renseigne l’URL du projet et la clé publique Supabase.","warn");return}
+ if(!email||!pass){say("Saisis ton e-mail et ton mot de passe.","warn");return}
+ say("Connexion…","");
+ try{
+  const r=await sbSignIn(mode==="signup"?"signup":"login",email,pass);
+  if(r.needsConfirm){say("Compte créé. Confirme ton e-mail avec le lien reçu, puis reviens te connecter.","ok");return}
+  await syncCloud();renderCloudSection();toast("Compte connecté : tes voyages sont synchronisés.");
+ }catch(e){say(sbFriendlyError(e),"warn")}
 }
 
 initialise();

@@ -10,6 +10,18 @@ PEPPER est une application de voyage statique publiée par GitHub Pages. La cart
 - **Langue :** FR et EN pour toute l’interface (accueil, carnet, formulaires, réglages, messages). Le dictionnaire anglais est dans `lib/i18n-en.mjs` ; il n’est chargé qu’en anglais. JALAP répond dans la langue choisie.
 - Les styles de cette interface sont dans `ui.css`.
 
+## Synchronisation entre appareils (Supabase)
+
+Tes voyages peuvent être enregistrés dans **ton** projet Supabase pour les retrouver sur tous tes appareils (téléphone, ordinateur…). Les données sont **privées** : sécurité au niveau des lignes (RLS), chaque compte ne lit que sa propre ligne.
+
+1. Supabase → **SQL Editor** → colle et exécute `supabase/schema.sql` (une seule fois).
+2. Supabase → **Authentication → Providers → Email** : laisse « Email » activé. Pour un usage personnel, tu peux désactiver « Confirm email » afin de te connecter tout de suite.
+3. Récupère dans **Project Settings → API** l’**URL du projet** et la clé publique **anon / publishable** (jamais la clé `service_role`).
+4. Dans PEPPER → Réglages → « Synchronisation entre appareils », colle l’URL et la clé, saisis un e-mail et un mot de passe, puis « Créer un compte ». Sur chaque autre appareil : même URL/clé, puis « Se connecter ».
+   Pour que tous tes appareils soient configurés d’office, renseigne `SUPABASE_URL_DEFAULT` et `SUPABASE_ANON_KEY_DEFAULT` en haut du bloc « Synchronisation entre appareils (Supabase) » de `app.js` (valeurs publiques par conception).
+
+Fonctionnement : chaque modification est d’abord enregistrée sur l’appareil, puis synchronisée (≈ 2 s). Les voyages sont fusionnés voyage par voyage (le plus récent l’emporte) et les suppressions sont propagées. L’application resynchronise au retour sur l’onglet et toutes les 2 minutes.
+
 ## JALAP — Gemini 3.8 Flash et GitHub en connexion directe
 
 JALAP utilise **Google Gemini 3.8 Flash** (`gemini-3.8-flash`) via l'API Interactions de Google. **Les deux modes utilisent exactement le même modèle et la même clé API Gemini** : aucun compte Groq ou Anthropic n'est nécessaire. Le navigateur communique directement avec Google pour l'IA et avec GitHub pour le carnet et le code. Aucun relais Cloudflare, Netlify, Vercel ou base de données intermédiaire n'est nécessaire pour la version GitHub Pages.
