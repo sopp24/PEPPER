@@ -1894,22 +1894,22 @@ function updateProjectStoryProgress(){
 function setupProjectStory(){
  const root=$("#project-story-scroll");if(!root)return;
  root.scrollTop=0;
- const nodes=$("[data-story-reveal]",root);
- nodes.forEach(node=>node.classList.remove("is-revealed"));
+ const sections=$$("[data-story-step]",root);
+ sections.forEach(section=>section.classList.remove("is-in-view"));
  if(projectStoryObserver){projectStoryObserver.disconnect();projectStoryObserver=null}
  if(!("IntersectionObserver" in window)){
-  nodes.forEach(node=>node.classList.add("is-revealed"));
+  sections.forEach(section=>section.classList.add("is-in-view"));
   updateProjectStoryProgress();return;
  }
  projectStoryObserver=new IntersectionObserver(entries=>{
   entries.forEach(entry=>{
    if(entry.isIntersecting){
-    entry.target.classList.add("is-revealed");
+    entry.target.classList.add("is-in-view");
     projectStoryObserver?.unobserve(entry.target);
    }
   });
- },{root,threshold:.12,rootMargin:"0px 0px -7% 0px"});
- nodes.forEach(node=>projectStoryObserver.observe(node));
+ },{root,threshold:.16,rootMargin:"0px 0px -8% 0px"});
+ sections.forEach(section=>projectStoryObserver.observe(section));
  updateProjectStoryProgress();
 }
 function openProjectBoard(){
