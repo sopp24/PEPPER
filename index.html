@@ -94,124 +94,112 @@
   </header>
 
   <main id="project-story-scroll" class="project-story-scroll" tabindex="0">
-   <section class="story-hero" data-story-step data-story-reveal>
-    <div class="story-hero-copy">
-     <div class="story-kicker"><i></i> UNE AUTRE FAÇON DE VOYAGER</div>
-     <h1 id="story-main-title">UN VOYAGE.<br><span>DES INFOS PARTOUT.</span></h1>
-     <p>Préparer un séjour, c’est souvent ouvrir une application… puis cinq autres.</p>
-     <div class="story-scroll-cue"><span>SCROLLE POUR ENTRER DANS PEPPER</span><i>↓</i></div>
+   <section class="story-hero" data-story-step>
+    <div class="story-hero-inner story-animate">
+     <div class="story-kicker"><i></i> DÉCOUVRIR PEPPER</div>
+     <h1 id="story-main-title">TOUT TON VOYAGE.<br><span>AU MÊME ENDROIT.</span></h1>
+     <p>Billets, logement, activités et idées : réunis dans un seul carnet pour profiter du voyage, pas chercher tes informations.</p>
+     <div class="story-scroll-cue"><span>FAIS DÉFILER POUR DÉCOUVRIR</span><i>↓</i></div>
     </div>
-    <div class="story-scatter" aria-label="Exemples d’informations dispersées entre plusieurs applications">
-     <div class="scatter-window scatter-mail" data-story-reveal><span class="scatter-app-dot"></span><small>BOÎTE MAIL</small><b>Billets & confirmations</b><i>Réservation reçue</i></div>
-     <div class="scatter-window scatter-map" data-story-reveal><span class="scatter-app-dot"></span><small>CARTES</small><b>Adresses enregistrées</b><i>3 lieux à retrouver</i></div>
-     <div class="scatter-window scatter-stay" data-story-reveal><span class="scatter-app-dot"></span><small>HÉBERGEMENT</small><b>Confirmation du logement</b><i>Arrivée · 16:00</i></div>
-     <div class="scatter-window scatter-notes" data-story-reveal><span class="scatter-app-dot"></span><small>NOTES & TABLEAUX</small><b>Idées, budget, rappels</b><i>Et c’était où, déjà ?</i></div>
-     <div class="scatter-cross" aria-hidden="true">+</div>
+    <div class="story-hero-visual story-animate" aria-label="Un carnet unique rassemble les principales informations du voyage">
+     <div class="story-hero-glow"></div>
+     <div class="story-orbit-chip chip-mail"><i>✉</i><span>Billets</span></div>
+     <div class="story-orbit-chip chip-stay"><i>⌂</i><span>Logement</span></div>
+     <div class="story-orbit-chip chip-plan"><i>☷</i><span>Programme</span></div>
+     <div class="story-orbit-chip chip-map"><i>⌖</i><span>Carte</span></div>
+     <div class="story-hero-core"><img src="./assets/chili.svg" alt="" aria-hidden="true"><strong>PEPPER</strong><small>MON CARNET DE VOYAGE</small></div>
     </div>
    </section>
 
-   <section class="story-chapter story-problem" data-story-step>
-    <div class="story-chapter-copy" data-story-reveal>
+   <section class="story-scene story-problem" data-story-step>
+    <div class="story-scene-copy story-animate">
      <div class="story-kicker">01 / LE CONSTAT</div>
-     <h2>UN MÊME VOYAGE.<br><span>TROP D’ENDROITS.</span></h2>
-     <p>Les billets sont dans les e-mails, le logement sur une plateforme, les adresses dans Maps, les idées dans les notes et le budget ailleurs. On passe son temps à chercher, recopier et vérifier.</p>
-     <p class="story-emphasis">L’information existe. C’est le lien entre elle qui manque.</p>
+     <h2>UN VOYAGE.<br><span>TROP D’APPLICATIONS.</span></h2>
+     <p>Un billet dans les e-mails. Le logement sur un site. Les adresses dans Maps. Les idées dans les notes. Tout est là, mais rien n’est vraiment réuni.</p>
     </div>
-    <div class="story-friction-visual" data-story-reveal>
-     <div class="friction-line"><span>01</span><b>Retrouver</b><small>Où est le billet ?</small><i>↗</i></div>
-     <div class="friction-line"><span>02</span><b>Recouper</b><small>Quelle adresse, quel horaire ?</small><i>⌁</i></div>
-     <div class="friction-line"><span>03</span><b>Se souvenir</b><small>Où ai-je noté cette idée ?</small><i>…</i></div>
+    <div class="story-apps-visual story-animate">
+     <div class="story-app-card app-email"><span>✉</span><div><b>E-mails</b><small>Billets & confirmations</small></div><i>01</i></div>
+     <div class="story-app-card app-maps"><span>⌖</span><div><b>Cartes</b><small>Adresses & lieux</small></div><i>02</i></div>
+     <div class="story-app-card app-booking"><span>⌂</span><div><b>Réservations</b><small>Logement & transports</small></div><i>03</i></div>
+     <div class="story-app-card app-notes"><span>☷</span><div><b>Notes</b><small>Idées & budget</small></div><i>04</i></div>
+     <div class="story-apps-caption">PLUSIEURS OUTILS. AUCUNE VUE D’ENSEMBLE.</div>
     </div>
    </section>
 
-   <section class="story-chapter story-answer" data-story-step>
-    <div class="story-chapter-copy" data-story-reveal>
+   <section class="story-scene story-solution" data-story-step>
+    <div class="story-scene-copy story-animate">
      <div class="story-kicker">02 / L’IDÉE</div>
-     <h2>ET SI TOUT<br>ÉTAIT <span>AU MÊME ENDROIT ?</span></h2>
-     <p>J’ai imaginé PEPPER comme un carnet de voyage unique : un espace pour rassembler les informations utiles, organiser les étapes et garder une vue d’ensemble du séjour.</p>
-     <div class="story-answer-foot"><span>UN CARNET UNIQUE</span><i>·</i><span>UNE VISION D’ENSEMBLE</span><i>·</i><span>UN VOYAGE MIEUX ORGANISÉ</span></div>
+     <h2>ET SI TOUT<br><span>ÉTAIT CENTRALISÉ ?</span></h2>
+     <p>PEPPER rassemble les informations essentielles dans un carnet unique. Tu prépares ton séjour, retrouves tes étapes et gardes le fil du voyage au même endroit.</p>
+     <div class="story-inline-points"><span>UN CARNET</span><i>·</i><span>UNE CARTE</span><i>·</i><spanTOUT LE VOYAGE</span></div>
     </div>
-    <div class="story-unified-visual" data-story-reveal>
-     <div class="unified-orbit orbit-a"></div><div class="unified-orbit orbit-b"></div>
-     <div class="unified-core"><span>🌶</span><b>PEPPER</b><small>MON VOYAGE</small></div>
-     <div class="unified-node node-map">⌖ <span>Carte</span></div>
-     <div class="unified-node node-stay">⌂ <span>Logement</span></div>
-     <div class="unified-node node-trips">↗ <span>Trajets</span></div>
-     <div class="unified-node node-plan">☷ <span>Programme</span></div>
-     <div class="unified-node node-budget">€ <span>Budget</span></div>
-    </div>
-   </section>
-
-   <section class="story-chapter story-scope" data-story-step>
-    <div class="story-chapter-heading" data-story-reveal>
-     <div class="story-kicker">03 / LE CARNET</div>
-     <h2>TOUT LE SÉJOUR.<br><span>AU MÊME RYTHME.</span></h2>
-     <p>Les informations clés d’un voyage, réunies dans un espace pensé pour les retrouver vite.</p>
-    </div>
-    <div class="story-feature-grid">
-     <article data-story-reveal><span>01</span><i>↗</i><b>Trajets & billets</b><small>Allers, retours, correspondances et horaires.</small></article>
-     <article data-story-reveal><span>02</span><i>⌂</i><b>Hébergement</b><small>Adresse, arrivée et informations pratiques.</small></article>
-     <article data-story-reveal><span>03</span><i>✳</i><b>Programme</b><small>Activités, étapes et lieux à découvrir.</small></article>
-     <article data-story-reveal><span>04</span><i>⌁</i><b>Déplacements</b><small>Transports locaux et informations trafic.</small></article>
-     <article data-story-reveal><span>05</span><i>◷</i><b>Météo & budget</b><small>Prévisions et suivi des dépenses.</small></article>
-     <article data-story-reveal><span>06</span><i>✓</i><b>Essentiels</b><small>Checklist et tâches à ne pas oublier.</small></article>
+    <div class="story-notebook-visual story-animate">
+     <div class="story-notebook-window">
+      <div class="story-notebook-top"><span></span><span></span><span></span><b>PEPPER / LISBONNE</b></div>
+      <div class="story-notebook-body">
+       <div class="story-notebook-side"><strong>MON VOYAGE</strong><small>15 — 19 AVRIL</small><i>⌖ &nbsp; Carte</i><i>☷ &nbsp; Programme</i><i>↗ &nbsp; Trajets</i><i>⌂ &nbsp; Logement</i></div>
+       <div class="story-notebook-map"><div class="notebook-map-grid"></div><svg viewBox="0 0 420 240" aria-hidden="true"><path d="M24 180C90 120 130 206 192 126S285 45 330 99s50 44 80 6" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="18" stroke-linecap="round"/><path d="M24 180C90 120 130 206 192 126S285 45 330 99s50 44 80 6" fill="none" stroke="#f2f2ef" stroke-width="3" stroke-dasharray="3 11" stroke-linecap="round"/><g fill="#121519" stroke="#f2f2ef" stroke-width="4"><circle cx="24" cy="180" r="9"/><circle cx="192" cy="126" r="9"/><circle cx="330" cy="99" r="9"/></g></svg><span class="notebook-map-label">LISBONNE · PORTUGAL</span></div>
+      </div>
+     </div>
+     <div class="story-notebook-foot"><span>TRAJETS</span><span>LOGEMENT</span><span>ACTIVITÉS</span><span>BUDGET</span></div>
     </div>
    </section>
 
-   <section class="story-chapter story-map" data-story-step>
-    <div class="story-chapter-copy" data-story-reveal>
-     <div class="story-kicker">04 / LA CARTE</div>
-     <h2>LE VOYAGE<br><span>PREND FORME.</span></h2>
-     <p>La carte n’est pas un simple décor : elle relie les lieux, les activités, le logement et les étapes du séjour. On visualise où l’on va et comment tout s’articule.</p>
-     <div class="story-tech-tags"><span>PLUSIEURS STYLES</span><span>VUE 3D</span><span>GÉOLOCALISATION</span></div>
+   <section class="story-scene story-map-scene" data-story-step>
+    <div class="story-scene-copy story-animate">
+     <div class="story-kicker">03 / LA CARTE</div>
+     <h2>TON VOYAGE<br><span>PREND FORME.</span></h2>
+     <p>Les lieux, le logement et les activités se retrouvent sur une carte interactive. Tu visualises les étapes et comprends comment ton séjour s’organise.</p>
+     <div class="story-feature-labels"><span>REPÈRES</span><span>VUE 3D</span><span>GÉOLOCALISATION</span></div>
     </div>
-    <div class="story-map-visual" data-story-reveal>
-     <div class="story-map-grid"></div>
-     <svg viewBox="0 0 700 430" role="img" aria-label="Itinéraire illustré reliant plusieurs lieux du voyage">
-      <path d="M-20 92C104 44 160 152 261 118s157-92 250-42 126 38 230-22M-24 340c112-74 192-140 300-86s173 80 260 30 125-22 200 16M110-20c-12 113 61 173 18 270s-4 152 56 210M500-30c-42 93 19 165 80 220s24 146 88 252" fill="none" stroke="currentColor" stroke-opacity=".09" stroke-width="4"/>
-      <path d="M70 292C156 244 173 327 276 265S402 128 475 177s96 68 150 4" fill="none" stroke="#f2a66f" stroke-opacity=".16" stroke-width="22" stroke-linecap="round"/>
-      <path d="M70 292C156 244 173 327 276 265S402 128 475 177s96 68 150 4" fill="none" stroke="#f2a66f" stroke-width="4" stroke-dasharray="3 14" stroke-linecap="round"/>
-      <g fill="#111317" stroke="#f2a66f" stroke-width="5"><circle cx="70" cy="292" r="13"/><circle cx="276" cy="265" r="13"/><circle cx="475" cy="177" r="13"/><circle cx="625" cy="181" r="13"/></g>
-      <g fill="#f2a66f"><circle cx="70" cy="292" r="4"/><circle cx="276" cy="265" r="4"/><circle cx="475" cy="177" r="4"/><circle cx="625" cy="181" r="4"/></g>
-     </svg>
-     <div class="story-map-label map-label-one"><i>01</i><span><b>LOGEMENT</b><small>Mon point de départ</small></span></div>
-     <div class="story-map-label map-label-two"><i>02</i><span><b>ACTIVITÉ</b><small>Une étape du séjour</small></span></div>
-     <div class="story-map-label map-label-three"><i>03</i><span><b>TRAJET</b><small>Relier les lieux</small></span></div>
-     <div class="story-map-caption">UN ITINÉRAIRE QUI SE LIT D’UN COUP D’ŒIL</div>
+    <div class="story-map-feature story-animate">
+     <div class="story-map-feature-top"><span>APERÇU DE LA CARTE</span><b>01 — 03</b></div>
+     <div class="story-map-feature-art">
+      <div class="story-map-feature-grid"></div>
+      <svg viewBox="0 0 760 390" aria-label="Itinéraire de voyage reliant plusieurs étapes" role="img">
+       <g fill="none" stroke="rgba(255,255,255,.11)" stroke-width="4" stroke-linecap="round"><path d="M-20 80C100 30 130 140 260 110s170-75 260-10 140 55 280-20"/><path d="M-20 330c150-90 210-140 350-95s230 95 430 25"/><path d="M150-20c-5 120 70 170 20 260s-20 120 50 180"/></g>
+       <path d="M75 280C170 205 220 320 335 235S470 110 555 165s100 45 145-15" fill="none" stroke="#f2f2ef" stroke-opacity=".2" stroke-width="24" stroke-linecap="round"/>
+       <path d="M75 280C170 205 220 320 335 235S470 110 555 165s100 45 145-15" fill="none" stroke="#f5f5f1" stroke-width="3" stroke-dasharray="3 14" stroke-linecap="round"/>
+       <g fill="#101317" stroke="#f5f5f1" stroke-width="5"><circle cx="75" cy="280" r="13"/><circle cx="335" cy="235" r="13"/><circle cx="555" cy="165" r="13"/><circle cx="700" cy="150" r="13"/></g>
+      </svg>
+      <div class="story-map-feature-pin pin-a"><i>01</i><span><b>LOGEMENT</b><small>Point de départ</small></span></div>
+      <div class="story-map-feature-pin pin-b"><i>02</i><span><b>ACTIVITÉ</b><small>Étape du séjour</small></span></div>
+      <div class="story-map-feature-pin pin-c"><i>03</i><span><b>TRAJET</b><small>Relier les lieux</small></span></div>
+     </div>
+     <div class="story-map-feature-foot"><span>UNE VUE D’ENSEMBLE</span><span>TOUT RESTE CONNECTÉ</span></div>
     </div>
    </section>
 
-   <section class="story-chapter story-ai" data-story-step>
-    <div class="story-ai-visual" data-story-reveal>
-     <div class="story-ai-orb"><span>🌶</span><i></i></div>
-     <div class="story-chat-card">
-      <small>JALAP · ASSISTANT DE VOYAGE</small>
-      <p>Tu as une arrivée en fin d’après-midi. Tu veux que je t’aide à organiser les premières étapes ?</p>
-      <div class="story-chat-footer"><span>CONTEXTE DU VOYAGE</span><b>PRIS EN COMPTE ✓</b></div>
+   <section class="story-scene story-jalap-scene" data-story-step>
+    <div class="story-jalap-visual story-animate">
+     <div class="story-jalap-mark"><img src="./assets/jalap.svg" alt="JALAP, assistant de voyage"/></div>
+     <div class="story-jalap-chat">
+      <div class="story-jalap-label">JALAP <span>ASSISTANT IA</span></div>
+      <p>Tu arrives à Lisbonne à 10 h. Je peux organiser tes premières étapes autour de ton logement.</p>
+      <div class="story-jalap-approved"><i>✓</i> Proposition à valider avant modification</div>
      </div>
     </div>
-    <div class="story-chapter-copy" data-story-reveal>
-     <div class="story-kicker">05 / L’ASSISTANT</div>
-     <h2>UN COPILOTE<br><span>QUI CONNAÎT LE CONTEXTE.</span></h2>
-     <p>JALAP est l’assistant IA intégré à PEPPER. Il peut aider à préparer le séjour, proposer des idées et suggérer des modifications du carnet. Tu gardes la main : les changements sont soumis à validation.</p>
-     <div class="story-tech-tags"><span>ASSISTANCE IA</span><span>CONTEXTE DU VOYAGE</span><span>VALIDATION AVANT ACTION</span></div>
+    <div class="story-scene-copy story-animate">
+     <div class="story-kicker">04 / JALAP</div>
+     <h2>UN COPILOTE<br><span>POUR T’ACCOMPAGNER.</span></h2>
+     <p>JALAP comprend le contexte de ton voyage. Il t’aide à préparer le séjour, suggère des idées et propose des modifications que tu restes libre de valider.</p>
+     <div class="story-feature-labels"><span>ASSISTANCE IA</span><span>CONTEXTE DU VOYAGE</span></div>
     </div>
    </section>
 
-   <section class="story-chapter story-data" data-story-step>
-    <div class="story-chapter-copy" data-story-reveal>
-     <div class="story-kicker">06 / LE FONCTIONNEMENT</div>
-     <h2>TON CARNET.<br><span>TES DONNÉES.</span></h2>
-     <p>Les informations sont enregistrées sur ton appareil. Une synchronisation peut être activée en complément pour retrouver une copie du carnet sur ton dépôt. Tu choisis ton mode de fonctionnement.</p>
-    </div>
-    <div class="story-data-cards" data-story-reveal>
-     <div><i>⌕</i><span><b>ENREGISTREMENT LOCAL</b><small>Ton carnet reste disponible sur ton appareil.</small></span><strong>01</strong></div>
-     <div><i>↻</i><span><b>SYNCHRONISATION FACULTATIVE</b><small>Une copie peut être tenue à jour dans ton dépôt.</small></span><strong>02</strong></div>
-     <div class="story-data-note">De la préparation au retour, tout reste rattaché au même voyage.</div>
+   <section class="story-data-strip" data-story-step>
+    <div class="story-data-strip-inner story-animate">
+     <div class="story-kicker">ET POUR TES DONNÉES ?</div>
+     <h2>TON CARNET.<br><span>TON FONCTIONNEMENT.</span></h2>
+     <div class="story-data-options">
+      <div><b>LOCAL</b><small>Ton carnet est enregistré sur ton appareil.</small></div>
+      <div><b>SYNCHRONISATION FACULTATIVE</b><small>Tu peux garder une copie dans ton dépôt.</small></div>
+     </div>
     </div>
    </section>
 
    <section id="board-summary" class="board-summary" data-story-step>
+    
  <header class="board-final-header">
   <div>
    <div class="story-kicker">PEPPER / LE CARNET DE VOYAGE</div>
@@ -276,7 +264,9 @@
  </div>
  <footer class="board-final-footer"><strong>PEPPER</strong><span>UN CARNET · TOUT LE VOYAGE</span><i>LE GOÛT DE PARTIR.</i></footer>
  <p class="board-print-hint">Les captures affichent l’interface réelle avec un voyage de démonstration. Les données restent isolées.</p>
-</section>
+
+   </section>
+
   </main>
  </section>
 </div>
