@@ -1886,9 +1886,9 @@ function closeProjectBoard(){
  },300);
 }
 function printProjectBoard(format){
- const board=$("#project-board");if(!board)return;
+ const board=$("#project-board"),summary=$("#board-summary");if(!board||!summary)return;
  if(format!=="phone"&&format!=="desktop")return;
- board.dataset.printFormat=format;
+ summary.dataset.printFormat=format;
  let style=$("#project-board-page-style");
  if(!style){style=document.createElement("style");style.id="project-board-page-style";document.head.appendChild(style)}
  style.textContent=format==="phone"?"@page pepper-board-phone{size:108mm 192mm;margin:0}":"@page pepper-board-wide{size:16in 9in;margin:0}";
@@ -1897,7 +1897,7 @@ function printProjectBoard(format){
 }
 function resetProjectBoardPrint(){
  delete document.documentElement.dataset.projectBoardPrint;
- const board=$("#project-board");if(board)delete board.dataset.printFormat;
+ const summary=$("#board-summary");if(summary)delete summary.dataset.printFormat;
 }
 window.addEventListener("afterprint",resetProjectBoardPrint);
 document.addEventListener("scroll",event=>{
