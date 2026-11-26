@@ -1636,3 +1636,95 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
  .story-scroll-cue i{animation:none!important}
  .story-map-feature-art svg{transition:none!important}
 }
+
+
+/* ==========================================================
+   PEPPER — board final print master
+   A3 paysage for desktop / A3 portrait for mobile-oriented board
+   These rules apply to print only; scroll and app UI are unchanged.
+========================================================== */
+@page pepper-board-wide{size:420mm 297mm;margin:0}
+@page pepper-board-phone{size:297mm 420mm;margin:0}
+
+@media print{
+ html,body{
+  width:100%!important;height:100%!important;margin:0!important;padding:0!important;
+  overflow:visible!important;background:#090a0c!important;
+  -webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
+ }
+ #project-board .project-story-scroll>*:not(#board-summary){display:none!important}
+ #board-summary.board-summary{
+  display:block!important;box-sizing:border-box!important;
+  width:420mm!important;height:297mm!important;max-width:none!important;min-height:0!important;
+  margin:0!important;padding:11mm 12mm 8mm!important;overflow:hidden!important;
+  border:0!important;border-radius:0!important;box-shadow:none!important;background:#0b0d10!important;
+  page:pepper-board-wide;break-after:avoid!important;break-inside:avoid!important;
+ }
+ #board-summary .board-final-header{display:flex!important;align-items:flex-end!important;flex-direction:row!important;justify-content:space-between!important;gap:8mm!important;padding-bottom:6mm!important}
+ #board-summary .board-final-header .story-kicker{font-size:7pt!important;letter-spacing:.16em!important}
+ #board-summary .board-final-header h2{margin:3mm 0 0!important;font-size:27pt!important;line-height:.94!important}
+ #board-summary .board-summary-actions{display:none!important}
+ #board-summary .board-final-grid{
+  display:grid!important;grid-template-columns:minmax(0,.72fr) minmax(0,1.65fr) minmax(0,1.05fr)!important;
+  align-items:start!important;gap:7mm!important;padding:6mm 0 5mm!important;
+ }
+ #board-summary .board-final-copy{display:flex!important;flex-direction:column!important;gap:8mm!important}
+ #board-summary .board-final-copy-block>span{font-size:8pt!important;margin-bottom:2mm!important;letter-spacing:.14em!important}
+ #board-summary .board-final-copy-block p{font-size:9pt!important;line-height:1.48!important;color:#c2c5c8!important}
+ #board-summary .board-final-tags{gap:1.5mm!important}
+ #board-summary .board-final-tags span{font-size:6.5pt!important;padding:1.5mm 2mm!important}
+ #board-summary .board-final-signature{padding-top:4mm!important}
+ #board-summary .board-final-signature strong{font-size:11pt!important}
+ #board-summary .board-final-signature small{font-size:7.5pt!important}
+ #board-summary .board-screen-label{font-size:7.5pt!important;margin-bottom:2mm!important}
+ #board-summary .board-screen-label b{font-size:7pt!important}
+ #board-summary .board-desktop-frame{border-radius:2mm!important;box-shadow:none!important}
+ #board-summary .board-desktop-chrome{height:6mm!important;padding:0 3mm!important}
+ #board-summary .board-desktop-chrome>span{width:1.5mm!important;height:1.5mm!important}
+ #board-summary .board-desktop-viewport{aspect-ratio:16/10!important}
+ #board-summary .board-desktop-viewport iframe{width:1280px!important;height:800px!important;transform:scale(calc(100cqw / 1280))!important}
+ #board-summary .board-desktop-card figcaption{margin-top:2mm!important;font-size:8pt!important;line-height:1.4!important}
+ #board-summary .board-mobile-stack{display:flex!important;flex-direction:column!important;gap:3mm!important}
+ #board-summary .board-phone-card{display:grid!important;grid-template-columns:27mm minmax(0,1fr)!important;align-items:center!important;gap:3mm!important}
+ #board-summary .board-phone-device{width:27mm!important;max-width:none!important;padding:1.1mm!important;border-radius:4mm!important;box-shadow:none!important}
+ #board-summary .board-phone-notch{height:2mm!important}
+ #board-summary .board-phone-notch i{width:7mm!important;height:.8mm!important}
+ #board-summary .board-phone-viewport{width:100%!important;aspect-ratio:390/844!important;border-radius:2mm!important}
+ #board-summary .board-phone-viewport iframe{width:390px!important;height:844px!important;transform:scale(calc(100cqw / 390))!important}
+ #board-summary .board-phone-card figcaption{font-size:8pt!important;line-height:1.4!important;color:#c2c5c8!important}
+ #board-summary .board-final-footer{padding-top:3mm!important}
+ #board-summary .board-final-footer strong{font-size:9pt!important}
+ #board-summary .board-final-footer span,#board-summary .board-final-footer i{font-size:6.5pt!important}
+ #board-summary .board-print-hint{margin-top:1.5mm!important;font-size:6pt!important;text-align:right!important;color:#91979d!important}
+
+ /* Portrait A3: context + desktop capture first, three mobile captures below. */
+ #board-summary[data-print-format="phone"]{
+  width:297mm!important;height:420mm!important;max-width:none!important;min-height:0!important;
+  margin:0!important;padding:11mm 10mm 8mm!important;page:pepper-board-phone;
+ }
+ #board-summary[data-print-format="phone"] .board-final-header{
+  align-items:flex-start!important;flex-direction:column!important;gap:4mm!important;padding-bottom:5mm!important;
+ }
+ #board-summary[data-print-format="phone"] .board-final-header h2{font-size:30pt!important}
+ #board-summary[data-print-format="phone"] .board-final-grid{
+  display:grid!important;grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr)!important;
+  align-items:start!important;gap:5mm!important;padding:5mm 0!important;
+ }
+ #board-summary[data-print-format="phone"] .board-final-copy{gap:5mm!important}
+ #board-summary[data-print-format="phone"] .board-final-copy-block>span{font-size:8pt!important}
+ #board-summary[data-print-format="phone"] .board-final-copy-block p{font-size:8.5pt!important;line-height:1.5!important}
+ #board-summary[data-print-format="phone"] .board-final-tags span{font-size:6.5pt!important}
+ #board-summary[data-print-format="phone"] .board-desktop-viewport{aspect-ratio:16/10!important}
+ #board-summary[data-print-format="phone"] .board-desktop-card figcaption{font-size:8pt!important}
+ #board-summary[data-print-format="phone"] .board-mobile-column{grid-column:1/-1!important}
+ #board-summary[data-print-format="phone"] .board-mobile-stack{
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4mm!important;
+ }
+ #board-summary[data-print-format="phone"] .board-phone-card{
+  display:grid!important;grid-template-columns:29mm minmax(0,1fr)!important;align-items:center!important;gap:2.5mm!important;
+ }
+ #board-summary[data-print-format="phone"] .board-phone-device{width:29mm!important;padding:1mm!important}
+ #board-summary[data-print-format="phone"] .board-phone-card figcaption{font-size:7.2pt!important;line-height:1.42!important}
+ #board-summary[data-print-format="phone"] .board-final-footer{padding-top:3mm!important}
+ #board-summary[data-print-format="phone"] .board-print-hint{font-size:6pt!important}
+}
