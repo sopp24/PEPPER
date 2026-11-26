@@ -85,9 +85,9 @@ Les voyages sont stockés localement dans IndexedDB, avec une copie de récupér
 
 ## Présentation de PEPPER
 
-Depuis l’accueil, **Découvrir PEPPER** ouvre une présentation immersive qui se parcourt verticalement. La narration a été volontairement simplifiée en quatre scènes produit : le problème des applications dispersées, l’idée du carnet centralisé, la carte interactive et l’assistant JALAP. Chaque scène associe un titre court, un texte bref et un visuel principal ; les éléments s’animent à l’entrée dans la scène et le contenu reste visible sans JavaScript d’observation.
+Depuis l’accueil, **Découvrir PEPPER** ouvre une présentation verticale composée de scènes courtes : le problème des informations dispersées, le carnet centralisé, la carte interactive, l’assistant JALAP et le fonctionnement des données. Le texte suit l’ordre de préparation d’un voyage et reste simple et explicite.
 
-La présentation se termine par le **board récapitulatif**. Il conserve une vue réelle de l’application ordinateur et trois vues téléphone chargées en mode démonstration isolé (programme, trajets, JALAP). Le board final seul est exportable en PDF : ordinateur paysage 16:9 ou téléphone portrait 9:16.
+La présentation se termine par le **board récapitulatif**. Il conserve une vue réelle de l’application ordinateur et trois vues téléphone chargées en mode démonstration isolé (programme, trajets, JALAP). Le board final seul est exportable en PDF sur une page **A3 paysage (420 × 297 mm)** ou **A3 portrait (297 × 420 mm)**. La mise en page est adaptée à chaque orientation.
 
 ## Publication GitHub Pages
 
