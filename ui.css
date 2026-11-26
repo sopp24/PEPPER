@@ -783,6 +783,6 @@ html{scrollbar-gutter:stable}
 .picker-item-row .picker-item{flex:1;min-width:0;padding:10px 11px}
 .picker-item-row .picker-item strong,
 .picker-item-row .picker-item small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.picker-delete{display:inline-flex;flex:none;align-items:center;justify-content:center;min-height:38px;padding:0 10px;border:1px solid rgba(255,99,82,.28);border-radius:11px;background:rgba(255,99,82,.09);color:#ffaaa0;font:600 11px inherit;cursor:pointer}
+.picker-delete{display:inline-flex;flex:none;align-items:center;justify-content:center;min-height:38px;padding:0 10px;border:1px solid rgba(255,99,82,.28);border-radius:11px;background:rgba(255,99,82,.09);color:#ffaaa0;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer}
 .picker-delete:hover{background:rgba(255,99,82,.17)}
 @media(max-width:420px){.picker-delete{padding:0 8px;font-size:10px}}
