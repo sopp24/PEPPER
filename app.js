@@ -1942,7 +1942,7 @@ function printProjectBoard(format){
  summary.dataset.printFormat=format;
  let style=$("#project-board-page-style");
  if(!style){style=document.createElement("style");style.id="project-board-page-style";document.head.appendChild(style)}
- style.textContent=format==="phone"?"@page pepper-board-phone{size:108mm 192mm;margin:0}":"@page pepper-board-wide{size:16in 9in;margin:0}";
+ style.textContent=format==="phone"?"@page pepper-board-phone{size:297mm 420mm;margin:0}":"@page pepper-board-wide{size:420mm 297mm;margin:0}";
  document.documentElement.dataset.projectBoardPrint=format;
  window.print();
 }
