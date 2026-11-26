@@ -1110,12 +1110,13 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
 }
 
 
+
 /* =========================================================
-   PEPPER — PHASE 2
-   Presentation scroll + A3 board composition
+   PEPPER — PHASE 3
+   Final responsive composition, chapter flow and A3 exports
    ========================================================= */
 
-/* The chapter counter sits beside the progress rail. */
+/* Chapter progress: chapter index + document-level progress rail. */
 .story-header{
  grid-template-columns:minmax(0,1fr) minmax(150px,260px) auto;
  gap:clamp(12px,2vw,26px);
@@ -1132,18 +1133,22 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
 .story-progress{grid-column:auto;grid-row:auto;width:100%}
 .project-story-scroll{scroll-padding-block:22px}
 
-/* More deliberate pacing and a stable editorial grid on desktop. */
+/* Story scenes: one coherent grid with consistent vertical rhythm. */
 .pepper-scene,.pepper-data-scene{
+ box-sizing:border-box;position:relative;
  width:min(1360px,calc(100% - clamp(36px,8vw,120px)));
  min-height:max(620px,calc(100svh - 62px));
- padding:clamp(48px,7vh,84px) 0;
- scroll-snap-stop:always;
+ margin-inline:auto;padding:clamp(48px,7vh,84px) 0;
+ scroll-snap-align:start;scroll-snap-stop:always;
 }
 .pepper-scene{
- grid-template-columns:54px minmax(245px,.82fr) minmax(0,1.18fr);
- column-gap:clamp(24px,3.2vw,48px);
+ display:grid;grid-template-columns:54px minmax(245px,.82fr) minmax(0,1.18fr);
+ align-items:center;column-gap:clamp(24px,3.2vw,48px);
  row-gap:clamp(18px,3vh,28px);
 }
+.pepper-hero{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);column-gap:clamp(28px,5vw,76px)}
+.pepper-hero .pepper-scene-copy{grid-column:1;grid-row:1}
+.pepper-hero .pepper-visual{grid-column:2;grid-row:1}
 .pepper-scene-copy{min-width:0;max-width:560px}
 .pepper-scene h1,.pepper-scene h2,.pepper-data-content h2{
  line-height:.94;letter-spacing:-.065em;
@@ -1153,17 +1158,21 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
 .pepper-section-index>span{width:32px;height:32px;font-size:10px}
 .pepper-section-index>i{height:64px}
 .pepper-feature-line{margin-top:clamp(20px,3vh,32px)}
-.pepper-visual{isolation:isolate}
+.pepper-visual{isolation:isolate;min-width:0}
 .pepper-visual>svg{max-height:64vh}
-.pepper-data-scene{min-height:54svh}
+.pepper-data-scene{
+ display:grid;grid-template-columns:54px minmax(0,1fr);
+ align-items:center;gap:clamp(24px,3.2vw,48px);
+ min-height:54svh;border-top:1px solid rgba(255,255,255,.08);
+}
 .pepper-data-options>div{min-height:86px}
-.story-animate{will-change:transform,opacity}
 [data-story-step].is-in-view .story-animate{animation-duration:.64s}
 [data-story-step].is-in-view .story-animate:nth-child(3){animation-delay:.18s}
 
-/* A more balanced board: context + large desktop view, then a mobile feature strip. */
+/* On-screen project board: readable concept column, large desktop capture,
+   then three mobile features in one balanced strip. */
 .pepper-board{
- width:min(1480px,calc(100% - clamp(24px,5vw,76px)));
+ box-sizing:border-box;width:min(1480px,calc(100% - clamp(24px,5vw,76px)));
  margin:clamp(34px,5vh,60px) auto 30px;
  padding:clamp(22px,2.6vw,38px);
 }
@@ -1173,11 +1182,9 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
 }
 .pepper-board-title h2{font-size:clamp(32px,3.3vw,48px)}
 .pepper-board-main{
- display:grid;
- grid-template-columns:minmax(240px,.72fr) minmax(0,1.48fr);
+ display:grid;grid-template-columns:minmax(240px,.72fr) minmax(0,1.48fr);
  grid-template-areas:"story desktop" "phones phones";
- gap:clamp(18px,2vw,28px);
- align-items:start;
+ gap:clamp(18px,2vw,28px);align-items:start;
  padding:clamp(18px,2vw,28px) 0 18px;
 }
 .pepper-board-story{grid-area:story;gap:clamp(13px,1.35vw,20px)}
@@ -1185,24 +1192,19 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
 .pepper-board-phones{grid-area:phones;min-width:0}
 .pepper-screen-content{aspect-ratio:16/10}
 .pepper-board-phones .pepper-board-screen-head{margin-bottom:10px}
-.pepper-phone-list{
- display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
- gap:clamp(12px,1.6vw,22px);
-}
+.pepper-phone-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(12px,1.6vw,22px)}
 .pepper-phone-row{
  display:grid;grid-template-columns:clamp(68px,7vw,88px) minmax(0,1fr);
  align-items:center;gap:clamp(9px,1vw,14px);
  min-width:0;margin:0;padding-top:10px;border-top:1px solid #c6cbd0;
 }
-.pepper-phone-bezel{
- width:clamp(68px,7vw,88px);max-width:100%;justify-self:center;
-}
-.pepper-phone-screen iframe{pointer-events:none}
+.pepper-phone-bezel{width:clamp(68px,7vw,88px);max-width:100%;justify-self:center}
+.pepper-phone-screen iframe,.pepper-screen-content iframe{pointer-events:none}
 .pepper-phone-row figcaption{min-width:0;font-size:9px;line-height:1.45}
 .pepper-phone-row figcaption b{font-size:8px;letter-spacing:.1em}
 .pepper-board-footer{margin-top:2px}
 
-/* Tablet: preserve the two-level composition without squeezing the screens. */
+/* Tablet: keep screen proportions while moving the phone strip below. */
 @media(max-width:1120px){
  .pepper-scene,.pepper-data-scene{width:calc(100% - 54px)}
  .pepper-scene{grid-template-columns:42px minmax(220px,.9fr) minmax(0,1.1fr);gap:22px}
@@ -1212,7 +1214,7 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
  .pepper-phone-row figcaption{font-size:8px}
 }
 
-/* Phone: vertical narrative, with a compact three-up phone showcase. */
+/* Phone: vertical narrative, compact controls, and a genuine three-up screen strip. */
 @media(max-width:760px){
  .story-header{
   grid-template-columns:minmax(0,1fr) minmax(112px,145px) auto;
@@ -1232,7 +1234,7 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
  .pepper-scene h1{font-size:clamp(42px,11vw,60px);margin:12px 0}
  .pepper-scene h2{font-size:clamp(34px,8.8vw,48px);margin:12px 0 14px}
  .pepper-scene-copy>p{font-size:12px;line-height:1.65}
- .pepper-section-index{flex-direction:row;align-items:center;align-self:flex-start;gap:8px;padding:0}
+ .pepper-section-index{display:flex;flex-direction:row;align-items:center;align-self:flex-start;gap:8px;padding:0}
  .pepper-section-index>span{width:26px;height:26px}
  .pepper-section-index>i{width:25px;height:1px}
  .pepper-section-index>small{writing-mode:initial;transform:none;font-size:7px}
@@ -1241,13 +1243,9 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
  .pepper-feature-line{margin-top:15px;font-size:6px;gap:6px}
  .pepper-jalap .pepper-visual{min-height:290px}
  .pepper-data-scene{padding:52px 0}
- .pepper-data-content h2{font-size:clamp(35px,9vw,48px)}
  .pepper-data-options{grid-template-columns:1fr}
  .pepper-data-options>div{min-height:0;padding:13px}
- .pepper-board{
-  width:calc(100% - 14px);margin:34px auto 14px;
-  padding:16px 13px;box-shadow:0 15px 45px rgba(0,0,0,.25)
- }
+ .pepper-board{width:calc(100% - 14px);margin:34px auto 14px;padding:16px 13px;box-shadow:0 15px 45px rgba(0,0,0,.25)}
  .pepper-board-header{grid-template-columns:1fr auto;gap:10px;padding-bottom:13px}
  .pepper-board-title{grid-column:1/-1;grid-row:2;text-align:left}
  .pepper-board-title h2{font-size:clamp(30px,8vw,38px)}
@@ -1258,7 +1256,7 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
  .pepper-board-main{
   display:grid;grid-template-columns:1fr;
   grid-template-areas:"story" "desktop" "phones";
-  gap:17px;padding:14px 0 12px
+  gap:17px;padding:14px 0 12px;
  }
  .pepper-board-story{display:grid;grid-template-columns:1fr 1fr;gap:12px}
  .pepper-board-rule{display:none}
@@ -1268,8 +1266,7 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
  .pepper-board-principle{display:flex;grid-column:1/-1;margin-top:0;padding-top:10px}
  .pepper-board-screen-head{font-size:6px}
  .pepper-screen-content{aspect-ratio:16/10}
- .pepper-board-desktop{width:100%}
- .pepper-board-phones{width:100%}
+ .pepper-board-desktop,.pepper-board-phones{width:100%}
  .pepper-phone-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
  .pepper-phone-row{display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:8px}
  .pepper-phone-bezel{width:min(100%,82px);padding:3px;border-radius:10px}
@@ -1282,86 +1279,146 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
  .pepper-board-note{text-align:left}
 }
 
-/* Print overrides are deliberately separate from the on-screen layout.
-   Both pages keep the real application previews and vector board artwork. */
+/* A3 export. The two formats use independent grids, with bounded preview
+   heights so the real embedded product screens remain inside a single page. */
+@page pepper-board-landscape{size:420mm 297mm;margin:0}
+@page pepper-board-portrait{size:297mm 420mm;margin:0}
 @media print{
+ html,body{
+  width:100%!important;height:100%!important;margin:0!important;padding:0!important;
+  overflow:visible!important;background:#f2f3f1!important;
+  -webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
+ }
+ body>*:not(#project-board){display:none!important}
+ #project-board{
+  position:static!important;display:block!important;width:100%!important;height:auto!important;
+  padding:0!important;opacity:1!important;visibility:visible!important;background:#f2f3f1!important;
+ }
+ #project-board .project-board-backdrop,#project-board .story-header{display:none!important}
+ #project-board .project-story-shell{
+  display:block!important;width:100%!important;height:auto!important;min-height:0!important;
+  overflow:visible!important;transform:none!important;background:#f2f3f1!important;
+ }
+ #project-board .project-story-scroll{
+  display:block!important;width:100%!important;height:auto!important;max-height:none!important;overflow:visible!important;
+ }
+ #project-board .project-story-scroll>*:not(#board-summary){display:none!important}
  #board-summary.pepper-board{
-  width:420mm!important;height:297mm!important;
-  padding:9mm 11mm 7mm!important;
+  display:grid!important;grid-template-rows:auto minmax(0,1fr) auto auto!important;
+  box-sizing:border-box!important;width:420mm!important;height:297mm!important;
+  min-height:0!important;max-width:none!important;margin:0!important;padding:8.5mm 10mm 6mm!important;
+  overflow:hidden!important;border:0!important;box-shadow:none!important;
+  background:#f2f3f1!important;page:pepper-board-landscape;
+  break-inside:avoid!important;break-after:avoid!important;
  }
  #board-summary .pepper-board-header{
-  grid-template-columns:1fr 2fr 1fr!important;
-  align-items:center!important;padding-bottom:4mm!important;
+  display:grid!important;grid-template-columns:1fr 2fr auto!important;
+  align-items:center!important;gap:5mm!important;padding-bottom:4mm!important;
  }
+ #board-summary .pepper-board-brand svg{width:9mm!important;height:9mm!important}
+ #board-summary .pepper-board-brand b{font-size:11pt!important}
+ #board-summary .pepper-board-brand small{font-size:5.5pt!important}
+ #board-summary .pepper-board-title>span{font-size:6pt!important}
+ #board-summary .pepper-board-title h2{font-size:25pt!important}
+ #board-summary .pepper-board-export{display:none!important}
  #board-summary .pepper-board-main{
-  display:grid!important;
-  grid-template-columns:80mm minmax(0,1fr)!important;
+  display:grid!important;grid-template-columns:78mm minmax(0,1fr)!important;
   grid-template-areas:"story desktop" "phones phones"!important;
-  gap:4mm!important;align-items:start!important;
-  padding:4mm 0 3mm!important;
+  gap:4mm!important;row-gap:4mm!important;align-items:start!important;
+  min-height:0!important;padding:4mm 0 3mm!important;
  }
  #board-summary .pepper-board-story{
-  grid-area:story!important;display:flex!important;
-  flex-direction:column!important;gap:3.5mm!important;
+  grid-area:story!important;display:flex!important;flex-direction:column!important;
+  gap:3.5mm!important;min-width:0!important;
  }
+ #board-summary .pepper-board-block h3{font-size:10.5pt!important;margin-bottom:1.3mm!important}
+ #board-summary .pepper-board-block p{font-size:7.2pt!important;line-height:1.4!important}
+ #board-summary .pepper-board-index{font-size:5.8pt!important;margin-bottom:1mm!important}
+ #board-summary .pepper-board-rule{display:block!important;height:2mm!important}
+ #board-summary .pepper-board-scope{grid-template-columns:1fr 1fr!important;gap:1.8mm!important;padding-top:2.5mm!important}
+ #board-summary .pepper-board-scope>span{font-size:5.4pt!important}
+ #board-summary .pepper-board-scope>div{font-size:5.8pt!important;gap:1.3mm!important}
+ #board-summary .pepper-board-scope svg{width:3.8mm!important;height:3.8mm!important}
+ #board-summary .pepper-board-principle{display:flex!important;padding-top:2.5mm!important}
+ #board-summary .pepper-board-principle b{font-size:7.5pt!important}
+ #board-summary .pepper-board-principle span{font-size:5.8pt!important}
  #board-summary .pepper-board-desktop{
-  grid-area:desktop!important;width:100%!important;max-width:260mm!important;
-  justify-self:center!important;margin:0!important;
+  grid-area:desktop!important;width:100%!important;max-width:235mm!important;
+  justify-self:center!important;margin:0!important;min-width:0!important;
  }
+ #board-summary .pepper-board-screen-head{font-size:5.8pt!important;margin-bottom:1.3mm!important}
+ #board-summary .pepper-board-screen-head b{font-size:5.5pt!important}
+ #board-summary .pepper-screen-top{height:4.5mm!important;padding:0 2mm!important}
+ #board-summary .pepper-screen-top i{width:1.2mm!important;height:1.2mm!important}
+ #board-summary .pepper-screen-top span{font-size:4.5pt!important}
  #board-summary .pepper-screen-content{
-  width:100%!important;max-width:260mm!important;max-height:162.5mm!important;
+  width:100%!important;max-width:235mm!important;max-height:147mm!important;
   aspect-ratio:16/10!important;margin-inline:auto!important;
  }
- #board-summary .pepper-board-phones{
-  grid-area:phones!important;width:100%!important;
+ #board-summary .pepper-screen-content iframe{
+  width:1280px!important;height:800px!important;
+  transform:scale(calc(100cqw / 1280))!important;
  }
+ #board-summary .pepper-board-desktop figcaption{font-size:5.8pt!important;margin-top:1.2mm!important}
+ #board-summary .pepper-board-phones{grid-area:phones!important;width:100%!important;min-width:0!important}
+ #board-summary .pepper-board-phones .pepper-board-screen-head{margin-bottom:1.5mm!important}
  #board-summary .pepper-phone-list{
-  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
-  gap:4mm!important;
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4mm!important;
  }
  #board-summary .pepper-phone-row{
-  display:grid!important;grid-template-columns:21mm minmax(0,1fr)!important;
-  align-items:center!important;gap:2.5mm!important;
-  padding-top:2mm!important;border-top:1px solid #c6cbd0!important;
+  display:grid!important;grid-template-columns:24mm minmax(0,1fr)!important;
+  align-items:center!important;gap:2.5mm!important;padding-top:1.8mm!important;
+  border-top:1px solid #c6cbd0!important;min-width:0!important;
  }
  #board-summary .pepper-phone-bezel{
-  width:21mm!important;padding:.7mm!important;border-radius:2.5mm!important;
+  width:24mm!important;padding:.7mm!important;border-radius:2.5mm!important;
  }
+ #board-summary .pepper-phone-speaker{height:.7mm!important;width:5mm!important;margin:1mm auto!important}
  #board-summary .pepper-phone-screen{aspect-ratio:390/844!important}
+ #board-summary .pepper-phone-screen iframe{
+  width:390px!important;height:844px!important;
+  transform:scale(calc(100cqw / 390))!important;
+ }
  #board-summary .pepper-phone-row figcaption{
-  width:auto!important;text-align:left!important;font-size:6pt!important;line-height:1.4!important;
+  width:auto!important;font-size:6pt!important;line-height:1.32!important;gap:1mm!important;
  }
  #board-summary .pepper-phone-row figcaption b{font-size:6pt!important}
- #board-summary .pepper-board-footer{padding-top:1.5mm!important}
+ #board-summary .pepper-board-footer{padding-top:1.7mm!important}
+ #board-summary .pepper-board-footer b{font-size:7pt!important}
+ #board-summary .pepper-board-footer span,#board-summary .pepper-board-footer i{font-size:5pt!important}
+ #board-summary .pepper-board-note{font-size:4.5pt!important;margin-top:.8mm!important}
 
- /* Portrait: project context, large desktop view, then three phones. */
+ /* A3 portrait: concept first, larger computer view, three mobile screens below. */
  #board-summary[data-print-format="phone"].pepper-board{
-  width:297mm!important;height:420mm!important;padding:9mm!important;
+  grid-template-rows:auto minmax(0,1fr) auto auto!important;
+  width:297mm!important;height:420mm!important;padding:8.5mm!important;
+  page:pepper-board-portrait;
  }
  #board-summary[data-print-format="phone"] .pepper-board-header{
   grid-template-columns:1fr 2fr!important;padding-bottom:4mm!important;
  }
  #board-summary[data-print-format="phone"] .pepper-board-title{text-align:right!important}
+ #board-summary[data-print-format="phone"] .pepper-board-title h2{font-size:27pt!important}
  #board-summary[data-print-format="phone"] .pepper-board-main{
-  grid-template-columns:1fr!important;
+  grid-template-columns:minmax(0,1fr)!important;
   grid-template-areas:"story" "desktop" "phones"!important;
-  gap:4mm!important;padding:4mm 0 3mm!important;
+  gap:4mm!important;row-gap:4mm!important;padding:4mm 0 3mm!important;
  }
  #board-summary[data-print-format="phone"] .pepper-board-story{
   display:grid!important;grid-template-columns:1fr 1fr!important;
-  gap:3mm!important;
+  gap:3mm!important;align-items:start!important;
  }
- #board-summary[data-print-format="phone"] .pepper-board-rule{
-  display:none!important;
- }
+ #board-summary[data-print-format="phone"] .pepper-board-rule{display:none!important}
  #board-summary[data-print-format="phone"] .pepper-board-block h3{font-size:11pt!important}
- #board-summary[data-print-format="phone"] .pepper-board-block p{font-size:7.2pt!important;line-height:1.42!important}
+ #board-summary[data-print-format="phone"] .pepper-board-block p{font-size:7.3pt!important;line-height:1.42!important}
  #board-summary[data-print-format="phone"] .pepper-board-scope{
   grid-column:1/-1!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:2mm!important;padding-top:2.5mm!important;
  }
+ #board-summary[data-print-format="phone"] .pepper-board-scope>span{grid-column:1/-1!important}
  #board-summary[data-print-format="phone"] .pepper-board-principle{
-  display:flex!important;grid-column:1/-1!important;
-  flex-direction:row!important;align-items:center!important;gap:7mm!important;
+  display:flex!important;grid-column:1/-1!important;flex-direction:row!important;
+  align-items:center!important;gap:7mm!important;padding-top:2mm!important;
  }
  #board-summary[data-print-format="phone"] .pepper-board-desktop{
   width:100%!important;max-width:240mm!important;justify-self:center!important;
@@ -1371,8 +1428,7 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
   aspect-ratio:16/10!important;
  }
  #board-summary[data-print-format="phone"] .pepper-phone-list{
-  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
-  gap:5mm!important;
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5mm!important;
  }
  #board-summary[data-print-format="phone"] .pepper-phone-row{
   display:flex!important;flex-direction:column!important;align-items:center!important;
@@ -1389,7 +1445,7 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
  #board-summary[data-print-format="phone"] .pepper-board-footer{padding-top:2.5mm!important}
 }
 
-/* Smaller screens retain comfortable reading and touch targets. */
+/* Very narrow phones: preserve the progress controls without overlap. */
 @media(max-width:420px){
  .story-header{padding-inline:9px;gap:7px}
  .story-brand small{display:none}
