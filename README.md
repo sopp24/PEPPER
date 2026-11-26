@@ -85,9 +85,11 @@ Les voyages sont stockés localement dans IndexedDB, avec une copie de récupér
 
 ## Board de présentation
 
-Depuis l’accueil, **Découvrir PEPPER** ouvre un board qui présente le constat de départ, l’idée de centralisation et deux fonctions différenciantes : JALAP, le copilote IA, et la carte connectée.
+Depuis l’accueil, **Découvrir PEPPER** ouvre un board qui présente le problème de dispersion des informations, la réponse de centralisation et les fonctions clés du carnet : trajets et billets, hébergement, activités, météo, budget, checklist et transports locaux.
 
-Le board s’adapte aux écrans mobiles. Ses deux commandes PDF ouvrent la fenêtre d’impression du navigateur avec un format préconfiguré : **ordinateur 16:9** ou **téléphone 9:16**. Dans cette fenêtre, choisis « Enregistrer au format PDF ».
+Deux fonctions différenciantes y sont mises en avant : **JALAP**, l’assistant IA qui tient compte du contexte du voyage et propose des modifications à valider, et **la carte interactive**, qui rassemble les lieux et étapes avec plusieurs styles, une vue 3D et la géolocalisation.
+
+Le board reprend la charte sombre de PEPPER et s’adapte aux écrans mobiles. Ses deux commandes PDF ouvrent la fenêtre d’impression avec un format préconfiguré : **ordinateur 16:9** ou **téléphone 9:16**. Dans cette fenêtre, choisis « Enregistrer au format PDF ».
 
 ## Publication GitHub Pages
 
