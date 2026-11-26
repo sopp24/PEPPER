@@ -27,6 +27,44 @@ const directionName={outbound:"Aller",return:"Retour",connection:"Correspondance
 const PRESENTATION_SCREEN=new URLSearchParams(location.search).get("presentationScreen")||"";
 const PRESENTATION_SCREENS=new Set(["desktop-map","phone-program","phone-transport","phone-jalap"]);
 const isPresentationPreview=PRESENTATION_SCREENS.has(PRESENTATION_SCREEN);
+
+function waitForPresentationMap(timeoutMs=12000){
+ return new Promise(resolve=>{
+  let finished=false,listening=false;
+  const finish=ready=>{
+   if(finished)return;finished=true;clearTimeout(timeout);resolve(ready);
+  };
+  const timeout=window.setTimeout(()=>finish(false),timeoutMs);
+  const check=()=>{
+   if(finished)return;
+   if(map){
+    try{
+     map.resize();
+     if(map.loaded()){requestAnimationFrame(()=>requestAnimationFrame(()=>finish(true)));return}
+     if(!listening){listening=true;map.once("idle",()=>finish(true))}
+    }catch(error){}
+   }
+   if(!finished)window.setTimeout(check,120);
+  };
+  check();
+ });
+}
+function markPresentationPreviewReady(){
+ if(!isPresentationPreview)return;
+ document.documentElement.dataset.presentationReady="true";
+ window.dispatchEvent(new Event("pepper:presentation-ready"));
+}
+function waitForPresentationFallback(timeoutMs=4500){
+ return new Promise(resolve=>{
+  const frame=$("#map .map-fallback-frame");
+  if(!frame){resolve(false);return}
+  let finished=false;
+  const finish=()=>{if(finished)return;finished=true;clearTimeout(timeout);frame.removeEventListener("load",finish);resolve(true)};
+  const timeout=window.setTimeout(finish,timeoutMs);
+  frame.addEventListener("load",finish,{once:true});
+ });
+}
+
 function buildPresentationDemoTrip(){
  const geo=(lat,lon)=>({lat,lon});
  return {
@@ -1837,9 +1875,22 @@ async function initialise(){if(isPresentationPreview){
  weatherData={tripId:"pepper-presentation-demo",fetchedAt:"2026-11-26T09:00:00.000Z",stale:false,data:{current:{temperature_2m:19,apparent_temperature:19,relative_humidity_2m:62,weather_code:2,wind_speed_10m:11},daily:{time:["2027-04-15","2027-04-16","2027-04-17","2027-04-18","2027-04-19"],weather_code:[2,1,0,3,2],temperature_2m_min:[14,15,15,14,13],temperature_2m_max:[20,21,22,19,20]}}};
  render();applyLang(document.body);watchLang();
  const previewPanel={ "phone-program":"trip-itinerary", "phone-transport":"trip-transport", "phone-jalap":"assistant-panel" }[PRESENTATION_SCREEN];
- if(PRESENTATION_SCREEN==="desktop-map"){const vault=$("#panel-vault");if(vault)vault.hidden=false;}
- if(previewPanel)window.setTimeout(()=>openSheet(previewPanel),450);
- if(PRESENTATION_SCREEN==="desktop-map"&&navigator.onLine)window.setTimeout(()=>ensureMapLib(),250);
+ if(PRESENTATION_SCREEN==="desktop-map"){
+  const vault=$("#panel-vault");if(vault)vault.hidden=false;
+  const ready=await ensureMapLib();
+  const trip=activeTrip();
+  if(ready&&trip){
+   renderMap(trip);
+   const mapReady=await waitForPresentationMap(12000);
+   if(!mapReady){showFallbackMap(trip);await waitForPresentationFallback(4500)}
+  }else if(trip){showFallbackMap(trip);await waitForPresentationFallback(4500)}
+ }else if(previewPanel){
+  openSheet(previewPanel);
+  await new Promise(resolve=>window.setTimeout(resolve,460));
+ }
+ if(document.fonts?.ready)await Promise.race([document.fonts.ready,new Promise(resolve=>window.setTimeout(resolve,1600))]);
+ await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+ markPresentationPreviewReady();
  return;
  }if(lang==="en"){try{await ensureI18n()}catch(e){lang="fr"}}localStorage.removeItem(API_BASE_KEY);localStorage.removeItem(API_TOKEN_KEY);localStorage.removeItem("pepper-anthropic-api-key-v1");localStorage.removeItem(LEGACY_GROQ_API_KEY_KEY);await restoreStateFromIndexedDB();if(githubSyncEnabled()){if(githubAccessToken())await syncGitHubState({pull:true});else setGitHubSyncStatus("error","Jeton GitHub manquant")}else setGitHubSyncStatus("local");if(state.trips.length&&!state.activeTripId)state.activeTripId=state.trips[0].id;setJalapMode(jalapMode);save({skipTouch:true,skipRemote:true});render();applyLang(document.body);watchLang();if(sbSession()&&sbConfigured()){setCloudStatus("syncing");syncCloud()}if(state.trips.length&&navigator.onLine)(window.requestIdleCallback?window.requestIdleCallback(()=>ensureMapLib(),{timeout:1500}):setTimeout(()=>ensureMapLib(),600));updateNetworkStatus();if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});window.addEventListener("online",()=>{updateNetworkStatus();if(githubSyncEnabled())scheduleGitHubSync(200);const t=activeTrip();if(t){renderMap(t);fetchWeather(t)}});window.addEventListener("offline",updateNetworkStatus);if("serviceWorker" in navigator){const hadController=!!navigator.serviceWorker.controller;let reloaded=false;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(hadController&&!reloaded){reloaded=true;location.reload()}});navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(()=>{})}}
 /* ================= PEPPER UI : accueil, cartes flottantes, panneau « Voir plus » ================= */
@@ -1957,36 +2008,36 @@ async function printProjectBoard(format){
  if(format!=="phone"&&format!=="desktop")return;
  projectBoardPrintPending=true;
  summary.dataset.printFormat=format;
- const waitForScreen=frame=>{
+ const waitForScreen=async frame=>{
   frame.loading="eager";
-  const ready=()=>{
-   try{return !!frame.contentDocument&&frame.contentDocument.readyState==="complete"&&frame.contentWindow.location.href!=="about:blank"}
-   catch(error){return false}
-  };
-  if(ready())return Promise.resolve();
-  return new Promise(resolve=>{
-   let finished=false;
-   const finish=()=>{
-    if(finished)return;
-    finished=true;clearTimeout(timeout);
-    frame.removeEventListener("load",finish);
-    frame.removeEventListener("error",finish);
-    resolve();
+  const ready=()=>{try{
+   const doc=frame.contentDocument;
+   return !!doc&&doc.readyState==="complete"&&doc.documentElement?.dataset.presentationReady==="true";
+  }catch(error){return false}};
+  if(ready())return;
+  await new Promise((resolve,reject)=>{
+   const started=Date.now();
+   const check=()=>{
+    if(ready()){resolve();return}
+    if(Date.now()-started>18000){reject(new Error("Un aperçu PEPPER n’a pas terminé son initialisation."));return}
+    window.setTimeout(check,80);
    };
-   const timeout=window.setTimeout(finish,6000);
-   frame.addEventListener("load",finish,{once:true});
-   frame.addEventListener("error",finish,{once:true});
-   if(ready())finish();
+   check();
   });
+  const doc=frame.contentDocument;
+  if(doc?.fonts?.ready)await Promise.race([doc.fonts.ready,new Promise(resolve=>window.setTimeout(resolve,1600))]);
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
  };
  try{
   await Promise.all([...summary.querySelectorAll("iframe")].map(waitForScreen));
-  if(document.fonts?.ready)await Promise.race([document.fonts.ready,new Promise(resolve=>window.setTimeout(resolve,1500))]);
+  if(document.fonts?.ready)await Promise.race([document.fonts.ready,new Promise(resolve=>window.setTimeout(resolve,1600))]);
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
   document.documentElement.dataset.projectBoardPrint=format;
   window.print();
  }catch(error){
   resetProjectBoardPrint();
   console.error("PEPPER board export:",error);
+  toast(error.message||"Impossible de préparer les aperçus pour le PDF. Recharge la présentation puis réessaie.","error");
  }finally{
   projectBoardPrintPending=false;
  }
