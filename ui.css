@@ -806,7 +806,7 @@ html{scrollbar-gutter:stable}
 .board-open-button::before{content:"";position:absolute;inset:-70% auto -70% -35%;width:38%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent);transform:translateX(-180%) rotate(18deg);transition:transform .7s ease}
 .board-open-button:hover{border-color:rgba(249,195,155,.52);background:rgba(25,26,30,.92);box-shadow:0 15px 40px rgba(0,0,0,.36),0 0 0 4px rgba(242,166,111,.045);transform:translateY(-2px)}
 .board-open-button:hover::before{transform:translateX(520%) rotate(18deg)}
-.board-open-mark{display:grid;place-items:center;flex:none;width:36px;height:36px;border:1px solid rgba(249,195,155,.25);border-radius:11px;color:#f5c7a8;background:rgba(242,166,111,.07);font-size:20px;animation:board-mark-turn 16s linear infinite}
+.board-open-mark{display:grid;place-items:center;flex:none;width:36px;height:36px;border:1px solid rgba(249,195,155,.25);border-radius:11px;color:#f5c7a8;background:rgba(242,166,111,.07);font-size:20px}
 .board-open-copy{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
 .board-open-copy strong{font-size:13px;font-weight:700;letter-spacing:-.02em}
 .board-open-copy small{color:#aaa9a6;font-size:10px}
