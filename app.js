@@ -1063,9 +1063,12 @@ async function addActivity(form){
 }
 function deleteActivity(id){const t=activeTrip();t.activities=t.activities.filter(a=>a.id!==id);save();closeModal();render();toast("Activité supprimée.")}
 function deleteTransport(id){const t=activeTrip();t.transport=t.transport.filter(a=>a.id!==id);save();render();toast("Trajet supprimé.")}
-function deleteTrip(id){
+function deleteTrip(id,confirmed=false){
  const t=state.trips.find(x=>x.id===id);if(!t)return;
- if(!confirmT("Supprimer définitivement le voyage « "+(t.destination||"sans nom")+" » ? Cette action est irréversible. Pense à exporter une sauvegarde avant."))return;
+ if(!confirmed){
+  const body='<div class="notice">Le voyage <strong>'+esc(t.destination||"sans nom")+'</strong> sera retiré de cet appareil et de tes synchronisations PEPPER. Cette action est irréversible.</div><div class="modal-actions"><button type="button" class="secondary-button" data-action="close-modal">Annuler</button><button type="button" class="danger-button" data-action="confirm-delete-trip" data-id="'+esc(t.id)+'">Supprimer définitivement</button></div>';
+  openModal("Supprimer ce voyage","Confirme la suppression de ce voyage.",body);return;
+ }
  state.trips=state.trips.filter(x=>x.id!==id);state.deletedTrips=state.deletedTrips||{};state.deletedTrips[id]=new Date().toISOString();
  if(state.activeTripId===id)state.activeTripId=state.trips[0]?.id||null;
  showHome=true;weatherData=null;closeModal();save();render();toast("Voyage supprimé.");
@@ -1738,6 +1741,7 @@ function onAction(event){
  if(n==="jalap-dev-cancel"){cancelJalapDevProposal();return}
  if(n==="close-modal"){if(event.target===el||el.matches("button"))closeModal();return}
  if(n==="delete-trip"){deleteTrip(id);return}
+ if(n==="confirm-delete-trip"){deleteTrip(id,true);return}
  if(n==="set-lang"){setLang(el.dataset.lang);return}
  if(n==="settings-tab"){const box=el.closest(".settings");if(box){box.dataset.tab=el.dataset.tab;$$("[role=tab]",box).forEach(b=>b.setAttribute("aria-selected",String(b===el)))}return}
  if(n==="cloud-login"||n==="cloud-signup"){cloudAuth(n==="cloud-signup"?"signup":"login");return}
@@ -1824,7 +1828,7 @@ function renderPickerOptions(query=""){
   const haystack=[t.destination,t.name,t.title,t.startDate?dateLabel(t.startDate):"",t.endDate?dateLabel(t.endDate):"",activityNames].filter(Boolean).join(" ");
   return !needle||normalizePickerText(haystack).includes(needle);
  });
- results.innerHTML=trips.length?trips.map(t=>{const d=t.startDate?dateLabel(t.startDate)+(t.endDate?" → "+dateLabel(t.endDate):""):"Dates à définir";return '<button type="button" role="option" class="picker-item '+(t.id===state.activeTripId?"is-current":"")+'" data-action="pick-trip" data-id="'+esc(t.id)+'"><strong>'+esc(t.destination||"Voyage")+'</strong><small>'+esc(d)+' · '+(t.activities||[]).length+' activité(s)</small></button>'}).join(""):'<p class="picker-empty">Aucun voyage trouvé.</p>';
+ results.innerHTML=trips.length?trips.map(t=>{const d=t.startDate?dateLabel(t.startDate)+(t.endDate?" → "+dateLabel(t.endDate):""):"Dates à définir";return '<div class="picker-item-row"><button type="button" role="option" class="picker-item '+(t.id===state.activeTripId?"is-current":"")+'" data-action="pick-trip" data-id="'+esc(t.id)+'"><strong>'+esc(t.destination||"Voyage")+'</strong><small>'+esc(d)+' · '+(t.activities||[]).length+' activité(s)</small></button><button type="button" class="picker-delete" data-action="delete-trip" data-id="'+esc(t.id)+'" aria-label="Supprimer le voyage '+esc(t.destination||"")+'"><span>Supprimer</span></button></div>'}).join(""):'<p class="picker-empty">Aucun voyage trouvé.</p>';
 }
 function renderLanding(){
  const list=$("#picker-list"),label=$("#picker-label");if(!list)return;
