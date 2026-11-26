@@ -768,3 +768,21 @@ html{scrollbar-gutter:stable}
 .jalap-change dt{color:#9a9794}.jalap-change dd{margin:0;color:#e6e2df}
 .jalap-change ul{margin:2px 0 0;padding-left:18px;color:#cfcac6;font-size:11.5px;line-height:1.5}
 .jalap-change.op-activity_delete strong{color:#ffb4a6}
+
+
+/* v4.1 — téléphone : carte dégagée, rubriques conservées dans le menu inférieur */
+@media(max-width:760px){
+ .map-hub .hub-cards,
+ .map-hub .hub-dots{display:none!important}
+ .map-hub .maplibregl-ctrl-bottom-left{left:6px;bottom:calc(76px + env(safe-area-inset-bottom))!important}
+ .map-hub .map-selection-card{bottom:calc(82px + env(safe-area-inset-bottom))!important}
+}
+
+/* Sélecteur de voyages : action de suppression accessible sur téléphone */
+.picker-item-row{display:flex;align-items:center;gap:6px;padding:4px;border-radius:14px}
+.picker-item-row .picker-item{flex:1;min-width:0;padding:10px 11px}
+.picker-item-row .picker-item strong,
+.picker-item-row .picker-item small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.picker-delete{display:inline-flex;flex:none;align-items:center;justify-content:center;min-height:38px;padding:0 10px;border:1px solid rgba(255,99,82,.28);border-radius:11px;background:rgba(255,99,82,.09);color:#ffaaa0;font:600 11px inherit;cursor:pointer}
+.picker-delete:hover{background:rgba(255,99,82,.17)}
+@media(max-width:420px){.picker-delete{padding:0 8px;font-size:10px}}
