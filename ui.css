@@ -1343,7 +1343,7 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
  #board-summary .pepper-board-title>span{font-size:5.5pt!important}
  #board-summary .pepper-board-title h2{font-size:25pt!important;margin-top:1.5mm!important}
  #board-summary .pepper-board-export{display:none!important}
- #board-summary .pepper-board-lead{display:grid!important;grid-template-columns:63mm minmax(0,1fr) 63mm!important;grid-template-areas:none!important;gap:4mm!important;align-items:stretch!important;min-height:0!important;padding:3.5mm 0 3mm!important}
+ #board-summary .pepper-board-lead{display:grid!important;grid-template-columns:94mm minmax(0,1fr) 94mm!important;grid-template-areas:none!important;gap:4mm!important;align-items:stretch!important;min-height:0!important;padding:3.5mm 0 3mm!important}
  #board-summary .pepper-board-context,#board-summary .pepper-board-idea{display:flex!important;flex-direction:column!important;min-width:0!important;padding-top:2mm!important;border-top:1.5pt solid #252b31!important}
  #board-summary .pepper-board-index{font-size:5.5pt!important;margin-bottom:2mm!important}
  #board-summary .pepper-board-context h3,#board-summary .pepper-board-idea h3{font-size:11pt!important;margin-bottom:2mm!important}
@@ -1351,7 +1351,7 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
  #board-summary .pepper-board-insight{margin-top:auto;padding-top:2mm!important;gap:1mm!important}
  #board-summary .pepper-board-insight span{font-size:4.8pt!important}
  #board-summary .pepper-board-insight b{font-size:7pt!important}
- #board-summary .pepper-board-desktop{min-width:0!important;width:100%!important;margin:0!important}
+ #board-summary .pepper-board-desktop{min-width:0!important;width:100%!important;margin:0!important;align-self:center!important}
  #board-summary .pepper-board-screen-head{font-size:5.2pt!important;margin-bottom:1mm!important}
  #board-summary .pepper-board-screen-head b{font-size:5pt!important}
  #board-summary .pepper-screen-top{height:4mm!important;padding:0 1.8mm!important}
@@ -1399,8 +1399,8 @@ body[data-presentation-preview] .sheet{max-height:88dvh}
  #board-summary[data-print-format="phone"] .pepper-board-lead{grid-template-columns:1fr 1fr!important;grid-template-areas:"context idea" "desktop desktop"!important;gap:4mm!important;padding:4mm 0 3.5mm!important}
  #board-summary[data-print-format="phone"] .pepper-board-context{grid-area:context!important}
  #board-summary[data-print-format="phone"] .pepper-board-idea{grid-area:idea!important}
- #board-summary[data-print-format="phone"] .pepper-board-desktop{grid-area:desktop!important;max-width:230mm!important;justify-self:center!important}
- #board-summary[data-print-format="phone"] .pepper-screen-content{max-height:139mm!important;max-width:230mm!important}
+ #board-summary[data-print-format="phone"] .pepper-board-desktop{grid-area:desktop!important;max-width:220mm!important;justify-self:center!important;align-self:center!important}
+ #board-summary[data-print-format="phone"] .pepper-screen-content{max-height:137.5mm!important;max-width:220mm!important}
  #board-summary[data-print-format="phone"] .pepper-board-context h3,#board-summary[data-print-format="phone"] .pepper-board-idea h3{font-size:12pt!important}
  #board-summary[data-print-format="phone"] .pepper-board-context p,#board-summary[data-print-format="phone"] .pepper-board-idea>p{font-size:7pt!important;line-height:1.45!important}
  #board-summary[data-print-format="phone"] .pepper-board-modules{margin-top:2mm!important;padding-top:2mm!important}
