@@ -85,9 +85,11 @@ Les voyages sont stockés localement dans IndexedDB, avec une copie de récupér
 
 ## Présentation de PEPPER
 
-Depuis l’accueil, le bouton **Découvrir PEPPER** ouvre une présentation immersive qui se parcourt verticalement. Les chapitres apparaissent progressivement au fil du scroll : dispersion des informations, idée de centralisation, contenu du carnet, carte interactive, assistant JALAP et fonctionnement des données.
+Depuis l’accueil, **Découvrir PEPPER** ouvre une présentation immersive qui se parcourt verticalement. Les chapitres restent visibles et se dévoilent progressivement : dispersion des informations, idée de centralisation, contenu du carnet, carte interactive, assistant JALAP et fonctionnement des données.
 
-La présentation se termine par un **board récapitulatif**. C’est ce board final, et lui seul, qui est exporté en PDF : **ordinateur au format paysage 16:9** ou **téléphone au format portrait 9:16**. Les commandes d’export sont placées dans l’en-tête du board final ; dans la fenêtre d’impression, choisir « Enregistrer au format PDF ».
+Le board final adopte une disposition éditoriale en trois zones : contexte et idée, véritable interface ordinateur, puis trois interfaces téléphone (programme, trajets et JALAP). Les écrans intégrés chargent l’application PEPPER elle-même avec un voyage de démonstration isolé ; aucune donnée personnelle n’est utilisée ni modifiée.
+
+Le board final seul est exportable : **ordinateur au format paysage 16:9** ou **téléphone au format portrait 9:16**. Dans la fenêtre d’impression, choisir « Enregistrer au format PDF ».
 
 ## Publication GitHub Pages
 
