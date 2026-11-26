@@ -1891,7 +1891,19 @@ let projectBoardOpener=null,projectBoardCloseTimer=0,projectStoryObserver=null;
 function updateProjectStoryProgress(){
  const root=$("#project-story-scroll"),fill=$("#story-progress-fill");if(!root||!fill)return;
  const max=Math.max(1,root.scrollHeight-root.clientHeight);
- fill.style.width=Math.min(100,Math.max(0,root.scrollTop/max*100))+"%";
+ const percent=Math.min(100,Math.max(0,root.scrollTop/max*100));
+ fill.style.width=percent+"%";
+ const rail=fill.parentElement;if(rail)rail.setAttribute("aria-valuenow",String(Math.round(percent)));
+ const sections=$("[data-story-step]",root),counter=$("#story-chapter-count");
+ if(counter&&sections.length){
+  const rootRect=root.getBoundingClientRect(),center=rootRect.top+root.clientHeight*.48;
+  let active=0,nearest=Infinity;
+  sections.forEach((section,index)=>{
+   const rect=section.getBoundingClientRect(),distance=Math.abs((rect.top+Math.min(rect.height,root.clientHeight)*.5)-center);
+   if(distance<nearest){nearest=distance;active=index}
+  });
+  counter.textContent=String(active+1).padStart(2,"0")+" / "+String(sections.length).padStart(2,"0");
+ }
 }
 function setupProjectStory(){
  const root=$("#project-story-scroll");if(!root)return;
