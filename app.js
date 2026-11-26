@@ -602,6 +602,7 @@ function renderChecklist(t){
 const MAP_STYLE_KEY="pepper-map-style-v2";
 let mapStyleName=(()=>{try{const v=localStorage.getItem(MAP_STYLE_KEY);return ["satellite","dark","plan"].includes(v)?v:"dark"}catch(e){return "dark"}})();
 let mapCreating=false,mapNeedsFit=false,mapStyleReady=false,mapStyleTimer=0,mapPitch3D=false,mapRouteCoords=[],mapUserMarker=null,mapResizeObserver=null;
+const MAP_TRIP_RADIUS_KM=20,MAP_NEAR_DESTINATION_KM=20;
 const ESRI_IMAGERY="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const ESRI_PLACES="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}";
 const MAP_STYLE_URLS={dark:"https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",plan:"https://tiles.openfreemap.org/styles/liberty"};
@@ -673,9 +674,10 @@ function showFallbackMap(trip){
   node.innerHTML='<div class="offline-map-note">Localisation de '+esc(trip.destination||"la destination")+' indisponible. Vérifie le nom de la ville ou réessaie la géolocalisation.<br><button type="button" class="small-button" data-action="refresh-map">Réessayer</button></div>';
   return;
  }
- const lat=Number(trip.geo.lat),lon=Number(trip.geo.lon),delta=.025;
- const bbox=[lon-delta,lat-delta,lon+delta,lat+delta].join("%2C");
- node.innerHTML='<iframe class="map-fallback-frame" title="Carte de '+esc(trip.destination)+'" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.openstreetmap.org/export/embed.html?bbox='+bbox+'&layer=mapnik&marker='+lat+'%2C'+lon+'"></iframe><div class="map-fallback-note">Carte simplifiée · <a href="https://www.openstreetmap.org/?mlat='+lat+'&mlon='+lon+'#map=15/'+lat+'/'+lon+'" target="_blank" rel="noopener noreferrer">Ouvrir dans OpenStreetMap ↗</a></div>';
+ const lat=Number(trip.geo.lat),lon=Number(trip.geo.lon);
+ const latDelta=MAP_TRIP_RADIUS_KM/111.32,lonDelta=MAP_TRIP_RADIUS_KM/(111.32*Math.max(.01,Math.cos(lat*Math.PI/180)));
+ const bbox=[lon-lonDelta,lat-latDelta,lon+lonDelta,lat+latDelta].join("%2C");
+ node.innerHTML='<iframe class="map-fallback-frame" title="Carte de '+esc(trip.destination)+'" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.openstreetmap.org/export/embed.html?bbox='+bbox+'&layer=mapnik&marker='+lat+'%2C'+lon+'"></iframe><div class="map-fallback-note">Carte simplifiée · <a href="https://www.openstreetmap.org/?mlat='+lat+'&mlon='+lon+'#map=11/'+lat+'/'+lon+'" target="_blank" rel="noopener noreferrer">Ouvrir dans OpenStreetMap ↗</a></div>';
 }
 function isDesktopMap(){return matchMedia("(min-width:1100px)").matches}
 /* Décale le centre visuel de la carte pour que les lieux restent visibles entre les cartes flottantes. */
@@ -684,6 +686,40 @@ function mapPadding(){
  if(isDesktopMap()){const l=$(".hub-col-left"),r=$(".hub-col-right");return {top:80,bottom:90,left:(l?l.offsetWidth:300)+48,right:(r?r.offsetWidth:340)+48}}
  if(matchMedia("(max-width:760px)").matches){const c=$("#hub-cards");return {top:70,bottom:(c?Math.min(c.offsetHeight,260):200)+30,left:20,right:20}}
  return {top:70,bottom:60,left:40,right:40};
+}
+function fitMapRadiusAround(point,instant=false){
+ if(!map||!point||!Number.isFinite(Number(point.lat))||!Number.isFinite(Number(point.lon)))return;
+ const lat=Number(point.lat),lon=Number(point.lon);
+ const latDelta=MAP_TRIP_RADIUS_KM/111.32;
+ const lonDelta=Math.min(179,MAP_TRIP_RADIUS_KM/(111.32*Math.max(.01,Math.cos(lat*Math.PI/180))));
+ const bounds=[[lon-lonDelta,lat-latDelta],[lon+lonDelta,lat+latDelta]];
+ map.resize();applyMapPadding();
+ map.fitBounds(bounds,{padding:mapPadding(),maxZoom:13,duration:instant?0:850,essential:true});
+}
+function addUserLocationMarker(point){
+ if(!map)return;
+ if(mapUserMarker){mapUserMarker.remove();mapUserMarker=null}
+ const el=document.createElement("div");el.className="user-dot";el.setAttribute("aria-label","Ma position");
+ mapUserMarker=new maplibregl.Marker({element:el}).setLngLat([point.lon,point.lat]).addTo(map);
+}
+function focusTripMap(t,instant=true){
+ if(!map||!t||!t.geo)return;
+ // Premier cadrage immédiat sur la destination : 20 km autour, même si la géolocalisation est refusée.
+ fitMapRadiusAround(t.geo,instant);
+ if(!navigator.geolocation||typeof navigator.geolocation.getCurrentPosition!=="function")return;
+ const tripId=t.id,destination={lat:Number(t.geo.lat),lon:Number(t.geo.lon)};
+ try{
+  navigator.geolocation.getCurrentPosition(position=>{
+   if(!map||activeTrip()?.id!==tripId||mapTripId!==tripId)return;
+   const user={lat:Number(position.coords.latitude),lon:Number(position.coords.longitude)};
+   if(!Number.isFinite(user.lat)||!Number.isFinite(user.lon))return;
+   // Si l’utilisateur se trouve dans la zone de la destination, privilégier sa position exacte.
+   if(haversineKm(user,destination)<=MAP_NEAR_DESTINATION_KM){
+    addUserLocationMarker(user);
+    fitMapRadiusAround(user,false);
+   }
+  },()=>{}, {enableHighAccuracy:false,timeout:7000,maximumAge:90000});
+ }catch(error){}
 }
 function tryAutoFit(){
  if(!mapNeedsFit||!map)return;const n=$("#map");if(!n||n.clientWidth<200||n.clientHeight<200)return;
@@ -753,7 +789,11 @@ function renderMap(t){
   return;
  }
  const tripChanged=mapTripId!==t.id;
- if(tripChanged){mapTripId=t.id;map.jumpTo({center,zoom:t.geo?12.4:2,pitch:0,bearing:0});mapPitch3D=false;$('[data-action="map-3d"]')?.setAttribute("aria-pressed","false")}
+ if(tripChanged){
+  mapTripId=t.id;mapNeedsFit=false;
+  if(mapUserMarker){mapUserMarker.remove();mapUserMarker=null}
+  mapPitch3D=false;$('[data-action="map-3d"]')?.setAttribute("aria-pressed","false");
+ }
  (markers||[]).forEach(m=>m.remove());markers=[];activityMarkerIndex={};mapRouteCoords=[];
  if(t.geo)addMapMarker(center,mapPin("destination","✦",t.destination||"Destination"),"<strong>"+esc(t.destination)+"</strong><br>Destination");
  if(t.accommodation&&t.accommodation.geo){const g=t.accommodation.geo;addMapMarker([g.lon,g.lat],mapPin("stay",KIND_SVG.stay,"Hébergement"),"<strong>"+esc(t.accommodation.name)+"</strong><br>Hébergement")}
@@ -770,7 +810,7 @@ function renderMap(t){
  const label=$("#map-location-label");if(label)label.textContent=t.destination||"Destination";
  applyMapPadding();
  $("#trip-map")?.classList.remove("is-locating");
- if(tripChanged){mapNeedsFit=markers.length>1;tryAutoFit();setTimeout(tryAutoFit,200)}
+ if(tripChanged){mapNeedsFit=false;focusTripMap(t,true)}
 }
 function focusActivityOnMap(id){
  const t=activeTrip(),activity=t?.activities.find(item=>item.id===id);if(!t||!activity)return;
