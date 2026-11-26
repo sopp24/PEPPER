@@ -83,6 +83,12 @@ Le dépôt est public. Si la synchronisation GitHub est activée, le carnet sync
 
 Les voyages sont stockés localement dans IndexedDB, avec une copie de récupération. « Sauvegarder tous les voyages » exporte un fichier JSON privé ; « Restaurer une sauvegarde » permet de le relire localement sans téléversement. Les prévisions météo déjà consultées peuvent rester affichables hors connexion. La coquille de l'application, le module Gemini et les données du carnet sont conservés ; les tuiles de carte, les sources externes et le suivi temps réel ne sont pas garantis hors connexion.
 
+## Board de présentation
+
+Depuis l’accueil, **Découvrir PEPPER** ouvre un board qui présente le constat de départ, l’idée de centralisation et deux fonctions différenciantes : JALAP, le copilote IA, et la carte connectée.
+
+Le board s’adapte aux écrans mobiles. Ses deux commandes PDF ouvrent la fenêtre d’impression du navigateur avec un format préconfiguré : **ordinateur 16:9** ou **téléphone 9:16**. Dans cette fenêtre, choisis « Enregistrer au format PDF ».
+
 ## Publication GitHub Pages
 
 Le workflow `.github/workflows/deploy-pages.yml` vérifie la syntaxe JavaScript, exécute les tests puis publie automatiquement la racine du dépôt sur `main`. Les commits qui ne changent que `data/trips.json` sont ignorés par le déploiement Pages.
