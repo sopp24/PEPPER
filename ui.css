@@ -770,12 +770,142 @@ html{scrollbar-gutter:stable}
 .jalap-change.op-activity_delete strong{color:#ffb4a6}
 
 
-/* v4.1 — téléphone : carte dégagée, rubriques conservées dans le menu inférieur */
+/* v4.2 — téléphone : carte + carrousel des informations du voyage.
+   Les rubriques secondaires restent visibles et ouvrent leur panneau complet au toucher. */
 @media(max-width:760px){
- .map-hub .hub-cards,
- .map-hub .hub-dots{display:none!important}
- .map-hub .maplibregl-ctrl-bottom-left{left:6px;bottom:calc(76px + env(safe-area-inset-bottom))!important}
- .map-hub .map-selection-card{bottom:calc(82px + env(safe-area-inset-bottom))!important}
+ .map-hub{--card-h:clamp(158px,27dvh,218px)}
+ .map-hub .hub-cards{
+  display:flex!important;
+  position:absolute;
+  z-index:540;
+  inset:auto 0 calc(82px + env(safe-area-inset-bottom)) 0;
+  height:var(--card-h);
+  align-items:stretch;
+  gap:10px;
+  padding:0 12px 4px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scroll-snap-type:x mandatory;
+  scroll-snap-stop:normal;
+  scroll-padding-inline:8vw;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;
+  background:none;
+  pointer-events:none;
+ }
+ .map-hub .hub-cards::-webkit-scrollbar{display:none}
+ .map-hub .hub-col{display:contents}
+ .map-hub .hub-card{
+  display:flex;
+  width:min(86vw,350px);
+  height:var(--card-h);
+  min-height:0;
+  max-height:none;
+  flex:0 0 min(86vw,350px);
+  margin:0;
+  padding:12px 13px 10px;
+  border-radius:20px;
+  scroll-snap-align:center;
+  scroll-snap-stop:always;
+  pointer-events:auto;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  animation:none;
+ }
+ .map-hub .hub-card:active{transform:scale(.99)}
+ .map-hub .hub-card .hub-head{flex:0 0 auto;min-width:0}
+ .map-hub .hub-card .hub-head h4{min-width:0;font-size:15px}
+ .map-hub .hub-card .hub-tag{display:none}
+ .map-hub .hub-card .hub-tag+.hub-head{margin-top:0}
+ .map-hub .hub-card .hub-body{
+  min-height:0;
+  flex:1 1 auto;
+  overflow-x:hidden;
+  overflow-y:auto;
+  padding-right:3px;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+ }
+ .map-hub .hub-card .hub-more{flex:0 0 auto;min-height:34px;margin-top:3px}
+ .map-hub .hub-acts .hub-chips{
+  display:flex!important;
+  flex-wrap:nowrap;
+  overflow-x:auto;
+  padding-bottom:2px;
+  scrollbar-width:none;
+ }
+ .map-hub .hub-acts .hub-chips::-webkit-scrollbar{display:none}
+ .map-hub .hub-acts .hub-act:nth-of-type(n+3),
+ .map-hub .hub-acts .hub-act-detail{display:block!important}
+ .map-hub .hub-acts .hub-act{grid-template-columns:18px minmax(0,1fr) auto auto;gap:6px;padding:7px}
+ .map-hub .hub-acts .hub-act-main strong{font-size:12px}
+ .map-hub .hub-acts .hub-act-main small{font-size:10px}
+ .map-hub .hub-weather .hub-weather-now small:nth-of-type(n+3){display:block}
+ .map-hub .hub-stay .hub-split{align-items:flex-start;gap:8px}
+ .map-hub .hub-stay .hub-split>div:first-child{min-width:0;overflow-wrap:anywhere}
+ .map-hub .hub-route>div{min-width:0}
+ .map-hub .hub-route strong{overflow-wrap:anywhere}
+ .map-hub .hub-transit-list li{grid-template-columns:20px minmax(0,1fr) auto;gap:7px;padding:6px 7px}
+ .map-hub .hub-transit-list b{font-size:11.5px}
+ .map-hub .hub-transit-list small{font-size:10px}
+ .map-hub .hub-dots{
+  display:flex!important;
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:calc(82px + var(--cards-h,var(--card-h)) + 8px + env(safe-area-inset-bottom));
+  z-index:541;
+  justify-content:center;
+  gap:6px;
+  pointer-events:none;
+ }
+ .map-hub .hub-dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.32);transition:width .2s,background .2s}
+ .map-hub .hub-dots i.on{width:18px;border-radius:4px;background:#fff}
+ .map-hub.hub-hidden .hub-cards,
+ .map-hub.hub-hidden .hub-dots{display:none!important}
+ .map-hub .maplibregl-ctrl-bottom-left{
+  left:6px;
+  bottom:calc(82px + var(--card-h) + 10px + env(safe-area-inset-bottom))!important;
+ }
+ .map-hub .map-selection-card{
+  bottom:calc(82px + var(--card-h) + 16px + env(safe-area-inset-bottom))!important;
+  max-height:118px;
+  overflow:auto;
+ }
+ .map-tools .map-place{max-width:calc(100% - 58px);min-width:0;overflow:hidden}
+ .map-tools .map-place .panel-aside{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .mobile-dock{z-index:700;grid-template-columns:repeat(5,minmax(0,1fr))}
+ .mobile-dock button{min-width:0;padding:0 2px;font-size:9.5px}
+ .mobile-dock button small{font-size:9px;white-space:nowrap}
+ .mobile-dock .dock-add{width:54px;height:54px;min-height:54px}
+ .sheet-body .assistant-panel{min-width:0}
+ .sheet-body .assistant-panel .ai-form{
+  position:sticky;
+  bottom:0;
+  z-index:4;
+  padding:8px;
+  background:rgba(17,18,22,.96);
+  -webkit-backdrop-filter:blur(16px);
+  backdrop-filter:blur(16px);
+ }
+ .sheet-body .assistant-panel .chat-actions{display:grid;grid-template-columns:1fr;gap:7px}
+ .sheet-body .assistant-panel .chat-actions button{min-height:40px;font-size:11px}
+ .modal-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .modal-actions>*{min-width:0}
+ .modal-actions .danger-button{grid-column:1/-1;margin-right:0}
+ .settings-tabs{grid-template-columns:repeat(4,minmax(0,1fr));gap:3px}
+ .settings-tabs button{min-width:0;min-height:46px;flex-direction:column;gap:2px;padding:4px 2px;font-size:clamp(10px,2.7vw,12px);white-space:nowrap}
+ .settings-tabs button span{font-size:13px}
+}
+@media(max-width:760px) and (max-height:600px){
+ .map-hub{--card-h:clamp(142px,28dvh,174px)}
+ .map-hub .hub-card{padding:10px 11px 8px}
+ .map-hub .hub-card .hub-head h4{font-size:13px}
+ .map-hub .hub-card .hub-more{min-height:30px}
+ .map-tools{top:7px}
+ .map-tools .glass-group button{min-width:36px;height:36px}
+ .map-hub .maplibregl-ctrl-bottom-left{display:none}
 }
 
 /* Sélecteur de voyages : action de suppression accessible sur téléphone */
