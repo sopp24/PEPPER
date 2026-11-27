@@ -926,3 +926,62 @@ html{scrollbar-gutter:stable}
 
 /* Accueil mobile : actions alignées en haut, sans espace réservé à la présentation. */
 @media(max-width:760px){.landing-top{padding:14px;justify-content:flex-end}.landing-top .landing-tag{display:none}.landing-top-actions{margin-left:auto}}
+
+/* PEPPER — finitions d'ergonomie desktop/mobile, charte liquid glass conservée */
+:root{--muted:#b3b0ad}
+.topbar{padding-top:max(8px,env(safe-area-inset-top));min-height:calc(var(--topbar-h) + env(safe-area-inset-top))}
+.topbar button,.trip-toolbar button,.map-tools button,.mobile-dock button,.small-button,.icon-button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.topbar .ghost-button,.topbar .primary-button{min-height:42px}
+.trip-workspace{width:min(100%,1760px);margin-inline:auto}
+.trip-heading{gap:16px}
+.trip-heading h2{line-height:1.12}
+.trip-subline,.trip-sync-caption,.assistant-promise,.assistant-foot,.privacy-footnote{font-size:12px;line-height:1.6}
+.trip-toolbar .trip-section-nav button{min-height:44px;padding-inline:15px;font-size:13px}
+.trip-toolbar .quick-links a{min-height:40px;font-size:12px}
+.map-tools .glass-group button{min-width:44px;height:44px}
+.map-tools .glass-group button b{font-size:13px}
+.map-hub .hub-card .hub-head h4{font-size:16px}
+.map-hub .hub-card .hub-body{font-size:13px;line-height:1.55}
+.map-hub .hub-card .hub-more{min-height:40px;font-size:12px}
+.map-hub .hub-acts .hub-act-main small,.map-hub .hub-transit-list small{font-size:11px}
+.panel-heading h3{line-height:1.2}
+.panel-aside,.empty-inline,.transport-note,.data-note{font-size:12px;line-height:1.6}
+.dashboard-grid{gap:16px}
+.panel{min-width:0}
+.sheet{max-height:92dvh;padding-bottom:env(safe-area-inset-bottom)}
+.sheet-head{min-height:58px}
+.sheet-close,.modal-close{min-width:44px;min-height:44px}
+.sheet-body{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+input,select,textarea{font-size:16px}
+.ai-form textarea{min-height:96px}
+.mobile-dock button{min-height:54px;font-size:10px}
+.mobile-dock button small{font-size:10px}
+.mobile-dock .dock-add{width:56px;height:56px;min-height:56px}
+@media(min-width:1100px){
+  .trip-heading,.journey-overview,.trip-toolbar{max-width:1540px}
+  .map-hub .map-stage{min-height:560px}
+  .hub-card{min-width:0}
+  .sheet{width:min(900px,calc(100% - 48px));max-height:88dvh;bottom:2dvh;border-radius:26px}
+}
+@media(max-width:760px){
+  .topbar{padding-inline:12px}
+  .topbar-center{min-width:0;font-size:12px}
+  .trip-workspace{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
+  .trip-toolbar{max-width:100%;overflow-x:auto;scrollbar-width:none}
+  .trip-toolbar::-webkit-scrollbar{display:none}
+  .trip-toolbar .trip-section-nav{max-width:100%;overflow-x:auto;flex-wrap:nowrap}
+  .trip-toolbar .trip-section-nav button{flex:0 0 auto;min-height:44px}
+  .map-tools .glass-group button{min-width:42px;height:42px}
+  .map-hub .hub-card .hub-body{font-size:12px}
+  .sheet{max-height:94dvh;border-radius:22px 22px 0 0}
+  .sheet-head{padding-inline:16px}
+  .sheet-body{padding:14px 14px calc(28px + env(safe-area-inset-bottom))}
+  .mobile-dock{padding-bottom:max(6px,env(safe-area-inset-bottom))}
+  .mobile-dock button{min-height:52px}
+}
+@media(max-width:420px){
+  .mobile-dock button{font-size:9.5px}
+  .mobile-dock button small{font-size:9.5px}
+  .map-hub .map-tools .glass-group button{min-width:38px;height:40px}
+  .sheet-head h2{font-size:19px}
+}
