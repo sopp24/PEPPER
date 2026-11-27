@@ -907,7 +907,11 @@ html{scrollbar-gutter:stable}
  .map-tools .glass-group button{min-width:36px;height:36px}
  .map-tools .glass-group:nth-of-type(5){display:none}
  .map-hub .hub-transit-list li:nth-child(3){display:grid!important}
- .map-hub .maplibregl-ctrl-bottom-left{display:none}
+ .map-hub .maplibregl-ctrl-bottom-left{
+  display:block;
+  left:6px;
+  bottom:calc(82px + var(--card-h) + 8px + env(safe-area-inset-bottom))!important
+ }
 }
 
 /* Sélecteur de voyages : action de suppression accessible sur téléphone */
