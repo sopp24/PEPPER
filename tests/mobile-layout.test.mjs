@@ -53,5 +53,5 @@ test("les panneaux, formulaires et réglages restent utilisables au toucher", ()
 });
 
 test("le cache du site est renouvelé pour charger la nouvelle interface mobile", () => {
-  assert.match(serviceWorker, /const CACHE = "pepper-static-v41"/);
+  assert.match(serviceWorker, /const CACHE = "pepper-static-v42"/);
 });
