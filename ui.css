@@ -1024,3 +1024,20 @@ input,select,textarea{font-size:16px}
     font-size:16px!important;
   }
 }
+
+/* PEPPER — attribution MapLibre au bord inférieur de la carte */
+/* Ordinateur et tablette : attribution au ras du bord inférieur. */
+.map-hub .maplibregl-ctrl-bottom-left{
+  left:6px;
+  bottom:4px!important;
+  z-index:542;
+}
+.map-hub .maplibregl-ctrl-attribution{margin:0}
+
+/* Téléphone : position la plus basse possible sans passer sous le dock. */
+@media(max-width:760px){
+  .map-hub .maplibregl-ctrl-bottom-left{
+    left:6px;
+    bottom:calc(72px + env(safe-area-inset-bottom) + max(6px,env(safe-area-inset-bottom)))!important;
+  }
+}
