@@ -41,6 +41,8 @@ test("les cartes activités et météo ne masquent plus leurs données secondair
   assert.match(ui, /\.map-hub \.hub-acts \.hub-act:nth-of-type\(n\+3\),\s*\.map-hub \.hub-acts \.hub-act-detail\{display:block!important\}/);
   assert.match(ui, /\.map-hub \.hub-weather \.hub-weather-now small:nth-of-type\(n\+3\)\{display:block\}/);
   assert.match(ui, /\.map-hub \.hub-transit-list li:nth-child\(3\)\{display:grid!important\}/);
+  assert.match(ui, /\.map-hub \.maplibregl-ctrl-bottom-left\{\s*display:block;[\s\S]*?bottom:calc\(82px \+ var\(--card-h\)/);
+  assert.doesNotMatch(ui, /\.map-hub \.maplibregl-ctrl-bottom-left\{display:none\}/);
 });
 
 test("les panneaux, formulaires et réglages restent utilisables au toucher", () => {
