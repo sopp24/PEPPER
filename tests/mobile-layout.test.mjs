@@ -30,16 +30,10 @@ test("les informations météo, logement, activités et transports ont chacune l
   ]) {
     assert.ok(app.includes('"' + id + '":'), "Métadonnées de panneau absentes : " + id);
   }
-  for (const cardClass of [
-    "hub-stay",
-    "hub-transit",
-    "hub-trans",
-    "hub-weather",
-    "hub-acts",
-    "hub-jalap"
-  ]) {
-    assert.ok(app.includes(cardClass), "Carte mobile absente : " + cardClass);
+  for (const cardType of ["stay", "transit", "trans", "weather", "acts"]) {
+    assert.ok(app.includes('hubCard("' + cardType + '"'), "Carte mobile absente : " + cardType);
   }
+  assert.ok(app.includes('class="hub-card hub-jalap"'), "Carte JALAP absente.");
   assert.match(ui, /\.map-hub \.hub-card \.hub-body\s*\{[\s\S]*?overflow-y:auto/);
 });
 
