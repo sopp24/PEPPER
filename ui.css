@@ -905,6 +905,8 @@ html{scrollbar-gutter:stable}
  .map-hub .hub-card .hub-more{min-height:30px}
  .map-tools{top:7px}
  .map-tools .glass-group button{min-width:36px;height:36px}
+ .map-tools .glass-group:nth-of-type(5){display:none}
+ .map-hub .hub-transit-list li:nth-child(3){display:grid!important}
  .map-hub .maplibregl-ctrl-bottom-left{display:none}
 }
 
